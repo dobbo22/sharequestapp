@@ -13,8 +13,11 @@
     "print-tokens": "node vercel/scripts/print-tokens.mjs"
   },
   "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "pg": "^8.10.0",
     "jsonwebtoken": "^9.0.0",
-    "redis": "^4.8.0"
+    "redis": "^4.6.7"
   }
 }
