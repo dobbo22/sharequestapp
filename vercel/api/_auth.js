@@ -15,17 +15,29 @@ export async function authenticate(req) {
   const pool = getPool();
   const client = await pool.connect();
   try {
-    // First try sha256 lookup (token stored as sha256 hex)
+    // Helper to fetch user info (safe: selects entire user row and inspects available fields)
+    async function fetchUserInfo(userId) {
+      if (!userId) return { role: 'user', isAdmin: false };
+      const ur = await client.query('SELECT * FROM users WHERE user_id = $1 LIMIT 1', [userId]);
+      if (ur.rowCount !== 1) return { role: 'user', isAdmin: false };
+      const userRow = ur.rows[0];
+      const role = (userRow.role && typeof userRow.role === 'string') ? userRow.role : (userRow.is_admin ? 'admin' : 'user');
+      const isAdmin = !!userRow.is_admin || role === 'admin';
+      return { role, isAdmin };
+    }
+
+    // First: try sha256 lookup against sq.api_tokens (no JOIN to avoid missing columns)
     const tokenSha = crypto.createHash('sha256').update(token).digest('hex');
     let r = await client.query(
-      `SELECT t.value, t.hash_algo, t.user_id, u.role, u.is_admin FROM sq.api_tokens t LEFT JOIN users u ON u.user_id = t.user_id WHERE t.value = $1 LIMIT 1`,
+      `SELECT t.value, t.hash_algo, t.user_id FROM sq.api_tokens t WHERE t.value = $1 LIMIT 1`,
       [tokenSha]
     );
     if (r.rowCount === 1) {
       const row = r.rows[0];
-      // If hash_algo is missing or indicates sha256, treat as match
+      // If hash_algo missing or indicates sha256, treat as match
       if (!row.hash_algo || row.hash_algo === 'sha256') {
-        return { userId: row.user_id, role: row.role || 'user', isAdmin: !!row.is_admin };
+        const ui = await fetchUserInfo(row.user_id);
+        return { userId: row.user_id, role: ui.role, isAdmin: ui.isAdmin };
       }
     }
 
@@ -34,24 +46,31 @@ export async function authenticate(req) {
     if (secret) {
       const hmac = crypto.createHmac('sha256', secret).update(token).digest('hex');
       r = await client.query(
-        `SELECT t.value, t.hash_algo, t.user_id, u.role, u.is_admin FROM sq.api_tokens t LEFT JOIN users u ON u.user_id = t.user_id WHERE t.value = $1 LIMIT 1`,
+        `SELECT t.value, t.hash_algo, t.user_id FROM sq.api_tokens t WHERE t.value = $1 LIMIT 1`,
         [hmac]
       );
       if (r.rowCount === 1) {
         const row = r.rows[0];
-        return { userId: row.user_id, role: row.role || 'user', isAdmin: !!row.is_admin };
+        const ui = await fetchUserInfo(row.user_id);
+        return { userId: row.user_id, role: ui.role, isAdmin: ui.isAdmin };
       }
     }
 
-    // Fallback: scan candidates with known algos and compare in JS (rare path)
-    const candidates = await client.query("SELECT t.value, t.hash_algo, t.user_id, u.role, u.is_admin FROM sq.api_tokens t LEFT JOIN users u ON u.user_id = t.user_id WHERE t.hash_algo IS NOT NULL");
+    // Fallback: scan candidates and compare in JS (slower, rare)
+    const candidates = await client.query("SELECT t.value, t.hash_algo, t.user_id FROM sq.api_tokens t WHERE t.hash_algo IS NOT NULL");
     for (const row of candidates.rows) {
       if (!row.hash_algo || row.hash_algo === 'sha256') {
         const digest = crypto.createHash('sha256').update(token).digest('hex');
-        if (digest === row.value) return { userId: row.user_id, role: row.role || 'user', isAdmin: !!row.is_admin };
+        if (digest === row.value) {
+          const ui = await fetchUserInfo(row.user_id);
+          return { userId: row.user_id, role: ui.role, isAdmin: ui.isAdmin };
+        }
       } else if (row.hash_algo === 'hmac-sha256' && secret) {
         const digest = crypto.createHmac('sha256', secret).update(token).digest('hex');
-        if (digest === row.value) return { userId: row.user_id, role: row.role || 'user', isAdmin: !!row.is_admin };
+        if (digest === row.value) {
+          const ui = await fetchUserInfo(row.user_id);
+          return { userId: row.user_id, role: ui.role, isAdmin: ui.isAdmin };
+        }
       }
     }
 
