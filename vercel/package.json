@@ -1,0 +1,20 @@
+{
+  "name": "sharequest-vercel-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "vercel dev",
+    "test-api": "./test-api.sh",
+    "create-token": "node vercel/scripts/create-token.mjs",
+    "mark-admin": "node vercel/scripts/mark-admin.mjs",
+    "integration-test": "node vercel/scripts/integration-test.mjs",
+    "create-db-role": "node vercel/scripts/create-db-role.mjs",
+    "print-tokens": "node vercel/scripts/print-tokens.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.10.0",
+    "jsonwebtoken": "^9.0.0",
+    "redis": "^4.8.0"
+  }
+}

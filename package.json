@@ -1,0 +1,12 @@
+{
+  "name": "sharequest-monorepo",
+  "private": true,
+  "workspaces": ["vercel"],
+  "scripts": {
+    "vercel:start": "cd vercel && npm run start",
+    "vercel:migrate": "cd vercel && node run-migrations.mjs",
+    "vercel:create-token": "cd vercel && npm run create-token",
+    "vercel:mark-admin": "cd vercel && npm run mark-admin",
+    "vercel:integration-test": "cd vercel && npm run integration-test"
+  }
+}
