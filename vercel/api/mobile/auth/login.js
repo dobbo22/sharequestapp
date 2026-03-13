@@ -4,6 +4,7 @@
 import { Pool } from 'pg';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 // Use the configured connection string (API_DATABASE_URL preferred) and enable SSL for Neon
 const connectionString = process.env.API_DATABASE_URL || process.env.DATABASE_URL;
@@ -37,6 +38,16 @@ function hashPassword(password, salt = '') {
 
 // Verify password against stored hash
 async function verifyPassword(password, storedHash, salt = '') {
+  // If the stored hash looks like bcrypt ($2b$, $2a$, $2y$), use bcrypt.compare
+  if (typeof storedHash === 'string' && storedHash.startsWith('$2')) {
+    try {
+      return await bcrypt.compare(password, storedHash);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Fallback: SHA256 with optional salt
   const hash = hashPassword(password, salt);
   return hash === storedHash;
 }
@@ -68,20 +79,9 @@ export default async function handler(req, res) {
         });
       }
       
-      // Find user by email or username - assume primary key column is user_id
+      // Find user by email or username - select all columns and handle missing column names in JS
       const userResult = await client.query(
-        `SELECT 
-           user_id::text as id,
-           username,
-           email,
-           password_hash,
-           COALESCE(first_name, '') as first_name,
-           COALESCE(last_name, '') as last_name,
-           COALESCE(is_admin, false) as is_admin,
-           COALESCE(salt, '') as salt
-         FROM public.users
-         WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)
-         LIMIT 1`,
+        `SELECT * FROM public.users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1) LIMIT 1`,
         [email]
       );
       
@@ -94,8 +94,17 @@ export default async function handler(req, res) {
       
       const user = userResult.rows[0];
       
-      // Verify password
-      const isValid = await verifyPassword(password, user.password_hash, user.salt || '');
+      // Tolerant lookups for stored password hash and salt (different schemas may use different names)
+      const storedHash = user.password_hash || user.password || user.pass || user.passwordHash || null;
+      const saltVal = user.salt || user.password_salt || user.passwordSalt || '';
+      
+      if (!storedHash) {
+        console.error('Login error: user has no stored password hash', { userId: user.user_id || user.id });
+        return res.status(500).json({ success: false, error: 'User password not configured' });
+      }
+      
+      // Verify password using optional salt
+      const isValid = await verifyPassword(password, storedHash, saltVal || '');
       
       if (!isValid) {
         return res.status(401).json({
@@ -107,10 +116,10 @@ export default async function handler(req, res) {
       // Generate JWT token
       const token = jwt.sign(
         {
-          userId: user.id,
+          userId: user.user_id ? String(user.user_id) : (user.id ? String(user.id) : null),
           username: user.username,
           email: user.email,
-          isAdmin: user.is_admin || false
+          isAdmin: (user.is_admin !== undefined) ? user.is_admin : (user.admin || false)
         },
         process.env.JWT_SECRET || 'sharequest-mobile-secret',
         { expiresIn: '30d' }
@@ -121,12 +130,12 @@ export default async function handler(req, res) {
         success: true,
         token,
         user: {
-          id: user.id,
+          id: user.user_id ? String(user.user_id) : (user.id ? String(user.id) : null),
           username: user.username,
           email: user.email,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          isAdmin: user.is_admin || false
+          first_name: user.first_name || user.firstname || null,
+          last_name: user.last_name || user.lastname || null,
+          isAdmin: (user.is_admin !== undefined) ? user.is_admin : (user.admin || false)
         }
       });
       
