@@ -68,18 +68,18 @@ export default async function handler(req, res) {
         });
       }
       
-      // Find user by email or username - handle both id and user_id column names
+      // Find user by email or username - assume primary key column is user_id
       const userResult = await client.query(
         `SELECT 
-           COALESCE(user_id::text, id::text) as id, 
-           username, 
-           email, 
-           password_hash, 
-           COALESCE(first_name, '') as first_name, 
-           COALESCE(last_name, '') as last_name, 
+           user_id::text as id,
+           username,
+           email,
+           password_hash,
+           COALESCE(first_name, '') as first_name,
+           COALESCE(last_name, '') as last_name,
            COALESCE(is_admin, false) as is_admin,
            COALESCE(salt, '') as salt
-         FROM users 
+         FROM users
          WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)
          LIMIT 1`,
         [email]
@@ -134,6 +134,11 @@ export default async function handler(req, res) {
       client.release();
     }
   } catch (error) {
+    // If the runtime raised a JSON parse error (statusCode 400), return Bad Request
+    if (error && error.statusCode === 400) {
+      console.error('Login invalid JSON:', error.message || error);
+      return res.status(400).json({ success: false, error: 'Invalid JSON' });
+    }
     console.error('Login error:', error);
     return res.status(500).json({
       success: false,
