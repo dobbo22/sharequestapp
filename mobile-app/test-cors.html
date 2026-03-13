@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mobile App API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .result { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 20px; margin: 10px; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Mobile App API Connectivity Test</h1>
+    <p>Testing API connections from <strong>localhost:8081</strong> to <strong>localhost:8082</strong></p>
+    
+    <button onclick="testProxy()">Test Proxy Connection</button>
+    <button onclick="testLogin()">Test Login</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        function log(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = `result ${isError ? 'error' : 'success'}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            document.getElementById('results').appendChild(div);
+            console.log(message);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testProxy() {
+            log('🧪 Testing proxy connection...');
+            try {
+                const response = await fetch('http://localhost:8082/api/test', {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Proxy connection successful!<br><pre>${JSON.stringify(data, null, 2)}</pre>`);
+                } else {
+                    log(`❌ Proxy connection failed: ${response.status} ${response.statusText}`, true);
+                }
+            } catch (error) {
+                log(`❌ Proxy connection error: ${error.message}<br>Details: ${error.stack}`, true);
+            }
+        }
+        
+        async function testLogin() {
+            log('🔐 Testing login...');
+            try {
+                const response = await fetch('http://localhost:8082/api/mobile/auth/login', {
+                    method: 'POST',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'Bina',
+                        password: 'test'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Login successful!<br><pre>${JSON.stringify(data, null, 2)}</pre>`);
+                } else {
+                    log(`❌ Login failed: ${response.status} ${response.statusText}`, true);
+                }
+            } catch (error) {
+                log(`❌ Login error: ${error.message}<br>Details: ${error.stack}`, true);
+            }
+        }
+        
+        // Show current location info
+        log(`📍 Current page: ${window.location.href}`);
+        log(`🌐 User agent: ${navigator.userAgent}`);
+        
+        // Test on page load
+        window.onload = () => {
+            setTimeout(() => {
+                log('🚀 Running automatic test in 2 seconds...');
+                setTimeout(testProxy, 2000);
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mobile App - Real Database Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .result { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; font-size: 12px; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+        .container { max-width: 1000px; }
+        .test-section { border: 1px solid #ddd; padding: 20px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 Mobile App - Real Database Connectivity Test</h1>
+        <p><strong>Now testing REAL database connections through the mobile API server!</strong></p>
+        
+        <div class="test-section">
+            <h3>🔐 Authentication Test</h3>
+            <input type="text" id="emailInput" value="Bina" placeholder="Email">
+            <input type="password" id="passwordInput" value="test" placeholder="Password">
+            <button onclick="testRealLogin()">Login with Real Database</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>💼 Portfolio Data Test</h3>
+            <button onclick="testRealPortfolio()">Load Real Portfolio Data</button>
+            <button onclick="testRealTrades()">Load Real Trades</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 Other Data Tests</h3>
+            <button onclick="testRealSubscriptions()">Load Real Subscriptions</button>
+            <button onclick="testRealLeaderboard()">Load Real Leaderboard</button>
+        </div>
+        
+        <button onclick="clearResults()" style="background: #dc3545;">Clear Results</button>
+        
+        <div id="results"></div>
+        
+        <div class="result info">
+            <h3>🎯 How This Works Now:</h3>
+            <ul>
+                <li><strong>Mobile App (localhost:8081)</strong> - React Native web interface</li>
+                <li><strong>Mobile API Server (localhost:8082)</strong> - Proxy server for database access</li>
+                <li><strong>Main App (localhost:3000)</strong> - PostgreSQL database and API</li>
+            </ul>
+            <p><strong>Data Flow:</strong> Mobile App → Mobile API Server → Main App Database → Real Data!</p>
+        </div>
+    </div>
+    
+    <script>
+        let authToken = null;
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            document.getElementById('results').appendChild(div);
+            console.log(message);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            authToken = null;
+        }
+        
+        async function testRealLogin() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            
+            log(`🔐 Testing REAL database login for: ${email}`);
+            log('📡 Using Mobile API Server at localhost:8082', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:8082/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.success && data.data?.token) {
+                        authToken = data.data.token;
+                        log('✅ REAL database login successful!', 'success');
+                        log(`🔑 Received JWT token from database: ${authToken.substring(0, 50)}...`, 'success');
+                        log(`👤 Real user data from database:<pre>${JSON.stringify(data.data.user, null, 2)}</pre>`, 'success');
+                    } else {
+                        log('❌ Login failed: ' + (data.error || 'Unknown error'), 'error');
+                    }
+                } else {
+                    log(`❌ Login request failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Login error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testRealPortfolio() {
+            if (!authToken) {
+                log('⚠️ Please login first to get authentication token', 'warning');
+                return;
+            }
+            
+            log('💼 Loading REAL portfolio data from database...');
+            
+            try {
+                const response = await fetch('http://localhost:8082/api/portfolio/default', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'x-user-id': 'Bina'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ REAL portfolio data loaded from database!', 'success');
+                    log(`💰 Portfolio data from PostgreSQL:<pre>${JSON.stringify(data, null, 2)}</pre>`, 'success');
+                } else {
+                    log(`❌ Portfolio fetch failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Portfolio fetch error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testRealTrades() {
+            if (!authToken) {
+                log('⚠️ Please login first to get authentication token', 'warning');
+                return;
+            }
+            
+            log('📈 Loading REAL trades data from database...');
+            
+            try {
+                const response = await fetch('http://localhost:8082/api/trades/default', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'x-user-id': 'Bina'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ REAL trades data loaded from database!', 'success');
+                    log(`📊 Trades data from PostgreSQL:<pre>${JSON.stringify(data, null, 2)}</pre>`, 'success');
+                } else {
+                    log(`❌ Trades fetch failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Trades fetch error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testRealSubscriptions() {
+            if (!authToken) {
+                log('⚠️ Please login first to get authentication token', 'warning');
+                return;
+            }
+            
+            log('📋 Loading REAL subscriptions data from database...');
+            
+            try {
+                const response = await fetch('http://localhost:8082/api/subscriptions', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'x-user-id': 'Bina'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ REAL subscriptions data loaded from database!', 'success');
+                    log(`📋 Subscriptions from PostgreSQL:<pre>${JSON.stringify(data, null, 2)}</pre>`, 'success');
+                } else {
+                    log(`❌ Subscriptions fetch failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Subscriptions fetch error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testRealLeaderboard() {
+            log('🏆 Loading REAL leaderboard data from database...');
+            
+            try {
+                const response = await fetch('http://localhost:8082/api/leaderboard/default', {
+                    method: 'GET'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ REAL leaderboard data loaded from database!', 'success');
+                    log(`🏆 Leaderboard from PostgreSQL:<pre>${JSON.stringify(data, null, 2)}</pre>`, 'success');
+                } else {
+                    log(`❌ Leaderboard fetch failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Leaderboard fetch error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Show initial status
+        log('🚀 Real Database Connectivity Test Ready!', 'success');
+        log('🎯 This now tests ACTUAL database connectivity through the mobile API server', 'info');
+        log('💾 All data comes from the PostgreSQL database in the main app', 'info');
+    </script>
+</body>
+</html>

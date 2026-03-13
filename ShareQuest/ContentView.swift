@@ -6,55 +6,46 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
+    @StateObject private var authManager = AuthManager.shared
+    @State private var showSplash = true
+    
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+        ZStack {
+            Group {
+                if !authManager.hasCompletedOnboarding {
+                    // Show full onboarding flow with trade tutorial for new users
+                    OnboardingFlowView()
+                        .environmentObject(authManager)
+                } else if !authManager.isAuthenticated {
+                    // Show login screen
+                    NavigationStack {
+                        LoginView()
+                            .environmentObject(authManager)
                     }
-                }
-                .onDelete(perform: deleteItems)
-            }
-#if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-#endif
-            .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
+                } else {
+                    // Show main app
+                    MainTabView()
+                        .environmentObject(authManager)
                 }
             }
-        } detail: {
-            Text("Select an item")
+            .opacity(showSplash ? 0 : 1)
+            
+            // Splash screen overlay
+            if showSplash {
+                SplashScreenView()
+                    .transition(.opacity)
+            }
         }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+        .animation(.easeInOut(duration: 0.5), value: authManager.hasCompletedOnboarding)
+        .animation(.easeInOut(duration: 0.5), value: authManager.isAuthenticated)
+        .onAppear {
+            // Show splash for 2 seconds then fade out
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showSplash = false
+                }
             }
         }
     }
@@ -62,5 +53,4 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mobile App Offline Login Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .result { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; font-size: 12px; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+        .container { max-width: 800px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Mobile App Offline Mode Test</h1>
+        <p>Testing the offline authentication and API functionality that should be working in the mobile app</p>
+        
+        <div>
+            <h3>Simulated Login Test</h3>
+            <input type="text" id="emailInput" value="Bina" placeholder="Email">
+            <input type="password" id="passwordInput" value="test" placeholder="Password">
+            <button onclick="simulateOfflineLogin()">Test Offline Login</button>
+        </div>
+        
+        <button onclick="simulatePortfolioLoad()">Test Portfolio Load</button>
+        <button onclick="simulateTradesLoad()">Test Trades Load</button>
+        <button onclick="clearResults()">Clear Results</button>
+        
+        <div id="results"></div>
+        
+        <h3>Instructions:</h3>
+        <div class="result info">
+            <strong>What this test does:</strong><br>
+            • Simulates the mobile app's offline mode behavior<br>
+            • Tests mock authentication without hitting real API<br>
+            • Verifies portfolio and trades data using mock responses<br>
+            • Shows how the mobile app bypasses CORS issues<br><br>
+            
+            <strong>In the actual mobile app:</strong><br>
+            • The API service detects it's running in web browser<br>
+            • Automatically switches to offline mode<br>
+            • Provides realistic mock data for development<br>
+            • UI remains fully functional and interactive
+        </div>
+    </div>
+    
+    <script>
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            document.getElementById('results').appendChild(div);
+            console.log(message);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // Simulate the mobile app's offline authentication
+        async function simulateOfflineLogin() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            
+            log(`🔐 Simulating offline login for: ${email}`);
+            log('🌐 Detected web environment - using offline mode to bypass CORS', 'warning');
+            
+            try {
+                // This simulates what the mobile app does in offline mode
+                const mockToken = 'dev-token-' + email + '-' + Date.now();
+                
+                // Simulate async storage save
+                localStorage.setItem('auth_token', mockToken);
+                
+                const mockUser = {
+                    id: email,
+                    username: email,
+                    email: email.toLowerCase() + '@example.com',
+                    first_name: email,
+                    last_name: 'User',
+                    isAdmin: false
+                };
+                
+                log('✅ Offline login successful!', 'success');
+                log(`📱 Generated mock token: ${mockToken}`, 'info');
+                log(`👤 Mock user data:<pre>${JSON.stringify(mockUser, null, 2)}</pre>`, 'success');
+                
+                return { success: true, token: mockToken, user: mockUser };
+                
+            } catch (error) {
+                log(`❌ Offline login error: ${error.message}`, 'error');
+                return { success: false, error: error.message };
+            }
+        }
+        
+        async function simulatePortfolioLoad() {
+            log('💼 Simulating portfolio data load...');
+            
+            const token = localStorage.getItem('auth_token');
+            if (!token) {
+                log('⚠️ No auth token found - please login first', 'warning');
+                return;
+            }
+            
+            // Simulate the mobile app's offline portfolio response
+            const mockPortfolio = {
+                portfolio: {
+                    id: 'default-portfolio-bina',
+                    user_id: 'Bina',
+                    portfolio_type: 'default',
+                    cash_balance: '10000000', // £100,000 in pence
+                    total_value: '10000000',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                },
+                holdings: [
+                    {
+                        symbol: 'AZN.L',
+                        company_name: 'AstraZeneca PLC',
+                        quantity: 25,
+                        avg_price: 11850,
+                        current_price: 11942,
+                        total_value: 298550,
+                        unrealized_pnl: 2300
+                    },
+                    {
+                        symbol: 'HSBA.L', 
+                        company_name: 'HSBC Holdings plc',
+                        quantity: 100,
+                        avg_price: 945,
+                        current_price: 948,
+                        total_value: 94800,
+                        unrealized_pnl: 300
+                    }
+                ]
+            };
+            
+            log('✅ Portfolio data loaded successfully!', 'success');
+            log(`💰 Cash Balance: £${(parseInt(mockPortfolio.portfolio.cash_balance) / 100).toLocaleString()}`, 'success');
+            log(`📊 Holdings:<pre>${JSON.stringify(mockPortfolio.holdings, null, 2)}</pre>`, 'info');
+        }
+        
+        async function simulateTradesLoad() {
+            log('📈 Simulating trades data load...');
+            
+            const mockTrades = [
+                {
+                    id: 'trade-1',
+                    symbol: 'AZN.L',
+                    company_name: 'AstraZeneca PLC',
+                    quantity: 10,
+                    price: 11942,
+                    action: 'buy',
+                    timestamp: new Date().toISOString(),
+                    total_value: 119420
+                },
+                {
+                    id: 'trade-2',
+                    symbol: 'HSBA.L',
+                    company_name: 'HSBC Holdings plc',
+                    quantity: 50,
+                    price: 948,
+                    action: 'sell',
+                    timestamp: new Date(Date.now() - 60000).toISOString(),
+                    total_value: 47400
+                }
+            ];
+            
+            log('✅ Trades data loaded successfully!', 'success');
+            log(`📋 Recent Trades:<pre>${JSON.stringify(mockTrades, null, 2)}</pre>`, 'info');
+        }
+        
+        // Show initial status
+        log('🚀 Mobile App Offline Mode Test Ready');
+        log('💡 This simulates exactly what the mobile app does when running in a browser');
+    </script>
+</body>
+</html>
