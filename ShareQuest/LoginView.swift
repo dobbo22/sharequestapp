@@ -333,6 +333,8 @@ struct ManualSignInView: View {
 struct RegisterView: View {
     @EnvironmentObject var authManager: AuthManager
     @Environment(\.dismiss) private var dismiss
+    // XP earned during onboarding, passed in from Onboarding flow
+    var onboardingXP: Int = 0
     
     // Form fields
     @State private var firstName = ""
@@ -349,6 +351,10 @@ struct RegisterView: View {
     @State private var showForm = false
     @State private var showDatePicker = false
     @State private var selectedDate = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+    
+    // Onboarding completion animations
+    @State private var showConfetti = false
+    @State private var showXPGainToast = false
     
     // Validation
     var passwordStrength: (score: Int, feedback: String, color: Color) {
@@ -416,18 +422,19 @@ struct RegisterView: View {
     
     var body: some View {
         ZStack {
-            // Background
-            LinearGradient(
-                colors: [
-                    Color(red: 0.059, green: 0.090, blue: 0.165),
-                    Color(red: 0.118, green: 0.227, blue: 0.541),
-                    Color(red: 0.345, green: 0.110, blue: 0.529)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-            
+            // Confetti & XP toast overlays when registration succeeds
+            if showConfetti {
+                OnboardingConfettiView(isActive: $showConfetti)
+                    .allowsHitTesting(false)
+            }
+            if showXPGainToast {
+                VStack { Spacer().frame(height: 40)
+                    OnboardingXPToast(amount: authManager.onboardingXP, isVisible: $showXPGainToast)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .allowsHitTesting(false)
+            }
+
             ScrollView {
                 VStack(spacing: 24) {
                     // Logo
@@ -773,10 +780,24 @@ struct RegisterView: View {
                 password: password,
                 firstName: firstName,
                 lastName: lastName,
-                dateOfBirth: dateOfBirth
+                dateOfBirth: dateOfBirth,
+                onboardingXP: onboardingXP
             )
             if success {
-                dismiss()
+                // AuthManager now persisted and attempted to sync onboarding XP. Trigger confetti/toast then dismiss.
+                await MainActor.run {
+                    showConfetti = true
+                    showXPGainToast = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                    withAnimation { showXPGainToast = false }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+                    withAnimation { showConfetti = false }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        dismiss()
+                    }
+                }
             }
         }
     }

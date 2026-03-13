@@ -11,6 +11,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import * as Device from 'expo-device';
 
 interface Props {
   amount: number;
@@ -65,7 +66,9 @@ export default function XPGainToast({ amount, visible, onFinish }: Props) {
   useEffect(() => {
     if (visible && amount !== 0) {
       // Haptic feedback
-      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      if (Device.isDevice) {
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      }
 
       translateY.value = 20;
       opacity.value = 0;

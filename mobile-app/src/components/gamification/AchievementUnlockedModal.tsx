@@ -13,6 +13,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import * as Device from 'expo-device';
 
 const TIER_COLORS: Record<string, [string, string]> = {
   bronze: ['#CD7F32', '#8B5E3C'],
@@ -78,7 +79,9 @@ export default function AchievementUnlockedModal({ visible, achievement, onClose
 
   useEffect(() => {
     if (visible) {
-      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
+      if (Device.isDevice) {
+        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
+      }
 
       cardScale.value = withSpring(1, { damping: 8, stiffness: 120 });
       cardOpacity.value = withTiming(1, { duration: 300 });

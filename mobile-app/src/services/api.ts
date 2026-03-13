@@ -158,7 +158,7 @@ class ApiService {
   }
 
   // Public request method for direct API calls
-  async request<T>(
+  async request<T = any>(
     endpoint: string,
   options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
@@ -172,7 +172,7 @@ class ApiService {
   }
 
   // Handle requests in offline development mode
-  private async handleOfflineModeRequest<T>(endpoint: string, options: RequestInit): Promise<ApiResponse<T>> {
+  private async handleOfflineModeRequest<T = any>(endpoint: string, options: RequestInit): Promise<ApiResponse<T>> {
     console.log('🔌 Offline mode request:', endpoint);
     
     // Add small delay to simulate network request
@@ -217,7 +217,7 @@ class ApiService {
             {
               symbol: "HSBA.L",
               company_name: "HSBC Holdings plc",
-              companyname: "HSBC Holdings plc", 
+              companyname: "HSBC Holdings plc",
               sector: "Banks",
               current_price: 948,
               price: 948,
@@ -381,7 +381,7 @@ class ApiService {
   } as ApiResponse<T>;
   }
 
-  private async privateRequest<T>(
+  private async privateRequest<T = any>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
@@ -458,7 +458,7 @@ class ApiService {
         headers,
         signal: controller.signal,
         // Remove mode for React Native Web compatibility
-        // mode: 'cors', 
+        // mode: 'cors',
         credentials: 'omit',
       } as RequestInit;
       

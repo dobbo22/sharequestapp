@@ -10,6 +10,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import * as Device from 'expo-device';
 
 const { width, height } = Dimensions.get('window');
 const CONFETTI_COUNT = 40;
@@ -82,7 +83,9 @@ export default function TradeCelebration({ visible, onFinish }: Props) {
 
   useEffect(() => {
     if (visible) {
-      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      if (Device.isDevice) {
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      }
 
       // Screen flash
       flashOpacity.value = withSequence(

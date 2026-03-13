@@ -60,7 +60,8 @@ class AuthManager: ObservableObject {
         
         do {
             let response = try await apiService.login(email: email, password: password)
-            
+
+            // If API returned a user object, populate it. If not, consider the presence of a token as success
             if let user = response.user {
                 currentUser = User(
                     id: user.id ?? "",
@@ -69,10 +70,40 @@ class AuthManager: ObservableObject {
                     firstName: user.first_name,
                     lastName: user.last_name
                 )
+                // Persist first name locally for immediate UI reads
+                if let fn = user.first_name, !fn.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    UserDefaults.standard.set(fn, forKey: "user_first_name")
+                }
                 isAuthenticated = true
                 isLoading = false
                 return true
-            } else if let error = response.error ?? response.message {
+            }
+
+            // If a token was provided by the APIService.login call above, treat this as success and load profile
+            if response.token != nil {
+                // Token already saved by APIService; try to load profile in background
+                Task {
+                    await loadUserProfile()
+                }
+                isAuthenticated = true
+                 // After authenticating, attempt to sync any locally-stored onboarding XP to the server
+                 Task {
+                     let localXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
+                     if localXP > 0 {
+                         // persist in manager and best-effort sync
+                         await MainActor.run { self.setOnboardingXP(localXP) }
+                         do {
+                             _ = try await APIService.shared.recordOnboardingXP(xp: localXP)
+                         } catch {
+                            // ignore sync errors - best-effort
+                         }
+                     }
+                 }
+                 isLoading = false
+                 return true
+             }
+
+            if let error = response.error ?? response.message {
                 errorMessage = error
                 isLoading = false
                 return false
@@ -80,15 +111,39 @@ class AuthManager: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+
+        // Fallback: if APIService saved an auth token to UserDefaults, consider login successful
+        if let savedToken = UserDefaults.standard.string(forKey: "auth_token"), !savedToken.isEmpty {
+            // try to load user profile but don't block
+            Task {
+                await loadUserProfile()
+            }
+            isAuthenticated = true
+             // After authenticating, attempt to sync any locally-stored onboarding XP to the server
+             Task {
+                 let localXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
+                 if localXP > 0 {
+                     await MainActor.run { self.setOnboardingXP(localXP) }
+                     do {
+                         _ = try await APIService.shared.recordOnboardingXP(xp: localXP)
+                     } catch {
+                        // ignore sync errors - best-effort
+                     }
+                 }
+             }
+             isLoading = false
+             return true
+         }
         
         isLoading = false
         return false
     }
     
-    func register(email: String, username: String, password: String, firstName: String? = nil, lastName: String? = nil, dateOfBirth: String? = nil) async -> Bool {
+    /// Register a new user. If `onboardingXP` is provided, persist it locally and attempt to sync to the server after successful registration (best-effort).
+    func register(email: String, username: String, password: String, firstName: String? = nil, lastName: String? = nil, dateOfBirth: String? = nil, onboardingXP: Int? = nil) async -> Bool {
         isLoading = true
         errorMessage = nil
-        
+
         do {
             let response = try await apiService.register(
                 email: email,
@@ -98,7 +153,7 @@ class AuthManager: ObservableObject {
                 lastName: lastName,
                 dateOfBirth: dateOfBirth
             )
-            
+
             if let user = response.user {
                 currentUser = User(
                     id: user.id ?? "",
@@ -108,6 +163,20 @@ class AuthManager: ObservableObject {
                     lastName: user.last_name ?? lastName
                 )
                 isAuthenticated = true
+
+                // If onboardingXP provided, persist locally and sync to server (best-effort)
+                if let xp = onboardingXP {
+                    setOnboardingXP(xp)
+                    Task {
+                        do {
+                            _ = try await APIService.shared.recordOnboardingXP(xp: xp)
+                        } catch {
+                            // ignore sync errors - best-effort
+                            // Onboarding XP sync failed (best-effort) - suppress console output in production
+                        }
+                    }
+                }
+
                 isLoading = false
                 return true
             } else if let error = response.error ?? response.message {
@@ -118,7 +187,7 @@ class AuthManager: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
-        
+
         isLoading = false
         return false
     }
@@ -140,9 +209,12 @@ class AuthManager: ObservableObject {
                 firstName: profile.first_name,
                 lastName: profile.last_name
             )
+            if let fn = profile.first_name, !fn.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                UserDefaults.standard.set(fn, forKey: "user_first_name")
+            }
         } catch {
             // If profile load fails, user might need to re-authenticate
-            print("Failed to load user profile: \(error)")
+            // Suppress debug console output
         }
     }
     

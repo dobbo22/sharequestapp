@@ -27,12 +27,19 @@ class OnboardingFlowViewModel: ObservableObject {
     @Published var purchasedSymbols: Set<String> = []
     @Published var foundNatWest = false
     @Published var foundRollsRoyce = false
+    // Published last XP gain - used by views to show transient XP toasts
+    @Published var lastXPGain: Int = 0
     
     func addXP(_ amount: Int) {
         xp += amount
         UserDefaults.standard.set(xp, forKey: "onboarding_xp")
+        // Surface a short-lived XP gain indicator
+        lastXPGain = amount
     }
     
+    func clearLastXPGain() {
+        lastXPGain = 0
+    }
     func deductXP(_ amount: Int) {
         xp = max(0, xp - amount)
         UserDefaults.standard.set(xp, forKey: "onboarding_xp")
@@ -62,18 +69,47 @@ struct OnboardingHolding: Identifiable {
     var profitPercent: Double { ((currentPrice - buyPrice) / buyPrice) * 100 }
 }
 
+// Shared helpers: format pence display
+func formatPence(_ priceInPounds: Double) -> String {
+    let pence = priceInPounds * 100.0
+    if pence.truncatingRemainder(dividingBy: 1) == 0 {
+        return "\(Int(pence))p"
+    } else {
+        var s = String(format: "%.2f", pence)
+        while s.last == "0" { s.removeLast() }
+        if s.last == "." { s.removeLast() }
+        return "\(s)p"
+    }
+}
+
+func formatPenceFromPence(_ pence: Double) -> String {
+    if pence.truncatingRemainder(dividingBy: 1) == 0 {
+        return "\(Int(pence))p"
+    } else {
+        var s = String(format: "%.2f", pence)
+        while s.last == "0" { s.removeLast() }
+        if s.last == "." { s.removeLast() }
+        return "\(s)p"
+    }
+}
+
 // MARK: - Main Onboarding Flow View
 
 struct OnboardingFlowView: View {
     @EnvironmentObject var authManager: AuthManager
     @StateObject private var viewModel = OnboardingFlowViewModel()
+    @State private var showXPToast = false
+    @State private var xpToastAmount = 0
+    @State private var showConfetti = false
+    @State private var showFloatingXP = false
+    @State private var floatingXPAmt = 0
     
     var body: some View {
         ZStack {
             // Background
             Color(red: 0.039, green: 0.110, blue: 0.173)
                 .ignoresSafeArea()
-            
+
             // Content based on step
             switch viewModel.currentStep {
             case .welcome:
@@ -90,13 +126,56 @@ struct OnboardingFlowView: View {
                 OnboardingCompleteView(viewModel: viewModel)
                     .environmentObject(authManager)
             }
+
+            // Confetti layer (covers whole screen when active)
+            if showConfetti {
+                OnboardingConfettiView(isActive: $showConfetti)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
             
-            // XP Bar at bottom
-            if viewModel.currentStep != .welcome && viewModel.currentStep != .complete {
-                VStack {
-                    Spacer()
-                    XPBarView(xp: viewModel.xp)
+            // Floating XP (near center, appears briefly)
+            if showFloatingXP {
+                OnboardingFloatingXP(amount: floatingXPAmt)
+                    .allowsHitTesting(false)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            // XP Toast overlay (top center)
+            if showXPToast {
+                VStack { Spacer().frame(height: 40)
+                    OnboardingXPToast(amount: xpToastAmount, isVisible: $showXPToast)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .allowsHitTesting(false)
+            }
+        }
+        // Ensure the XP bar reserves space so content (buttons) never get overlapped
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if viewModel.currentStep != .welcome && viewModel.currentStep != .complete {
+                HStack { Spacer(); XPBarView(xp: viewModel.xp); Spacer() }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 20)
+                    .background(Color.clear)
+            } else {
+                EmptyView()
+            }
+        }
+        .onReceive(viewModel.$lastXPGain) { gain in
+            guard gain > 0 else { return }
+            xpToastAmount = gain
+            showXPToast = true
+            // Trigger confetti and floating XP when XP is awarded
+            floatingXPAmt = gain
+            showFloatingXP = true
+            showConfetti = true
+            // Dismiss floating XP after short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+                withAnimation { showFloatingXP = false }
+            }
+            // clear last gain after a short while so subsequent gains re-trigger
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                viewModel.clearLastXPGain()
             }
         }
     }
@@ -123,6 +202,47 @@ struct XPBarView: View {
         .background(Color.black.opacity(0.6))
         .cornerRadius(20)
         .padding(.bottom, 30)
+    }
+}
+
+// MARK: - XP Toast View
+
+struct OnboardingXPToast: View {
+    let amount: Int
+    @Binding var isVisible: Bool
+    @State private var scale: CGFloat = 0.6
+    @State private var opacity: Double = 0
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "bolt.fill")
+                .foregroundColor(Color(red: 1, green: 0.88, blue: 0.4))
+            Text("+\(amount) XP")
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .background(Color.black.opacity(0.8))
+        .cornerRadius(20)
+        .scaleEffect(scale)
+        .opacity(opacity)
+        .onAppear {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                scale = 1
+                opacity = 1
+            }
+            // Auto-dismiss after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    opacity = 0
+                    scale = 0.8
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    isVisible = false
+                }
+            }
+        }
     }
 }
 
@@ -230,13 +350,13 @@ struct OnboardingWelcomeView: View {
 
 struct FirstTradeView: View {
     @ObservedObject var viewModel: OnboardingFlowViewModel
-    
+
     private let stocks = [
         (symbol: "TSCO.L", name: "Tesco PLC", price: 2.755, icon: "cart.fill"),
         (symbol: "MKS.L", name: "Marks & Spencer", price: 2.452, icon: "bag.fill"),
         (symbol: "SBRY.L", name: "J Sainsbury PLC", price: 2.678, icon: "basket.fill")
     ]
-    
+
     @State private var selectedStock: Int = 0
     @State private var amount: String = "1000"
     @State private var isTrading = false
@@ -300,10 +420,18 @@ struct FirstTradeView: View {
                                 
                                 Spacer()
                                 
-                                if selectedStock == index {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(Color(red: 0.063, green: 0.725, blue: 0.506))
+                                // Price + checkmark column on the right of the tile
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text(formatPence(stock.price))
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.white)
+                                    if selectedStock == index {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(Color(red: 0.063, green: 0.725, blue: 0.506))
+                                    }
                                 }
+                                .frame(minWidth: 72)
                             }
                             .padding()
                             .background(
@@ -318,23 +446,6 @@ struct FirstTradeView: View {
                     }
                 }
                 .padding(.horizontal)
-                
-                // Price Display
-                if let stock = selectedStockData {
-                    HStack {
-                        Text("Current Price")
-                            .foregroundColor(Color(red: 0.69, green: 0.77, blue: 0.87))
-                        Spacer()
-                        Text("\(Int(stock.price * 100))p")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                    }
-                    .padding()
-                    .background(Color(red: 0.118, green: 0.161, blue: 0.216))
-                    .cornerRadius(12)
-                    .padding(.horizontal)
-                }
                 
                 // Amount Input
                 VStack(alignment: .leading, spacing: 8) {
@@ -382,34 +493,32 @@ struct FirstTradeView: View {
                 .disabled(isTrading || Int(amount) == nil || Int(amount)! <= 0)
                 .opacity(Int(amount) ?? 0 > 0 ? 1 : 0.5)
                 .padding(.horizontal)
+                // Extra bottom padding so the XPBar overlay won't cover the button in simulator/device
+                .padding(.bottom, 80)
                 
                 Spacer(minLength: 100)
             }
         }
     }
     
+    // Implement trade action: simulate a trade, add to viewModel and award XP
     private func executeTrade() {
         guard let stock = selectedStockData, let qty = Int(amount), qty > 0 else { return }
-        
         isTrading = true
-        
-        // Add XP for the trade
-        viewModel.addXP(100)
-        
-        // Add to holdings
-        let holding = OnboardingHolding(
-            symbol: stock.symbol,
-            name: stock.name,
-            amount: qty,
-            buyPrice: stock.price,
-            currentPrice: stock.price
-        )
-        viewModel.holdings.append(holding)
-        viewModel.purchasedSymbols.insert(stock.symbol)
-        
-        // Navigate to portfolio after delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+
+        // Simulate network/trade delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            // Create holding (prices in pounds)
+            let holding = OnboardingHolding(symbol: stock.symbol, name: stock.name, amount: qty, buyPrice: stock.price, currentPrice: stock.price)
+            viewModel.holdings.append(holding)
+            viewModel.purchasedSymbols.insert(stock.symbol)
+
+            // Award XP for first trade
+            viewModel.addXP(50)
+
             isTrading = false
+
+            // Advance to portfolio phase so user can see their holdings
             viewModel.nextStep()
         }
     }
@@ -423,19 +532,19 @@ struct OnboardingPortfolioView: View {
     @State private var phase: PortfolioPhase = .rising
     @State private var canContinue = false
     @State private var riseXP = 0
-    
+
     enum PortfolioPhase {
         case rising, action, selling, sold
     }
-    
+
     var totalValue: Double {
         animatedHoldings.reduce(0) { $0 + $1.value }
     }
-    
+
     var totalProfit: Double {
         animatedHoldings.reduce(0) { $0 + $1.profit }
     }
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -446,40 +555,47 @@ struct OnboardingPortfolioView: View {
                         .fontWeight(.bold)
                         .foregroundColor(.white)
                     
-                    Text(phase == .rising ? "Watch your stocks grow! 📈" : "Your stocks have risen! Time to decide.")
-                        .font(.subheadline)
-                        .foregroundColor(Color(red: 0.69, green: 0.77, blue: 0.87))
+                    // Only show a hint while prices are rising; remove the 'stocks have risen' message per request
+                    if phase == .rising {
+                        Text("Watch your stocks grow! 📈")
+                            .font(.subheadline)
+                            .foregroundColor(Color(red: 0.69, green: 0.77, blue: 0.87))
+                    }
                 }
                 .padding(.top, 40)
                 
-                // Portfolio Value Card
-                VStack(spacing: 8) {
+                // Portfolio Value Card (smaller)
+                VStack(spacing: 6) {
                     Text("Portfolio Value")
                         .font(.caption)
                         .foregroundColor(Color.gray)
                     
+                    // Reduced size to avoid taking too much vertical space on small devices
                     Text("£\(String(format: "%.2f", totalValue))")
-                        .font(.system(size: 36, weight: .bold))
+                        .font(.system(size: 30, weight: .bold))
                         .foregroundColor(.white)
+                        .minimumScaleFactor(0.8)
                     
-                    HStack {
+                    HStack(spacing: 8) {
                         Image(systemName: "arrow.up.right")
+                            .font(.subheadline)
                         Text("+£\(String(format: "%.2f", totalProfit))")
+                            .font(.subheadline)
                     }
-                    .font(.headline)
                     .foregroundColor(Color(red: 0.063, green: 0.725, blue: 0.506))
                 }
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(
-                    LinearGradient(
-                        colors: [Color(red: 0.231, green: 0.510, blue: 0.965), Color(red: 0.149, green: 0.388, blue: 0.918)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .cornerRadius(16)
-                .padding(.horizontal)
+                .padding(12)
+                .frame(minHeight: 96)
+                 .frame(maxWidth: .infinity)
+                 .background(
+                     LinearGradient(
+                         colors: [Color(red: 0.231, green: 0.510, blue: 0.965), Color(red: 0.149, green: 0.388, blue: 0.918)],
+                         startPoint: .topLeading,
+                         endPoint: .bottomTrailing
+                     )
+                 )
+                 .cornerRadius(16)
+                 .padding(.horizontal)
                 
                 // Holdings List
                 VStack(spacing: 12) {
@@ -512,35 +628,73 @@ struct OnboardingPortfolioView: View {
                         .padding()
                         .background(Color(red: 0.118, green: 0.161, blue: 0.216))
                         .cornerRadius(12)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                        .id(holding.id)
                     }
                 }
                 .padding(.horizontal)
-                
-                // Action Buttons
-                if canContinue {
+
+                // When in action phase, show Sell buttons inline for each holding with animation
+                if phase == .action {
                     VStack(spacing: 12) {
-                        // Buy Another (if less than 2 stocks)
-                        if viewModel.holdings.count < 2 {
-                            Button(action: buyAnother) {
+                        ForEach(animatedHoldings) { h in
+                            Button(action: { sellStock(h) }) {
                                 HStack {
-                                    Image(systemName: "plus.circle.fill")
-                                    Text("Buy Another Stock")
+                                    Text("Sell \(h.name)")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Text("£\(String(format: "%.2f", h.value))")
+                                        .foregroundColor(.white)
                                 }
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color(red: 0.063, green: 0.725, blue: 0.506))
+                                .background(Color(red: 0.961, green: 0.620, blue: 0.043))
                                 .cornerRadius(12)
                             }
+                            .transition(.scale.combined(with: .opacity))
                         }
-                        
-                        // Sell (if we have stocks)
-                        if let firstHolding = animatedHoldings.first, phase == .action {
-                            Button(action: { sellStock(firstHolding) }) {
+                    }
+                    .padding(.horizontal)
+                }
+                
+                // Instruction to sell when action phase
+                if phase == .action {
+                    VStack(spacing: 8) {
+                        Text("Great — your holdings have increased in value!")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text("Tap 'Sell' on a holding below to realise the gains and continue the tutorial.")
+                            .font(.subheadline)
+                            .foregroundColor(Color(red: 0.69, green: 0.77, blue: 0.87))
+                    }
+                    .padding(.horizontal)
+                }
+                
+                // Action Buttons
+                VStack(spacing: 12) {
+                    // Buy Another (if less than 2 stocks)
+                    if viewModel.holdings.count < 2 {
+                        Button(action: buyAnother) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Buy Another Stock")
+                            }
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(red: 0.063, green: 0.725, blue: 0.506))
+                            .cornerRadius(12)
+                        }
+                    }
+                    
+                    // Sell (if we have stocks)
+                    if phase == .action {
+                        ForEach(animatedHoldings.prefix(1)) { h in
+                            Button(action: { sellStock(h) }) {
                                 HStack {
                                     Image(systemName: "arrow.up.right.circle.fill")
-                                    Text("Sell \(firstHolding.name)")
+                                    Text("Sell \(h.name)")
                                 }
                                 .font(.headline)
                                 .foregroundColor(.white)
@@ -550,22 +704,22 @@ struct OnboardingPortfolioView: View {
                                 .cornerRadius(12)
                             }
                         }
-                        
-                        // Continue after selling
-                        if phase == .sold {
-                            Button(action: { viewModel.nextStep() }) {
-                                Text("Continue")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(Color(red: 0.231, green: 0.510, blue: 0.965))
-                                    .cornerRadius(12)
-                            }
+                    }
+                    
+                    // Continue after selling
+                    if phase == .sold {
+                        Button(action: { viewModel.nextStep() }) {
+                            Text("Continue")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(red: 0.231, green: 0.510, blue: 0.965))
+                                .cornerRadius(12)
                         }
                     }
-                    .padding(.horizontal)
                 }
+                .padding(.horizontal)
                 
                 Spacer(minLength: 100)
             }
@@ -585,11 +739,14 @@ struct OnboardingPortfolioView: View {
         for step in 1...steps {
             DispatchQueue.main.asyncAfter(deadline: .now() + stepDuration * Double(step)) {
                 let progress = Double(step) / Double(steps)
-                animatedHoldings = viewModel.holdings.map { holding in
-                    var updated = holding
-                    let targetPrice = holding.buyPrice * 1.05
-                    updated.currentPrice = holding.buyPrice + (targetPrice - holding.buyPrice) * progress
-                    return updated
+                // animate changes to animatedHoldings for smooth UI updates
+                withAnimation(.easeOut(duration: 0.18)) {
+                    animatedHoldings = viewModel.holdings.map { holding in
+                        var updated = holding
+                        let targetPrice = holding.buyPrice * 1.05
+                        updated.currentPrice = holding.buyPrice + (targetPrice - holding.buyPrice) * progress
+                        return updated
+                    }
                 }
                 
                 // Calculate rise XP
@@ -604,19 +761,46 @@ struct OnboardingPortfolioView: View {
             }
         }
     }
-    
+
     private func buyAnother() {
         viewModel.goToStep(.firstTrade)
     }
     
     private func sellStock(_ holding: OnboardingHolding) {
+        // Begin selling animation/state
         phase = .selling
-        viewModel.addXP(50) // XP for first sell
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+
+        // Capture index in case holdings change
+        guard let idx = viewModel.holdings.firstIndex(where: { $0.id == holding.id }) else {
+            // fallback: just mark sold and continue
             phase = .sold
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                viewModel.nextStep()
+            }
+            return
         }
-    }
+
+        // Simulate sell delay & update portfolio
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            // Remove the sold holding from the model with animation
+            withAnimation(.easeInOut) {
+                let _ = viewModel.holdings.remove(at: idx)
+                animatedHoldings = viewModel.holdings
+            }
+
+            // Award XP for selling
+            viewModel.addXP(50)
+
+            // Update phase and then advance to the next onboarding step (stock search)
+            withAnimation {
+                phase = .sold
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                viewModel.nextStep()
+            }
+         }
+     }
 }
 
 // MARK: - Onboarding Search View
@@ -627,6 +811,7 @@ struct OnboardingSearchView: View {
     @State private var results: [SearchResult] = []
     @State private var selectedStock: SearchResult?
     @State private var isSearching = false
+    @State private var searchTask: Task<Void, Never>? = nil
     
     private let apiService = APIService.shared
     
@@ -669,11 +854,12 @@ struct OnboardingSearchView: View {
                     .autocapitalization(.none)
                     .autocorrectionDisabled()
                     .onChange(of: query) { _, newValue in
-                        searchStocks(newValue)
+                        // Debounced search to match mobile app behaviour
+                        debounceSearch(newValue)
                     }
                 
                 if !query.isEmpty {
-                    Button(action: { 
+                    Button(action: {
                         query = ""
                         results = []
                         selectedStock = nil
@@ -714,6 +900,14 @@ struct OnboardingSearchView: View {
                                     }
                                     
                                     Spacer()
+                                    
+                                    // Show price in pence on the right
+                                    VStack(alignment: .trailing) {
+                                        Text(formatPenceFromPence(result.price))
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(.white)
+                                    }
                                 }
                                 .padding()
                                 .background(Color(red: 0.118, green: 0.161, blue: 0.216))
@@ -738,10 +932,16 @@ struct OnboardingSearchView: View {
                                 .foregroundColor(Color.gray)
                         }
                         Spacer()
-                        if foundNatWest {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(Color(red: 0.063, green: 0.725, blue: 0.506))
-                                .font(.title)
+                        // Show price for selected stock (stock.price is stored in pence)
+                        VStack(alignment: .trailing, spacing: 6) {
+                            Text(formatPenceFromPence(stock.price))
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            if foundNatWest {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(Color(red: 0.063, green: 0.725, blue: 0.506))
+                                    .font(.title)
+                            }
                         }
                     }
                     .padding()
@@ -780,28 +980,43 @@ struct OnboardingSearchView: View {
         }
     }
     
-    private func searchStocks(_ query: String) {
-        guard query.count >= 2 else {
+    /// Debounced search that mirrors the mobile app implementation
+    private func debounceSearch(_ q: String) {
+        // Cancel any previous pending search
+        searchTask?.cancel()
+
+        // Clear results for short queries
+        guard q.count >= 2 else {
             results = []
+            isSearching = false
             return
         }
-        
-        isSearching = true
-        
-        Task {
+
+        // Start a new debounced task
+        searchTask = Task {
+            // Wait 300ms debounce
+            try? await Task.sleep(nanoseconds: 300_000_000)
+
+            // If task was cancelled during sleep, exit
+            if Task.isCancelled { return }
+
+            await MainActor.run { isSearching = true }
+
             do {
-                let stockData = try await apiService.searchStocks(query: query)
+                let stockData = try await apiService.searchStocks(query: q)
+
+                if Task.isCancelled { return }
+
                 await MainActor.run {
                     results = stockData.prefix(10).map { stock in
-                        SearchResult(
-                            symbol: stock.symbol,
-                            name: stock.displayName,
-                            price: stock.displayPrice
-                        )
+                        // Use raw pence from API (`price` or `current_price`) so our pence formatter is correct
+                        let pence = stock.price ?? stock.current_price ?? 0
+                        return SearchResult(symbol: stock.symbol, name: stock.displayName, price: pence)
                     }
                     isSearching = false
                 }
             } catch {
+                if Task.isCancelled { return }
                 await MainActor.run {
                     results = []
                     isSearching = false
@@ -835,7 +1050,7 @@ struct OnboardingSectorsView: View {
     @State private var showPenalty = false
     
     private let sectors = [
-        "Aerospace & Defence", "Banks", "Consumer Goods", "Energy", 
+        "Aerospace & Defence", "Banks", "Consumer Goods", "Energy",
         "Financials", "Healthcare", "Industrials", "Real Estate",
         "Technology", "Utilities"
     ]
@@ -857,6 +1072,22 @@ struct OnboardingSectorsView: View {
                         .padding(.horizontal)
                 }
                 .padding(.top, 40)
+                
+                // Show the currently selected sector as a small pill so the user can see their choice
+                if let sel = selectedSector {
+                    HStack {
+                        Spacer()
+                        Text("Sector: \(sel)")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 12)
+                            .background(Color(red: 0.118, green: 0.161, blue: 0.216))
+                            .cornerRadius(12)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                }
                 
                 // Penalty Toast
                 if showPenalty {
@@ -880,7 +1111,7 @@ struct OnboardingSectorsView: View {
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(
-                                selectedSector == sector 
+                                selectedSector == sector
                                     ? (sector == "Industrials" ? Color(red: 0.063, green: 0.725, blue: 0.506) : Color(red: 0.937, green: 0.267, blue: 0.267))
                                     : Color(red: 0.118, green: 0.161, blue: 0.216)
                             )
@@ -891,17 +1122,13 @@ struct OnboardingSectorsView: View {
                 .padding(.horizontal)
                 
                 // Success Message
-                if selectedSector == "Industrials" {
-                    VStack(spacing: 12) {
-                        Text("🎉 Correct! Rolls-Royce is in Industrials!")
+                if selectedSector == "Aerospace & Defence" {
+                    VStack(spacing: 8) {
+                        Text("🎉 Correct! Rolls-Royce is in Aerospace & Defence!")
                             .font(.headline)
                             .foregroundColor(Color(red: 0.063, green: 0.725, blue: 0.506))
-                        
-                        Text("+100 XP")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(Color(red: 1, green: 0.88, blue: 0.4))
-                        
+
+                        // Move Continue button up; remove duplicated sector pill and XP badge to avoid overlap
                         Button(action: { viewModel.nextStep() }) {
                             Text("Continue")
                                 .font(.headline)
@@ -923,25 +1150,25 @@ struct OnboardingSectorsView: View {
     private func selectSector(_ sector: String) {
         selectedSector = sector
         
-        if sector == "Industrials" {
+        if sector == "Aerospace & Defence" {
             viewModel.foundRollsRoyce = true
             viewModel.addXP(100)
         } else {
-            // Wrong answer penalty
-            viewModel.deductXP(1)
-            withAnimation {
-                showPenalty = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation {
-                    showPenalty = false
-                }
-            }
-            // Reset selection after showing penalty
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                selectedSector = nil
-            }
-        }
+             // Wrong answer penalty
+             viewModel.deductXP(1)
+             withAnimation {
+                 showPenalty = true
+             }
+             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                 withAnimation {
+                     showPenalty = false
+                 }
+             }
+             // Reset selection after showing penalty
+             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                 selectedSector = nil
+             }
+         }
     }
 }
 
@@ -950,11 +1177,12 @@ struct OnboardingSectorsView: View {
 struct OnboardingCompleteView: View {
     @ObservedObject var viewModel: OnboardingFlowViewModel
     @EnvironmentObject var authManager: AuthManager
+    @State private var showRegister = false
     
     var body: some View {
         VStack(spacing: 32) {
             Spacer()
-            
+
             // Trophy Icon
             ZStack {
                 Circle()
@@ -965,7 +1193,7 @@ struct OnboardingCompleteView: View {
                     .font(.system(size: 70))
                     .foregroundColor(Color(red: 0.961, green: 0.620, blue: 0.043))
             }
-            
+
             // Congratulations
             VStack(spacing: 12) {
                 Text("Tutorial Complete!")
@@ -979,7 +1207,7 @@ struct OnboardingCompleteView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
-            
+
             // XP Earned
             VStack(spacing: 8) {
                 Text("XP Earned")
@@ -997,9 +1225,9 @@ struct OnboardingCompleteView: View {
             .padding()
             .background(Color(red: 0.118, green: 0.161, blue: 0.216))
             .cornerRadius(16)
-            
+
             Spacer()
-            
+
             // Buttons
             VStack(spacing: 16) {
                 Button(action: completeOnboarding) {
@@ -1021,16 +1249,126 @@ struct OnboardingCompleteView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
         }
+        // Present the Register screen when the user chooses to create an account
+        .fullScreenCover(isPresented: $showRegister, onDismiss: {
+            // Only mark onboarding complete when the user actually registered/logged in and onboarding wasn't already marked complete.
+            if authManager.isAuthenticated && !authManager.hasCompletedOnboarding {
+                authManager.completeOnboarding(withXP: viewModel.xp)
+            }
+        }) {
+            NavigationStack {
+                RegisterView(onboardingXP: viewModel.xp)
+                    .environmentObject(authManager)
+            }
+        }
     }
     
     private func completeOnboarding() {
-        // Save XP and complete onboarding - will navigate to register screen
-        authManager.completeOnboarding(withXP: viewModel.xp)
+        // Present the Register flow; do not persist XP here — RegisterView will persist/sync on success
+        showRegister = true
     }
     
     private func skipToLogin() {
         // Save XP and complete onboarding - will navigate to login screen
         authManager.completeOnboarding(withXP: viewModel.xp)
+    }
+}
+
+// Confetti: lightweight SwiftUI particle emitter (no external libs)
+struct ConfettiParticle: Identifiable {
+    let id = UUID()
+    var x: CGFloat
+    var size: CGFloat
+    var color: Color
+    var rotation: Angle = .degrees(0)
+    var delay: Double
+    var duration: Double
+}
+
+struct OnboardingConfettiView: View {
+    @Binding var isActive: Bool
+    @State private var particles: [ConfettiParticle] = []
+    @State private var offsets: [UUID: CGFloat] = [:]
+    private let count = 22
+    private let colors: [Color] = [Color(red: 0.961, green: 0.620, blue: 0.043), Color(red: 0.063, green: 0.725, blue: 0.506), Color(red: 0.231, green: 0.510, blue: 0.965), Color.pink, Color.purple, Color.yellow]
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                ForEach(particles) { p in
+                    Circle()
+                        .fill(p.color)
+                        .frame(width: p.size, height: p.size)
+                        .rotationEffect(p.rotation)
+                        .position(x: p.x * geo.size.width, y: offsets[p.id] ?? -20)
+                        .opacity((offsets[p.id] ?? -20) > geo.size.height ? 0 : 1)
+                        .shadow(color: .black.opacity(0.15), radius: 1)
+                }
+            }
+            .onAppear {
+                // generate particles
+                particles = (0..<count).map { i in
+                    ConfettiParticle(
+                        x: CGFloat(Double.random(in: 0.08...0.92)),
+                        size: CGFloat(Double.random(in: 6...14)),
+                        color: colors.randomElement() ?? .yellow,
+                        delay: Double.random(in: 0...0.35),
+                        duration: Double.random(in: 1.2...2.2)
+                    )
+                }
+
+                // start animations
+                for p in particles {
+                    offsets[p.id] = -30
+                    let finalY = geo.size.height + 80
+                    DispatchQueue.main.asyncAfter(deadline: .now() + p.delay) {
+                        withAnimation(.interpolatingSpring(stiffness: 30, damping: 10).speed(1.0)) {
+                            offsets[p.id] = finalY
+                        }
+                    }
+                }
+
+                // Auto-stop after longest duration
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
+                    withAnimation { isActive = false }
+                    // clear particles
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        particles = []
+                        offsets = [:]
+                    }
+                }
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
+// Floating XP: small text that floats upward and fades
+struct OnboardingFloatingXP: View {
+    let amount: Int
+    @State private var yOffset: CGFloat = 30
+    @State private var opacity: Double = 0
+
+    var body: some View {
+        Text("+\(amount) XP")
+            .font(.headline)
+            .fontWeight(.bold)
+            .padding(10)
+            .background(Color.black.opacity(0.8))
+            .foregroundColor(Color(red: 1, green: 0.88, blue: 0.4))
+            .cornerRadius(12)
+            .opacity(opacity)
+            .offset(y: yOffset)
+            .onAppear {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) {
+                    yOffset = 0
+                    opacity = 1
+                }
+                withAnimation(.easeOut(duration: 0.9).delay(0.9)) {
+                    yOffset = -40
+                    opacity = 0
+                }
+            }
     }
 }
 
