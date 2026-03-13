@@ -61,7 +61,7 @@ export default async function handler(req, res) {
          COALESCE(last_name, '') as last_name, 
          COALESCE(is_admin, false) as is_admin, 
          created_at
-       FROM users 
+       FROM public.users 
        WHERE user_id::text = $1 OR id::text = $1`,
       [tokenData.userId]
     );

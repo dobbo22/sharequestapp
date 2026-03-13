@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     
     // Check if email already exists
     const emailCheck = await pool.query(
-      'SELECT user_id FROM users WHERE LOWER(email) = LOWER($1)',
+      'SELECT user_id FROM public.users WHERE LOWER(email) = LOWER($1)',
       [email]
     );
     
@@ -68,7 +68,7 @@ export default async function handler(req, res) {
     
     // Check if username already exists
     const usernameCheck = await pool.query(
-      'SELECT user_id FROM users WHERE LOWER(username) = LOWER($1)',
+      'SELECT user_id FROM public.users WHERE LOWER(username) = LOWER($1)',
       [username]
     );
     
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
     
     // Insert new user - use user_id as the column name
     const insertResult = await pool.query(
-      `INSERT INTO users (username, email, password_hash, salt, first_name, last_name, created_at)
+      `INSERT INTO public.users (username, email, password_hash, salt, first_name, last_name, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW())
        RETURNING user_id::text as id, username, email, first_name, last_name`,
       [

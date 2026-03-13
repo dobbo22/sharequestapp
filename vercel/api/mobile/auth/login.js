@@ -79,7 +79,7 @@ export default async function handler(req, res) {
            COALESCE(last_name, '') as last_name,
            COALESCE(is_admin, false) as is_admin,
            COALESCE(salt, '') as salt
-         FROM users
+         FROM public.users
          WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)
          LIMIT 1`,
         [email]
