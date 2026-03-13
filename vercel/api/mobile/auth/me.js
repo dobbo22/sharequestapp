@@ -4,9 +4,10 @@
 import { Pool } from 'pg';
 import jwt from 'jsonwebtoken';
 
+const connectionString = process.env.API_DATABASE_URL || process.env.DATABASE_URL;
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  connectionString,
+  ssl: connectionString ? { rejectUnauthorized: false } : undefined
 });
 
 // Verify JWT token and extract user info

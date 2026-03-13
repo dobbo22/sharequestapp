@@ -1,0 +1,11 @@
+# Ignore folders not needed for Vercel deployment
+mobile-app/
+ShareQuest/
+ShareQuest.xcodeproj/
+ShareQuestTests/
+ShareQuestUITests/
+node_modules/
+.git/
+*.xcuserstate
+*.xcworkspace
+.DS_Store

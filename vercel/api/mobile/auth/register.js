@@ -5,9 +5,10 @@ import { Pool } from 'pg';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
+const connectionString = process.env.API_DATABASE_URL || process.env.DATABASE_URL;
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  connectionString,
+  ssl: connectionString ? { rejectUnauthorized: false } : undefined
 });
 
 // Generate a random salt

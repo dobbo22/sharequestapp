@@ -5,10 +5,30 @@ import { Pool } from 'pg';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+// Use the configured connection string (API_DATABASE_URL preferred) and enable SSL for Neon
+const connectionString = process.env.API_DATABASE_URL || process.env.DATABASE_URL;
+if (!connectionString) {
+  // No DB configured — throw a clear error
+  throw new Error('No database connection string configured. Set API_DATABASE_URL or DATABASE_URL in your environment.');
+}
+
+// Create or reuse a global pool to avoid exhausting connections in serverless
+function getPool() {
+  if (global.__pgPool) return global.__pgPool;
+  const pool = new Pool({
+    connectionString,
+    max: parseInt(process.env.PG_MAX_CLIENTS || '3', 10),
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  });
+  // ensure sq schema resolves first if present
+  pool.on('connect', (client) => {
+    client.query("SET search_path TO sq, public").catch(() => {});
+  });
+  global.__pgPool = pool;
+  return pool;
+}
 
 // Hash password with SHA256 (matching the web app's method)
 function hashPassword(password, salt = '') {
@@ -36,77 +56,83 @@ export default async function handler(req, res) {
   }
   
   try {
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email and password are required'
-      });
-    }
-    
-    // Find user by email or username - handle both id and user_id column names
-    const userResult = await pool.query(
-      `SELECT 
-         COALESCE(user_id::text, id::text) as id, 
-         username, 
-         email, 
-         password_hash, 
-         COALESCE(first_name, '') as first_name, 
-         COALESCE(last_name, '') as last_name, 
-         COALESCE(is_admin, false) as is_admin,
-         COALESCE(salt, '') as salt
-       FROM users 
-       WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)
-       LIMIT 1`,
-      [email]
-    );
-    
-    if (userResult.rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid email or password'
-      });
-    }
-    
-    const user = userResult.rows[0];
-    
-    // Verify password
-    const isValid = await verifyPassword(password, user.password_hash, user.salt || '');
-    
-    if (!isValid) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid email or password'
-      });
-    }
-    
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        username: user.username,
-        email: user.email,
-        isAdmin: user.is_admin || false
-      },
-      process.env.JWT_SECRET || 'sharequest-mobile-secret',
-      { expiresIn: '30d' }
-    );
-    
-    // Return success response
-    return res.status(200).json({
-      success: true,
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        isAdmin: user.is_admin || false
+    const pool = getPool();
+    const client = await pool.connect();
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email and password are required'
+        });
       }
-    });
-    
+      
+      // Find user by email or username - handle both id and user_id column names
+      const userResult = await client.query(
+        `SELECT 
+           COALESCE(user_id::text, id::text) as id, 
+           username, 
+           email, 
+           password_hash, 
+           COALESCE(first_name, '') as first_name, 
+           COALESCE(last_name, '') as last_name, 
+           COALESCE(is_admin, false) as is_admin,
+           COALESCE(salt, '') as salt
+         FROM users 
+         WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)
+         LIMIT 1`,
+        [email]
+      );
+      
+      if (userResult.rows.length === 0) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid email or password'
+        });
+      }
+      
+      const user = userResult.rows[0];
+      
+      // Verify password
+      const isValid = await verifyPassword(password, user.password_hash, user.salt || '');
+      
+      if (!isValid) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid email or password'
+        });
+      }
+      
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          username: user.username,
+          email: user.email,
+          isAdmin: user.is_admin || false
+        },
+        process.env.JWT_SECRET || 'sharequest-mobile-secret',
+        { expiresIn: '30d' }
+      );
+      
+      // Return success response
+      return res.status(200).json({
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          isAdmin: user.is_admin || false
+        }
+      });
+      
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({
