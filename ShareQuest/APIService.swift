@@ -11,7 +11,16 @@ import Foundation
 enum APIConfig {
     // ShareQuest API endpoints
     static let baseURL = "https://sharequestapp.vercel.app/api"
-    static let mainAppURL = "https://sharequestapp.vercel.app/api"  // Use same API for mobile auth
+    // Use local mobile-api proxy when running in simulator for development
+    static var mainAppURL: String {
+#if targetEnvironment(simulator)
+        // Call the main app directly from the simulator for search/quotes
+        // The mobile proxy has sometimes forwarded query params incorrectly; calling main app is reliable during local development.
+        return "http://localhost:3000/api"
+#else
+        return "https://sharequestapp.vercel.app/api"
+#endif
+    }
     
     // Store your API token securely - in production use Keychain
     static var apiToken: String {
@@ -256,6 +265,7 @@ final class APIService: @unchecked Sendable {
     /// Search stocks
     func searchStocks(query: String) async throws -> [StockData] {
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        // Call main app mobile search endpoint directly
         let url = try buildURL(path: "/mobile/stocks/search?q=\(encodedQuery)", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -263,15 +273,27 @@ final class APIService: @unchecked Sendable {
         
         let data = try await performRequest(request)
         
+        // Try multiple possible response shapes:
+        // 1. APIResponse<[StockData]> with `.data` field
+        // 2. StocksResponse with `.stocks` field
+        // 3. raw array [StockData]
         do {
-            let response = try decoder.decode(StocksResponse.self, from: data)
-            return response.stocks ?? []
-        } catch {
-            do {
-                return try decoder.decode([StockData].self, from: data)
-            } catch {
-                throw APIError.decodingError(error.localizedDescription)
+            // 1. APIResponse<[StockData]>
+            if let apiWrapped = try? decoder.decode(APIResponse<[StockData]>.self, from: data), let wrapped = apiWrapped.data {
+                return wrapped
             }
+            // 2. StocksResponse
+            if let stocksResp = try? decoder.decode(StocksResponse.self, from: data), let stocks = stocksResp.stocks {
+                return stocks
+            }
+            // 3. Raw array
+            if let arr = try? decoder.decode([StockData].self, from: data) {
+                return arr
+            }
+            // Nothing matched
+            throw APIError.decodingError("Unrecognized stocks response")
+        } catch {
+            throw APIError.decodingError(error.localizedDescription)
         }
     }
     
@@ -364,8 +386,9 @@ final class APIService: @unchecked Sendable {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
         let data = try await performRequest(request)
-        
+
         do {
+            // First try the normal shape
             let response = try decoder.decode(AuthResponse.self, from: data)
             if let token = response.token {
                 setAuthToken(token)
@@ -373,7 +396,46 @@ final class APIService: @unchecked Sendable {
             if let user = response.user {
                 setUserId(user.id ?? user.username ?? "")
             }
-            return response
+            // If token/user were present at top-level return as-is
+            if response.token != nil || response.user != nil {
+                return response
+            }
+            // If we got here, top-level token/user were nil — fall through to flexible parsing
+        } catch {
+            // ignore, we'll try flexible parsing below
+        }
+
+        // Flexible fallback: some responses wrap payload under { success: true, data: { token, user } }
+        if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+           let dataObj = json["data"] as? [String: Any] {
+            var token: String? = nil
+            var user: AuthResponse.UserData? = nil
+            if let t = dataObj["token"] as? String {
+                token = t
+                setAuthToken(t)
+            }
+            if let userObj = dataObj["user"] as? [String: Any] {
+                if let userData = try? JSONSerialization.data(withJSONObject: userObj),
+                   let parsedUser = try? decoder.decode(AuthResponse.UserData.self, from: userData) {
+                    user = parsedUser
+                    setUserId(user?.id ?? user?.username ?? "")
+                } else {
+                    // Try to map minimal fields manually
+                    let id = userObj["id"] as? String
+                    let username = userObj["username"] as? String
+                    let email = userObj["email"] as? String
+                    let first = userObj["first_name"] as? String
+                    let last = userObj["last_name"] as? String
+                    user = AuthResponse.UserData(id: id, username: username, email: email, first_name: first, last_name: last, isAdmin: nil)
+                    setUserId(user?.id ?? user?.username ?? "")
+                }
+            }
+            return AuthResponse(success: json["success"] as? Bool, token: token, user: user, error: json["error"] as? String, message: json["message"] as? String)
+        }
+
+        // If nothing matched, attempt to decode and return (to surface decoding error)
+        do {
+            return try decoder.decode(AuthResponse.self, from: data)
         } catch {
             throw APIError.decodingError(error.localizedDescription)
         }
@@ -537,6 +599,28 @@ final class APIService: @unchecked Sendable {
         }
     }
     
+    /// Record onboarding XP for a user (called after successful registration)
+    func recordOnboardingXP(xp: Int) async throws -> Bool {
+        let url = try buildURL(path: "/mobile/gamification/onboarding", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addHeaders(to: &request)
+
+        let body: [String: Any] = ["xp": xp]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let data = try await performRequest(request)
+
+        // Try to decode a simple success response
+        if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let success = obj["success"] as? Bool {
+            return success
+        }
+
+        // Fallback: if we got any data back and no error, consider it success
+        return true
+    }
+    
     // MARK: - Helpers
     
     private func buildURL(path: String, base: String) throws -> URL {
@@ -620,6 +704,11 @@ struct StockData: Codable, Identifiable {
         companyName ?? companyname ?? company_name ?? symbol
     }
     
+    // Raw pence price as returned by API (some endpoints return price in pence)
+    var rawPencePrice: Double {
+        return price ?? current_price ?? 0
+    }
+
     var displayPrice: Double {
         // API returns prices in pence, convert to pounds
         let rawPrice = price ?? current_price ?? 0

@@ -11,9 +11,30 @@ import Combine
 /// Dashboard/Home screen - matches React Native index.tsx
 struct DashboardView: View {
     @EnvironmentObject var authManager: AuthManager
+    @Environment(\.horizontalSizeClass) private var hSizeClass
     @StateObject private var viewModel = DashboardViewModel()
     @State private var showXPToast = false
     @State private var xpGained = 0
+    @State private var showNotifications = false
+    // Computed safe display name: prefer firstName when present and non-empty
+    private var displayFirstName: String {
+        if let user = authManager.currentUser {
+            if let first = user.firstName, !first.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return first
+            }
+            if !user.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return user.displayName
+            }
+            if !user.username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return user.username
+            }
+        }
+        // Try persisted first name from UserDefaults (set during signIn/loadUserProfile)
+        if let persisted = UserDefaults.standard.string(forKey: "user_first_name"), !persisted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return persisted
+        }
+        return viewModel.username
+    }
     
     var body: some View {
         NavigationStack {
@@ -30,44 +51,46 @@ struct DashboardView: View {
                 )
                 .ignoresSafeArea()
                 
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Header with greeting and market status
-                        headerSection
-                        
-                        // Gamification Bar
-                        if viewModel.gamProfile != nil {
-                            gamificationBar
+                VStack(spacing: 12) {
+                    // Fixed header at the top so user name and bell are always visible
+                    headerSection
+                    
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            // Gamification Bar
+                            if viewModel.gamProfile != nil {
+                                gamificationBar
+                            }
+                            
+                            // Stock Ticker
+                            stockTickerSection
+                            
+                            // Swipeable Portfolio Cards
+                            portfolioCardsSection
+                            
+                            // Daily Challenges
+                            if !viewModel.dailyChallenges.isEmpty {
+                                challengesSection
+                            }
+                            
+                            // Market Sentiment
+                            if viewModel.marketSentiment != nil {
+                                marketSentimentSection
+                            }
+                            
+                            // XP Activity Feed
+                            if !viewModel.recentXP.isEmpty {
+                                xpActivitySection
+                            }
+                            
+                            // Bottom padding for tab bar
+                            Spacer(minLength: 100)
                         }
-                        
-                        // Stock Ticker
-                        stockTickerSection
-                        
-                        // Swipeable Portfolio Cards
-                        portfolioCardsSection
-                        
-                        // Daily Challenges
-                        if !viewModel.dailyChallenges.isEmpty {
-                            challengesSection
-                        }
-                        
-                        // Market Sentiment
-                        if viewModel.marketSentiment != nil {
-                            marketSentimentSection
-                        }
-                        
-                        // XP Activity Feed
-                        if !viewModel.recentXP.isEmpty {
-                            xpActivitySection
-                        }
-                        
-                        // Bottom padding for tab bar
-                        Spacer(minLength: 100)
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
-                }
-                .refreshable {
-                    await viewModel.refresh()
+                    .refreshable {
+                        await viewModel.refresh()
+                    }
                 }
                 
                 // XP Toast
@@ -77,33 +100,23 @@ struct DashboardView: View {
                         .zIndex(100)
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Text("ShareQuest")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {}) {
-                        Image(systemName: "bell")
-                            .foregroundColor(.white)
-                    }
-                }
+            // Hide the navigation bar to reclaim vertical space; bell moved into the header
+            .navigationBarHidden(true)
+            .task {
+                // Ensure we have the latest user profile (firstName) before loading dashboard data
+                await authManager.loadUserProfile()
+                await viewModel.loadData()
             }
-        }
-        .task {
-            await viewModel.loadData()
-        }
-        .onChange(of: viewModel.xpDelta) { _, newValue in
-            if newValue > 0 {
-                xpGained = newValue
-                withAnimation {
-                    showXPToast = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            .onChange(of: viewModel.xpDelta) { _, newValue in
+                if newValue > 0 {
+                    xpGained = newValue
                     withAnimation {
-                        showXPToast = false
+                        showXPToast = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        withAnimation {
+                            showXPToast = false
+                        }
                     }
                 }
             }
@@ -118,41 +131,62 @@ struct DashboardView: View {
                 Text(viewModel.greeting)
                     .font(.subheadline)
                     .foregroundColor(Theme.textSecondary)
-                Text(authManager.currentUser?.displayName ?? viewModel.username)
+                Text(displayFirstName)
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(minHeight: 22)
             }
             
             Spacer()
             
-            // Market Status Pill
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(viewModel.isMarketOpen ? Theme.accentGreen : Theme.accentRed)
-                    .frame(width: 8, height: 8)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(viewModel.isMarketOpen ? "Open" : "Closed")
-                        .font(.caption)
-                        .fontWeight(.semibold)
+            // Top-line: market status pill with bell to its right
+            HStack(spacing: 12) {
+                marketPill
+                Button(action: { showNotifications = true }) {
+                    Image(systemName: "bell")
                         .foregroundColor(.white)
-                    Text(viewModel.ukTime)
-                        .font(.caption2)
-                        .foregroundColor(Theme.textSecondary)
+                        .padding(8)
+                        .background(Color(red: 0.067, green: 0.094, blue: 0.153))
+                        .clipShape(Circle())
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(viewModel.isMarketOpen ? Theme.accentGreen.opacity(0.15) : Theme.accentRed.opacity(0.15))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(viewModel.isMarketOpen ? Theme.accentGreen.opacity(0.3) : Theme.accentRed.opacity(0.3), lineWidth: 1)
-                    )
-            )
         }
         .padding(.top)
+        // Present notifications sheet when bell tapped
+        .sheet(isPresented: $showNotifications) {
+            NotificationsView()
+        }
+    }
+    
+    // Extracted market pill for reuse
+    private var marketPill: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(viewModel.isMarketOpen ? Theme.accentGreen : Theme.accentRed)
+                .frame(width: 8, height: 8)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(viewModel.isMarketOpen ? "Open" : "Closed")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                Text(viewModel.ukTime)
+                    .font(.caption2)
+                    .foregroundColor(Theme.textSecondary)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(viewModel.isMarketOpen ? Theme.accentGreen.opacity(0.15) : Theme.accentRed.opacity(0.15))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(viewModel.isMarketOpen ? Theme.accentGreen.opacity(0.3) : Theme.accentRed.opacity(0.3), lineWidth: 1)
+                )
+        )
     }
     
     // MARK: - Gamification Bar
@@ -173,8 +207,8 @@ struct DashboardView: View {
             
             Spacer()
             
-            // XP
-            Text("\(viewModel.gamProfile?.xp ?? 0)/\(viewModel.gamProfile?.xpForNextLevel ?? 100) XP")
+            // XP (use displayedXP which accounts for local onboarding XP fallback)
+            Text("\(viewModel.displayedXP)/\(viewModel.displayedXPForNext) XP")
                 .font(.subheadline)
                 .fontWeight(.bold)
                 .foregroundColor(Color(red: 1, green: 0.84, blue: 0)) // Gold
@@ -216,6 +250,7 @@ struct DashboardView: View {
                 HStack(spacing: 16) {
                     ForEach(viewModel.tickerStocks) { stock in
                         TickerStockView(stock: stock)
+                            .frame(minWidth: 80) // Ensure minimum width for reliable scrolling
                     }
                 }
             }
@@ -369,29 +404,52 @@ struct StreakBadge: View {
 
 struct TickerStockView: View {
     let stock: TickerStock
-    
+
     var body: some View {
-        HStack(spacing: 8) {
-            Text(stock.symbol)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
-            
-            Text(stock.formattedPrice)
-                .font(.caption)
-                .foregroundColor(.white)
-            
-            HStack(spacing: 2) {
-                Image(systemName: stock.changePercent >= 0 ? "arrow.up" : "arrow.down")
-                Text(stock.formattedChange)
+        // Wrap the ticker card in a NavigationLink to the existing StockDetailView
+        NavigationLink(destination: StockDetailView(stock: Stock(
+            id: stock.symbol,
+            symbol: stock.symbol,
+            companyName: stock.companyName,
+            price: stock.pencePrice / 100.0, // convert pence to pounds
+            changeAmount: (stock.pencePrice / 100.0) * (stock.changePercent / 100.0),
+            changePercent: stock.changePercent,
+            sector: "", // unknown here
+            marketCap: 0
+        ))) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(stock.shortName)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    Text(stock.symbol)
+                        .font(.caption2)
+                        .foregroundColor(Theme.textSecondary)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(stock.formattedPrice)
+                        .font(.caption)
+                        .foregroundColor(.white)
+                    HStack(spacing: 4) {
+                        Image(systemName: stock.changePercent >= 0 ? "arrow.up" : "arrow.down")
+                        Text(stock.formattedChange)
+                    }
+                    .font(.caption2)
+                    .foregroundColor(stock.changePercent >= 0 ? Theme.accentGreen : Theme.accentRed)
+                }
             }
-            .font(.caption2)
-            .foregroundColor(stock.changePercent >= 0 ? Theme.accentGreen : Theme.accentRed)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Theme.glassBackground)
+            .cornerRadius(8)
+            .frame(minWidth: 120)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Theme.glassBackground)
-        .cornerRadius(8)
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
@@ -500,15 +558,37 @@ struct XPToastView: View {
 struct TickerStock: Identifiable {
     let id = UUID()
     let symbol: String
-    let price: Double
+    let companyName: String
+    let pencePrice: Double // price in pence (e.g., 275.0 means 275p)
     let changePercent: Double
-    
+
+    // Format price in pence. If pence has no fractional component show as integer ("275p"), otherwise show one or two decimals ("275.5p" / "275.50p").
     var formattedPrice: String {
-        "£\(String(format: "%.2f", price))"
+        // Determine if there is a fractional part
+        let rounded = (pencePrice * 100).rounded() / 100.0
+        if rounded.truncatingRemainder(dividingBy: 1) == 0 {
+            return "\(Int(rounded))p"
+        }
+        // Show up to two decimals, but trim trailing zeros
+        var s = String(format: "%.2f", rounded)
+        // Trim unnecessary trailing zeros and dot
+        while s.contains(".") && (s.hasSuffix("0") || s.hasSuffix(".")) {
+            s.removeLast()
+        }
+        return "\(s)p"
     }
-    
+
     var formattedChange: String {
         String(format: "%+.1f%%", changePercent)
+    }
+
+    // Short name: first two words of companyName to save space in ticker
+    var shortName: String {
+        let parts = companyName.split(separator: " ")
+        if parts.count <= 2 {
+            return companyName
+        }
+        return parts.prefix(2).joined(separator: " ")
     }
 }
 
@@ -521,6 +601,9 @@ class DashboardViewModel: ObservableObject {
     @Published var ukTime = ""
     @Published var streak = 0
     @Published var gamProfile: GamificationProfileResponse?
+    // Displayed XP values (may include unsynced local onboarding XP)
+    @Published var displayedXP: Int = 0
+    @Published var displayedXPForNext: Int = 100
     @Published var marketSentiment: MarketSentimentData?
     @Published var dailyChallenges: [ChallengeData] = []
     @Published var portfolioCards: [PortfolioSummary] = []
@@ -586,7 +669,7 @@ class DashboardViewModel: ObservableObject {
             let response = try await apiService.fetchDashboard()
             marketSentiment = response.sentiment
         } catch {
-            print("Dashboard data error: \(error)")
+            // Dashboard data error - suppressed in production
         }
     }
     
@@ -599,7 +682,7 @@ class DashboardViewModel: ObservableObject {
             let challengesResponse = try await apiService.getDailyChallenges()
             dailyChallenges = challengesResponse.allChallenges
         } catch {
-            print("Login record error: \(error)")
+            // Login record error - suppressed in production
         }
     }
     
@@ -615,8 +698,18 @@ class DashboardViewModel: ObservableObject {
             
             gamProfile = response
             recentXP = response.xpActivities
+            
+            // Account for any local onboarding XP that might not yet be reflected on the server.
+            let localOnboardingXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
+            // If the server XP is less than the locally-stored onboarding XP, add it as a fallback.
+            if response.xp < localOnboardingXP {
+                displayedXP = response.xp + localOnboardingXP
+            } else {
+                displayedXP = response.xp
+            }
+            displayedXPForNext = response.xpForNextLevel
         } catch {
-            print("Gamification profile error: \(error)")
+            // Gamification profile error - suppressed in production
         }
     }
     
@@ -669,17 +762,18 @@ class DashboardViewModel: ObservableObject {
             tickerStocks = stocks.map { stock in
                 TickerStock(
                     symbol: stock.symbol,
-                    price: stock.displayPrice,
+                    companyName: stock.displayName, // Use displayName which falls back
+                    pencePrice: stock.rawPencePrice, // Use raw pence price
                     changePercent: stock.displayChangePercent
                 )
             }
         } catch {
             // Demo data
             tickerStocks = [
-                TickerStock(symbol: "SHEL", price: 25.42, changePercent: 1.4),
-                TickerStock(symbol: "AZN", price: 105.50, changePercent: -1.1),
-                TickerStock(symbol: "HSBA", price: 6.45, changePercent: 0.8),
-                TickerStock(symbol: "BP", price: 4.75, changePercent: 2.3)
+                TickerStock(symbol: "SHEL", companyName: "Shell plc", pencePrice: 2545.0, changePercent: 1.4),
+                TickerStock(symbol: "AZN", companyName: "AstraZeneca plc", pencePrice: 10550.0, changePercent: -1.1),
+                TickerStock(symbol: "HSBA", companyName: "HSBC Holdings plc", pencePrice: 645.0, changePercent: 0.8),
+                TickerStock(symbol: "BP", companyName: "BP plc", pencePrice: 475.0, changePercent: 2.3)
             ]
         }
     }
