@@ -16,6 +16,9 @@ struct DashboardView: View {
     @State private var showXPToast = false
     @State private var xpGained = 0
     @State private var showNotifications = false
+    // Auto-scroll state for ticker
+    @State private var tickerScrollIndex: Int = 0
+    private let tickerAutoscrollInterval: TimeInterval = 2.5
     // Computed safe display name: prefer firstName when present and non-empty
     private var displayFirstName: String {
         if let user = authManager.currentUser {
@@ -142,9 +145,12 @@ struct DashboardView: View {
             
             Spacer()
             
-            // Top-line: market status pill with bell to its right
+            // Top-line: market status pill, optional market sentiment pill, and bell
             HStack(spacing: 12) {
                 marketPill
+                if let sentiment = viewModel.marketSentiment {
+                    marketSentimentPill(sentiment: sentiment)
+                }
                 Button(action: { showNotifications = true }) {
                     Image(systemName: "bell")
                         .foregroundColor(.white)
@@ -187,6 +193,33 @@ struct DashboardView: View {
                         .stroke(viewModel.isMarketOpen ? Theme.accentGreen.opacity(0.3) : Theme.accentRed.opacity(0.3), lineWidth: 1)
                 )
         )
+    }
+    
+    // Small pill summarising market sentiment for the top banner
+    private func marketSentimentPill(sentiment: MarketSentimentData) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: sentiment.overall?.sentiment == "bullish" ? "arrow.up.right" : (sentiment.overall?.sentiment == "bearish" ? "arrow.down.right" : "minus"))
+                .font(.caption2)
+                .foregroundColor(.white)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(sentiment.overall?.sentiment?.capitalized ?? "Neutral")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                HStack(spacing: 6) {
+                    Text("G:\(sentiment.metrics?.gainerCount ?? 0)")
+                        .font(.caption2)
+                        .foregroundColor(Theme.accentGreen)
+                    Text("L:\(sentiment.metrics?.loserCount ?? 0)")
+                        .font(.caption2)
+                        .foregroundColor(Theme.accentRed)
+                }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color(red: 0.067, green: 0.094, blue: 0.153)))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.glassBorder, lineWidth: 1))
     }
     
     // MARK: - Gamification Bar
@@ -246,11 +279,24 @@ struct DashboardView: View {
     // MARK: - Stock Ticker
     private var stockTickerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(viewModel.tickerStocks) { stock in
-                        TickerStockView(stock: stock)
-                            .frame(minWidth: 80) // Ensure minimum width for reliable scrolling
+            // Auto-scrolling horizontal ticker. Uses ScrollViewReader and a Timer publisher to scroll between items.
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        ForEach(viewModel.tickerStocks.indices, id: \.self) { index in
+                            let stock = viewModel.tickerStocks[index]
+                            TickerStockView(stock: stock)
+                                .id(stock.id)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .onReceive(Timer.publish(every: tickerAutoscrollInterval, on: .main, in: .common).autoconnect()) { _ in
+                    guard !viewModel.tickerStocks.isEmpty else { return }
+                    tickerScrollIndex = (tickerScrollIndex + 1) % max(viewModel.tickerStocks.count, 1)
+                    let target = viewModel.tickerStocks[tickerScrollIndex].id
+                    withAnimation(.easeInOut(duration: 0.6)) {
+                        proxy.scrollTo(target, anchor: .center)
                     }
                 }
             }
@@ -556,7 +602,8 @@ struct XPToastView: View {
 // MARK: - Ticker Stock Model
 
 struct TickerStock: Identifiable {
-    let id = UUID()
+    // Use symbol as stable id
+    var id: String { symbol }
     let symbol: String
     let companyName: String
     let pencePrice: Double // price in pence (e.g., 275.0 means 275p)
@@ -758,7 +805,7 @@ class DashboardViewModel: ObservableObject {
     
     private func loadTickerStocks() async {
         do {
-            let stocks = try await apiService.fetchFTSE100(limit: 10)
+            let stocks = try await apiService.fetchFTSE100(limit: 345)
             tickerStocks = stocks.map { stock in
                 TickerStock(
                     symbol: stock.symbol,

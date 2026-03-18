@@ -31,8 +31,8 @@ console.log('✅ PostgreSQL type parsers configured for numeric types');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
-  ssl: process.env.NODE_ENV === 'production' 
-    ? { rejectUnauthorized: false } 
+  ssl: process.env.NODE_ENV === 'production'
+    ? { rejectUnauthorized: false }
     : false
 });
 
@@ -49,6 +49,19 @@ async function query(text, params) {
 const app = express();
 const PORT = parseInt(process.env.PORT || '8082', 10); // Mobile API server port - matching mobile app's expected port
 const MAIN_APP_URL = process.env.MAIN_APP_URL || 'http://localhost:3000/api'; // Updated to include /api prefix
+
+// Safety: prevent accidental production deployment that proxies to localhost
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.MAIN_APP_URL) {
+    console.error('ERROR: MAIN_APP_URL is not set in production. The mobile API must point to the remote main app (e.g. https://sharequest.example.com/api).');
+    process.exit(1);
+  }
+  if (MAIN_APP_URL.includes('localhost') || MAIN_APP_URL.includes('127.0.0.1')) {
+    console.error(`ERROR: MAIN_APP_URL is configured as ${MAIN_APP_URL} which points to localhost. In production this must point to the remote main app URL.`);
+    process.exit(1);
+  }
+}
+
 const MAX_RETRIES = 5;
 const RETRY_DELAY = 2000; // 2 seconds
 
@@ -316,9 +329,9 @@ async function proxyToMainApp(endpoint, options = {}, retryCount = 0) {
           const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
           
           // Check if this is a subscription error - don't retry these
-          if (response.status === 403 && 
-              (errorMessage.includes('subscription required') || 
-               errorMessage.includes('subscription') || 
+          if (response.status === 403 &&
+              (errorMessage.includes('subscription required') ||
+               errorMessage.includes('subscription') ||
                errorData.subscriptionRequired)) {
             console.log('📊 Subscription error detected - not retrying');
             const subscriptionError = new Error(errorMessage);
@@ -855,6 +868,87 @@ app.get('/api/stocks/sectors', async (req, res) => {
   }
 });
 
+// Lookup listing_id for a symbol (used by iOS app for Infront live data)
+app.get('/api/stocks/:symbol/listing-id', async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase();
+  console.log(`🔍 Mobile API: Listing ID lookup for ${symbol}`);
+  
+  try {
+    // Try to query the database directly for listing_id
+    const result = await query(`
+      SELECT listing_id 
+      FROM stocks 
+      WHERE UPPER(symbol) = $1 
+      LIMIT 1
+    `, [symbol]);
+    
+    if (result.rows.length > 0 && result.rows[0].listing_id) {
+      const listingId = String(result.rows[0].listing_id);
+      console.log(`✅ Found listing_id for ${symbol}: ${listingId}`);
+      return res.json({
+        success: true,
+        symbol: symbol,
+        listing_id: listingId
+      });
+    }
+  } catch (dbError) {
+    console.log(`⚠️ DB query failed for listing_id, trying proxy: ${dbError.message}`);
+  }
+  
+  // Fallback: Proxy to main app's FTSE100/250 endpoint to find listing_id
+  try {
+    // Try FTSE100 first
+    const ftse100Result = await proxyToMainApp('/mobile/stocks/ftse100?limit=200', {
+      method: 'GET'
+    });
+    
+    if (ftse100Result.data?.stocks) {
+      const stock = ftse100Result.data.stocks.find(s =>
+        s.symbol?.toUpperCase() === symbol
+      );
+      if (stock?.listing_id) {
+        console.log(`✅ Found listing_id for ${symbol} via FTSE100: ${stock.listing_id}`);
+        return res.json({
+          success: true,
+          symbol: symbol,
+          listing_id: String(stock.listing_id)
+        });
+      }
+    }
+    
+    // Try FTSE250
+    const ftse250Result = await proxyToMainApp('/mobile/stocks/ftse250?limit=300', {
+      method: 'GET'
+    });
+    
+    if (ftse250Result.data?.stocks) {
+      const stock = ftse250Result.data.stocks.find(s =>
+        s.symbol?.toUpperCase() === symbol
+      );
+      if (stock?.listing_id) {
+        console.log(`✅ Found listing_id for ${symbol} via FTSE250: ${stock.listing_id}`);
+        return res.json({
+          success: true,
+          symbol: symbol,
+          listing_id: String(stock.listing_id)
+        });
+      }
+    }
+    
+    console.log(`❌ No listing_id found for ${symbol}`);
+    res.status(404).json({
+      success: false,
+      error: `No listing_id found for symbol: ${symbol}`
+    });
+  } catch (error) {
+    console.error(`❌ Listing ID lookup error for ${symbol}:`, error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Listing ID lookup failed: ' + error.message
+    });
+  }
+});
+
 // Stock detail endpoint with full details
 app.get('/api/stocks/:symbol', async (req, res) => {
   console.log(`📊 Mobile API: Stock detail request for ${req.params.symbol}`);
@@ -881,7 +975,7 @@ app.get('/api/stocks/:symbol', async (req, res) => {
 // TODO: Subscription history endpoint - implement with main app payment system
 // app.get('/api/subscriptions/history', async (req, res) => {
 //   console.log('📋 Mobile API: Subscription history request received');
-//   
+//
 //   // Return empty history for now - will be implemented with payment system
 //   res.status(200).json({
 //     success: true,

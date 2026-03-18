@@ -1,6 +1,12 @@
 import { getPool } from './_db.js';
 import crypto from 'crypto';
 
+// Debug: masked environment visibility checks (do not log secret values)
+// Logs presence and length only to avoid leaking secret contents in logs.
+console.log('DEBUG_ENV: SERVICE_API_TOKEN present?', !!process.env.SERVICE_API_TOKEN, 'len=', process.env.SERVICE_API_TOKEN ? process.env.SERVICE_API_TOKEN.length : 0);
+console.log('DEBUG_ENV: API_TOKEN present?', !!process.env.API_TOKEN, 'len=', process.env.API_TOKEN ? process.env.API_TOKEN.length : 0);
+console.log('DEBUG_ENV: API_DATABASE_URL present?', !!process.env.API_DATABASE_URL || !!process.env.DATABASE_URL);
+
 // Authenticate request using Bearer token stored as SHA256/HMAC in `sq.api_tokens.value`.
 // Returns an object { userId, role, isAdmin } when authenticated, otherwise null.
 export async function authenticate(req) {
@@ -15,6 +21,14 @@ export async function authenticate(req) {
   const pool = getPool();
   const client = await pool.connect();
   try {
+    // Allow a configured service token (useful for backend-to-backend calls)
+    // Set SERVICE_API_TOKEN or API_TOKEN in the environment to allow the app's static token
+    const serviceToken = process.env.SERVICE_API_TOKEN || process.env.API_TOKEN;
+    if (serviceToken && token === serviceToken) {
+      // Treat service token as a privileged service account
+      return { userId: 'service-token', role: 'service', isAdmin: true };
+    }
+
     // Helper to fetch user info (safe: selects entire user row and inspects available fields)
     async function fetchUserInfo(userId) {
       if (!userId) return { role: 'user', isAdmin: false };

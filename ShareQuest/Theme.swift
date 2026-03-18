@@ -23,8 +23,8 @@ enum Theme {
     
     // Text colors
     static let textPrimary = Color.white
-    static let textSecondary = Color(red: 0.608, green: 0.639, blue: 0.686) // #9BA3AF
-    static let textMuted = Color(red: 0.420, green: 0.529, blue: 0.620) // #6B879E
+    static let textSecondary = Color(white: 0.78) // Brighter for contrast
+    static let textMuted = Color(white: 0.55) // Brighter muted
     
     // Glass effect
     static let glassBackground = Color.white.opacity(0.05)

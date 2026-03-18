@@ -450,6 +450,15 @@ struct SettingsView: View {
                             }
                             .foregroundColor(.orange)
                         }
+
+                        NavigationLink {
+                            DebugAPISettingsView()
+                        } label: {
+                            HStack {
+                                Image(systemName: "network")
+                                Text("API Backend")
+                            }
+                        }
                     }
                 }
                 .scrollContentBackground(.hidden)
@@ -477,6 +486,99 @@ struct SettingsView: View {
     private func resetOnboarding() {
         authManager.resetAllState()
         dismiss()
+    }
+}
+
+// MARK: - API Debug Settings View
+struct DebugAPISettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedEnvironment: APIConfig.Environment = APIService.shared.currentEnvironment
+    @State private var localHost: String = APIConfig.localHost
+    @State private var statusMessage: String = ""
+    @State private var isCheckingHealth = false
+
+    var body: some View {
+        Form {
+            Section("Environment") {
+                Picker("API Mode", selection: $selectedEnvironment) {
+                    Text("Local").tag(APIConfig.Environment.local)
+                    Text("Remote").tag(APIConfig.Environment.remote)
+                }
+                .pickerStyle(.segmented)
+
+                Text("Current base URL: \(APIConfig.mainAppURL)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section("Local Host") {
+                TextField("localhost:3000", text: $localHost)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                Text("Simulator: localhost:3000. Device: your Mac LAN IP:3000.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section("Actions") {
+                Button("Save Settings") {
+                    APIService.shared.setAPIEnvironment(selectedEnvironment)
+                    APIService.shared.setLocalAPIHost(localHost.trimmingCharacters(in: .whitespacesAndNewlines))
+                    statusMessage = "Saved. Active base URL: \(APIConfig.mainAppURL)"
+                }
+
+                Button {
+                    Task { await runHealthCheck() }
+                } label: {
+                    if isCheckingHealth {
+                        HStack {
+                            ProgressView()
+                            Text("Checking...")
+                        }
+                    } else {
+                        Text("Health Check")
+                    }
+                }
+                .disabled(isCheckingHealth)
+            }
+
+            if !statusMessage.isEmpty {
+                Section("Status") {
+                    Text(statusMessage)
+                        .font(.footnote)
+                }
+            }
+        }
+        .navigationTitle("API Backend")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Done") {
+                    dismiss()
+                }
+            }
+        }
+        .onAppear {
+            selectedEnvironment = APIService.shared.currentEnvironment
+            localHost = APIConfig.localHost
+        }
+    }
+
+    @MainActor
+    private func runHealthCheck() async {
+        isCheckingHealth = true
+        defer { isCheckingHealth = false }
+
+        do {
+            let ok = try await APIService.shared.checkAPIHealth()
+            statusMessage = ok
+                ? "Health check passed for \(APIConfig.mainAppURL)"
+                : "Health check failed for \(APIConfig.mainAppURL)"
+        } catch {
+            statusMessage = "Health check error: \(error.localizedDescription)"
+        }
     }
 }
 

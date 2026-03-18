@@ -67,5 +67,8 @@
   "optionalDependencies": {
     "concurrently": "^8.2.2"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "tar": "7.5.11"
+  }
 }

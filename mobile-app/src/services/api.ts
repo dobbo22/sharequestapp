@@ -65,6 +65,11 @@ class ApiService {
     // 1. In production (non-dev), use EXPO_PUBLIC_API_URL directly
     if (!__DEV__ && process.env.EXPO_PUBLIC_API_URL) {
       const normalized = this.normalizeBaseUrl(process.env.EXPO_PUBLIC_API_URL);
+      // Safety: prevent accidental production config that points to localhost
+      if (normalized.includes('localhost') || normalized.includes('127.0.0.1')) {
+        console.error(`ERROR: EXPO_PUBLIC_API_URL is configured as ${process.env.EXPO_PUBLIC_API_URL} which points to localhost. In production this must point to the remote API URL (e.g. https://sharequest.example.com/api).`);
+        throw new Error('Invalid EXPO_PUBLIC_API_URL in production - points to localhost');
+      }
       console.log('🌐 Using production API URL:', normalized);
       return normalized;
     }
