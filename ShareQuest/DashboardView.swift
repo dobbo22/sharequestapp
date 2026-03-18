@@ -60,9 +60,17 @@ struct DashboardView: View {
                     
                     ScrollView {
                         VStack(spacing: 20) {
-                            // Gamification Bar
-                            if viewModel.gamProfile != nil {
-                                gamificationBar
+                            // Gamification Bar (always reserve space, show placeholder if nil)
+                            Group {
+                                if let gamProfile = viewModel.gamProfile {
+                                    gamificationBar
+                                } else {
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Theme.glassBackground)
+                                        .frame(height: 48)
+                                        .redacted(reason: .placeholder)
+                                        .padding(.horizontal)
+                                }
                             }
                             
                             // Stock Ticker
@@ -95,6 +103,7 @@ struct DashboardView: View {
                         await viewModel.refresh()
                     }
                 }
+                .padding(.top) // Use SwiftUI's safe area padding
                 
                 // XP Toast
                 if showXPToast {
@@ -309,11 +318,23 @@ struct DashboardView: View {
             Text("Your Portfolios")
                 .font(.headline)
                 .foregroundColor(.white)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(viewModel.portfolioCards) { card in
-                        PortfolioCardView(portfolio: card)
+            if viewModel.portfolioCards.isEmpty {
+                // Show a placeholder or message if no portfolios are available
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Theme.glassBackground)
+                    .frame(width: 160, height: 100)
+                    .overlay(
+                        Text("No portfolios available")
+                            .foregroundColor(Theme.textSecondary)
+                            .font(.subheadline)
+                    )
+                    .padding(.vertical, 8)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        ForEach(viewModel.portfolioCards) { card in
+                            PortfolioCardView(portfolio: card)
+                        }
                     }
                 }
             }
@@ -734,50 +755,63 @@ class DashboardViewModel: ObservableObject {
     }
     
     private func loadGamificationProfile() async {
+        print("[DashboardViewModel] Loading gamification profile...")
         do {
             let response = try await apiService.getGamificationProfile()
-            
+            print("[DashboardViewModel] Raw gamification profile response: \(response)")
             // Check for XP change
             if previousXP > 0 && response.xp > previousXP {
                 xpDelta = response.xp - previousXP
             }
             previousXP = response.xp
-            
-            gamProfile = response
-            recentXP = response.xpActivities
-            
-            // Account for any local onboarding XP that might not yet be reflected on the server.
-            let localOnboardingXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
-            // If the server XP is less than the locally-stored onboarding XP, add it as a fallback.
-            if response.xp < localOnboardingXP {
-                displayedXP = response.xp + localOnboardingXP
-            } else {
-                displayedXP = response.xp
+            await MainActor.run {
+                gamProfile = response
+                recentXP = response.xpActivities
+                // Account for any local onboarding XP that might not yet be reflected on the server.
+                let localOnboardingXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
+                if response.xp < localOnboardingXP {
+                    displayedXP = response.xp + localOnboardingXP
+                } else {
+                    displayedXP = response.xp
+                }
+                displayedXPForNext = response.xpForNextLevel
+                print("[DashboardViewModel] Gamification profile set: \(gamProfile?.playerLevelName ?? "nil") XP=\(gamProfile?.xp ?? -1) displayedXP=\(displayedXP)/\(displayedXPForNext)")
             }
-            displayedXPForNext = response.xpForNextLevel
         } catch {
-            // Gamification profile error - suppressed in production
+            print("[DashboardViewModel] Failed to load gamification profile: \(error)")
         }
     }
     
     private func loadPortfolios() async {
-        // Create portfolio cards for subscribed types
-        let configs: [(type: String, name: String, emoji: String, colors: [Color])] = [
+        print("[DashboardViewModel] Loading portfolios...")
+        // 1. Fetch user subscriptions
+        var enabledTypes: [String] = ["default"] // Always show Practice/default
+        do {
+            if let subs = try await apiService.fetchUserSubscriptions() {
+                if subs.weekly == true { enabledTypes.append("weekly") }
+                if subs.monthly == true { enabledTypes.append("monthly") }
+                // If you want to show annual, add: if subs.annual == true { enabledTypes.append("annual") }
+            }
+        } catch {
+            // If subscriptions fail, fallback to showing all
+            enabledTypes = ["default", "weekly", "monthly"]
+        }
+        // 2. Build configs for enabled types only
+        let allConfigs: [(type: String, name: String, emoji: String, colors: [Color])] = [
             ("default", "Practice", "🎯", [Color(red: 0.231, green: 0.510, blue: 0.965), Color(red: 0.149, green: 0.388, blue: 0.918)]),
             ("weekly", "Weekly", "⚡", [Color(red: 0.388, green: 0.400, blue: 0.945), Color(red: 0.263, green: 0.224, blue: 0.792)]),
             ("monthly", "Monthly", "📅", [Color(red: 0.545, green: 0.361, blue: 0.965), Color(red: 0.486, green: 0.227, blue: 0.929)])
+            // Add annual if needed
         ]
-        
+        let configs = allConfigs.filter { enabledTypes.contains($0.type) }
         var cards: [PortfolioSummary] = []
-        
         for config in configs {
             do {
-                let response = try await apiService.fetchPortfolio(type: config.type)
-                if let portfolio = response.portfolio {
+                if let portfolio = try await apiService.fetchPortfolioDetails(type: config.type) {
+                    print("[DashboardViewModel] Portfolio loaded for type \(config.type): \(portfolio)")
                     let totalValue = portfolio.totalPortfolioValue > 0 ? portfolio.totalPortfolioValue : portfolio.cashBalanceValue
                     let initialBalance = portfolio.initialBalanceValue
                     let changePercent = initialBalance > 0 ? ((totalValue - initialBalance) / initialBalance) * 100 : 0
-                    
                     cards.append(PortfolioSummary(
                         id: config.type,
                         name: config.name,
@@ -786,21 +820,28 @@ class DashboardViewModel: ObservableObject {
                         changePercent: changePercent,
                         gradientColors: config.colors
                     ))
+                } else {
+                    print("[DashboardViewModel] No portfolio found for type \(config.type)")
                 }
             } catch {
-                // Add default card if fetch fails
-                cards.append(PortfolioSummary(
-                    id: config.type,
-                    name: config.name,
-                    emoji: config.emoji,
-                    value: 100000,
-                    changePercent: 0,
-                    gradientColors: config.colors
-                ))
+                print("[DashboardViewModel] Error loading portfolio for type \(config.type): \(error)")
+                // Only add fallback card for Practice/default
+                if config.type == "default" {
+                    cards.append(PortfolioSummary(
+                        id: config.type,
+                        name: config.name,
+                        emoji: config.emoji,
+                        value: 100000,
+                        changePercent: 0,
+                        gradientColors: config.colors
+                    ))
+                }
             }
         }
-        
-        portfolioCards = cards
+        await MainActor.run {
+            portfolioCards = cards
+            print("[DashboardViewModel] Portfolios set: \(portfolioCards.map { $0.name })")
+        }
     }
     
     private func loadTickerStocks() async {
