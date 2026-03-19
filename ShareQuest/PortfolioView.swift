@@ -14,6 +14,7 @@ struct PortfolioView: View {
     @State private var selectedPortfolioType: PortfolioType = .practice
     @State private var showTradeSheet = false
     @State private var selectedHolding: Holding?
+    @State private var availablePortfolios: [PortfolioConfig] = []
     
     var body: some View {
         NavigationStack {
@@ -35,14 +36,14 @@ struct PortfolioView: View {
                     .padding()
                 }
                 .refreshable {
-                    await viewModel.fetchPortfolio(type: selectedPortfolioType)
+                    await reloadPortfolios()
                 }
             }
             .navigationTitle("Portfolio")
             .navigationBarTitleDisplayMode(.inline)
         }
         .task {
-            await viewModel.fetchPortfolio(type: selectedPortfolioType)
+            await reloadPortfolios()
         }
         .onChange(of: selectedPortfolioType) { _, newType in
             Task {
@@ -60,7 +61,8 @@ struct PortfolioView: View {
     private var portfolioTypeSelector: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                ForEach(PortfolioType.allCases, id: \.self) { type in
+                ForEach(availablePortfolios, id: \.type) { config in
+                    let type = PortfolioType(rawValue: config.type) ?? .practice
                     PortfolioTypeButton(
                         type: type,
                         isSelected: selectedPortfolioType == type
@@ -173,6 +175,31 @@ struct PortfolioView: View {
         .padding(.vertical, 40)
         .glassCard()
     }
+    
+    // MARK: - Reload Portfolios
+    private func reloadPortfolios() async {
+        do {
+            let dashboardResponse = try await APIService.shared.fetchDashboard()
+            let portfolios: [PortfolioConfig] = dashboardResponse.data?.portfolios?.filter { $0.isSubscribed } ?? []
+            await MainActor.run {
+                availablePortfolios = portfolios
+                // Default to first available portfolio if current is not available
+                if !portfolios.contains(where: { $0.type == selectedPortfolioType.rawValue }) {
+                    if let first = portfolios.first {
+                        selectedPortfolioType = PortfolioType(rawValue: first.type) ?? .practice
+                    }
+                }
+            }
+            await viewModel.fetchPortfolio(type: selectedPortfolioType)
+        } catch {
+            // fallback: show only practice
+            await MainActor.run {
+                availablePortfolios = [PortfolioConfig(type: "default", label: "Practice", emoji: "🎯", color: "#3B82F6", isSubscribed: true)]
+                selectedPortfolioType = .practice
+            }
+            await viewModel.fetchPortfolio(type: .practice)
+        }
+    }
 }
 
 // MARK: - Portfolio Type Button
@@ -212,10 +239,10 @@ struct HoldingRowView: View {
             HStack {
                 // Stock Info
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(holding.symbol)
+                    Text(holding.companyName)
                         .font(.headline)
                         .foregroundColor(Theme.textPrimary)
-                    Text(holding.companyName)
+                    Text(holding.symbol)
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
                         .lineLimit(1)
@@ -406,13 +433,14 @@ class PortfolioViewModel: ObservableObject {
     @Published var holdings: [Holding] = []
     @Published var cashBalance: Double = 0
     @Published var initialBalance: Double = 100000
+    @Published var totalPortfolioValue: Double = 0
     @Published var isLoading = false
     @Published var errorMessage: String?
     
     private let apiService = APIService.shared
     
     var totalValue: Double {
-        cashBalance + holdings.reduce(0) { $0 + $1.value }
+        totalPortfolioValue
     }
     
     var holdingsValue: Double {
@@ -450,18 +478,26 @@ class PortfolioViewModel: ObservableObject {
             if let portfolio = response.portfolio {
                 cashBalance = portfolio.cashBalanceValue
                 initialBalance = portfolio.initialBalanceValue
+                totalPortfolioValue = portfolio.totalPortfolioValue
             }
             
             if let holdingsData = response.holdings {
                 holdings = holdingsData.map { h in
-                    Holding(
+                    let pricePence = h.mid ?? h.mid_price ?? h.current_price
+                    return Holding(
                         id: h.symbol,
                         symbol: h.symbol,
                         companyName: h.displayName,
                         quantity: h.quantity,
                         averagePrice: h.average_price / 100, // Convert pence to pounds
-                        currentPrice: h.current_price / 100
+                        currentPrice: pricePence / 100
                     )
+                }
+                // Debug logging: print holdings data
+                print("[PortfolioViewModel] Holdings loaded:")
+                for h in holdingsData {
+                    let pricePence = h.mid ?? h.mid_price ?? h.current_price
+                    print("\(h.symbol): qty=\(h.quantity), avg=\(h.average_price), price=\(pricePence), value=\(Double(h.quantity) * pricePence / 100)")
                 }
             }
             
