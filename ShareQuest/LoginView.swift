@@ -7,13 +7,15 @@
 
 import SwiftUI
 import Combine
+import AuthenticationServices
+import WebKit
 
 /// Login screen - ported from React Native login.tsx and manual-signin.tsx
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var showManualSignIn = false
     @State private var showRegister = false
-    
+
     var body: some View {
         ZStack {
             // Background gradient
@@ -45,26 +47,8 @@ struct LoginView: View {
                     // Login Card
                     VStack(spacing: 20) {
                         // Social Login Buttons
-                        VStack(spacing: 12) {
-                            SocialLoginButton(
-                                icon: "apple.logo",
-                                title: "Continue with Apple",
-                                backgroundColor: .white,
-                                foregroundColor: .black
-                            ) {
-                                // Apple Sign In
-                            }
-                            
-                            SocialLoginButton(
-                                icon: "g.circle.fill",
-                                title: "Continue with Google",
-                                backgroundColor: .white,
-                                foregroundColor: .black
-                            ) {
-                                // Google Sign In
-                            }
-                        }
-                        
+                        SocialAuthButtons()
+
                         // Divider
                         HStack {
                             Rectangle()
@@ -77,7 +61,7 @@ struct LoginView: View {
                                 .fill(Theme.glassBorder)
                                 .frame(height: 1)
                         }
-                        
+
                         // Manual Sign In Button
                         Button(action: { showManualSignIn = true }) {
                             Text("Sign in with Email")
@@ -88,7 +72,7 @@ struct LoginView: View {
                                 .background(Theme.primaryBlue)
                                 .cornerRadius(12)
                         }
-                        
+
                         // Register Link
                         Button(action: { showRegister = true }) {
                             HStack(spacing: 0) {
@@ -123,31 +107,112 @@ struct LoginView: View {
     }
 }
 
-// MARK: - Social Login Button
+// MARK: - Social Auth Buttons (Apple + Google + Facebook + LinkedIn)
+
+struct SocialAuthButtons: View {
+    @EnvironmentObject var authManager: AuthManager
+
+    var body: some View {
+        VStack(spacing: 10) {
+            // Apple Sign In (native)
+            SignInWithAppleButton(.continue) { request in
+                request.requestedScopes = [.fullName, .email]
+            } onCompletion: { result in
+                Task { await handleApple(result) }
+            }
+            .signInWithAppleButtonStyle(.white)
+            .frame(height: 50)
+            .cornerRadius(12)
+
+            // Google
+            SocialLoginButton(provider: "google", icon: "g.circle.fill", title: "Continue with Google",
+                              bg: .white, fg: .black)
+            // Facebook
+            SocialLoginButton(provider: "facebook", icon: "f.circle.fill", title: "Continue with Facebook",
+                              bg: Color(red: 0.23, green: 0.35, blue: 0.60), fg: .white)
+            // LinkedIn
+            SocialLoginButton(provider: "linkedin", icon: "network", title: "Continue with LinkedIn",
+                              bg: Color(red: 0.0, green: 0.47, blue: 0.71), fg: .white)
+        }
+    }
+
+    private func handleApple(_ result: Result<ASAuthorization, Error>) async {
+        switch result {
+        case .success(let auth):
+            guard let cred = auth.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData = cred.identityToken,
+                  let token = String(data: tokenData, encoding: .utf8) else {
+                authManager.errorMessage = "Apple Sign In failed: missing credentials"
+                return
+            }
+            let email = cred.email
+            let firstName = cred.fullName?.givenName
+            let lastName = cred.fullName?.familyName
+            _ = await authManager.signInWithApple(
+                identityToken: token, email: email,
+                firstName: firstName, lastName: lastName,
+                appleUserId: cred.user
+            )
+        case .failure(let error):
+            if (error as NSError).code != ASAuthorizationError.canceled.rawValue {
+                authManager.errorMessage = error.localizedDescription
+            }
+        }
+    }
+}
+
+// MARK: - Web OAuth Button (Google / Facebook / LinkedIn)
 
 struct SocialLoginButton: View {
+    let provider: String
     let icon: String
     let title: String
-    let backgroundColor: Color
-    let foregroundColor: Color
-    let action: () -> Void
-    
+    let bg: Color
+    let fg: Color
+
+    @EnvironmentObject var authManager: AuthManager
+    @State private var session: ASWebAuthenticationSession?
+
     var body: some View {
-        Button(action: action) {
+        Button { startOAuth() } label: {
             HStack(spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 20))
                 Text(title)
                     .font(.headline)
             }
-            .foregroundColor(foregroundColor)
+            .foregroundColor(fg)
             .frame(maxWidth: .infinity)
             .padding()
-            .background(backgroundColor)
+            .background(bg)
             .cornerRadius(12)
         }
     }
+
+    private func startOAuth() {
+        let baseURL = "https://sharequest.co.uk"
+        guard let url = URL(string: "\(baseURL)/api/mobile/auth/oauth-start?provider=\(provider)") else { return }
+        authManager.isLoading = true
+        authManager.errorMessage = nil
+
+        let s = ASWebAuthenticationSession(url: url, callbackURLScheme: "sharequest") { callbackURL, error in
+            DispatchQueue.main.async {
+                if let callbackURL {
+                    _ = authManager.handleOAuthCallback(url: callbackURL)
+                } else {
+                    authManager.isLoading = false
+                    if let error, (error as NSError).code != 1 { // 1 = canceledLogin
+                        authManager.errorMessage = error.localizedDescription
+                    }
+                }
+            }
+        }
+        s.prefersEphemeralWebBrowserSession = false
+        session = s
+        s.start()
+    }
 }
+
 
 // MARK: - Manual Sign In View
 
@@ -444,25 +509,7 @@ struct RegisterView: View {
                     // Main Card
                     VStack(spacing: 20) {
                         // Social Login Buttons
-                        VStack(spacing: 12) {
-                            SocialLoginButton(
-                                icon: "apple.logo",
-                                title: "Continue with Apple",
-                                backgroundColor: .white,
-                                foregroundColor: .black
-                            ) {
-                                // Apple Sign Up
-                            }
-                            
-                            SocialLoginButton(
-                                icon: "g.circle.fill",
-                                title: "Continue with Google",
-                                backgroundColor: .white,
-                                foregroundColor: .black
-                            ) {
-                                // Google Sign Up
-                            }
-                        }
+                        SocialAuthButtons()
                         
                         // Error Message
                         if let error = authManager.errorMessage {

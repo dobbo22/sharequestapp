@@ -170,6 +170,47 @@ final class APIService: @unchecked Sendable {
         UserDefaults.standard.removeObject(forKey: "user_id")
     }
     
+    /// Public alias used by AuthManager OAuth flow
+    func saveToken(_ token: String) { setAuthToken(token) }
+
+    struct OAuthTokenResult {
+        let token: String
+        let userId: String
+        let username: String
+        let email: String
+        let firstName: String?
+        let lastName: String?
+    }
+
+    func signInWithApple(identityToken: String, email: String?, firstName: String?, lastName: String?, appleUserId: String) async throws -> OAuthTokenResult {
+        let url = try buildURL(path: "/mobile/auth/apple", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = ["identityToken": identityToken, "appleUserId": appleUserId]
+        if let email    { body["email"]     = email }
+        if let firstName { body["firstName"] = firstName }
+        if let lastName  { body["lastName"]  = lastName }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let d = json["data"] as? [String: Any],
+              let token = d["token"] as? String,
+              let user = d["user"] as? [String: Any] else {
+            throw APIError.decodingError("Invalid Apple sign-in response")
+        }
+        setAuthToken(token)
+        let uid = user["id"] as? String ?? ""
+        setUserId(uid)
+        return OAuthTokenResult(
+            token: token, userId: uid,
+            username: user["username"] as? String ?? "",
+            email: user["email"] as? String ?? "",
+            firstName: user["first_name"] as? String,
+            lastName: user["last_name"] as? String
+        )
+    }
+
     var isAuthenticated: Bool {
         return authToken?.isEmpty == false
     }
@@ -930,24 +971,164 @@ final class APIService: @unchecked Sendable {
         }
     }
     
+    /// Fetch all top-level sectors  GET /stocks/sectors
+    func fetchSectors() async throws -> [SectorItem] {
+        let url = try buildURL(path: "/stocks/sectors", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw APIError.decodingError("Bad JSON") }
+        let payload = (json["data"] as? [String: Any]) ?? json
+        let raw = payload["sectors"] as? [[String: Any]] ?? []
+        return raw.compactMap { d -> SectorItem? in
+            guard let s = d["sector"] as? String else { return nil }
+            let count = (d["stock_count"] as? Int) ?? (d["count"] as? Int) ?? 0
+            return SectorItem(sector: s, count: count, stock_count: count)
+        }
+    }
+
+    /// Fetch subsectors for a sector  GET /stocks/sectors?sector=...
+    func fetchSubsectors(sector: String) async throws -> [SubsectorItem] {
+        let encoded = sector.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? sector
+        let url = try buildURL(path: "/stocks/sectors?sector=\(encoded)", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw APIError.decodingError("Bad JSON") }
+        let payload = (json["data"] as? [String: Any]) ?? json
+        let raw = payload["subsectors"] as? [[String: Any]] ?? []
+        return raw.compactMap { d -> SubsectorItem? in
+            guard let name = d["subsector"] as? String else { return nil }
+            let count = (d["stock_count"] as? Int) ?? (d["count"] as? Int) ?? 0
+            let stocksRaw = d["stocks"] as? [[String: Any]] ?? []
+            let stocks = stocksRaw.compactMap { s -> SubsectorStock? in
+                guard let sym = s["symbol"] as? String else { return nil }
+                return SubsectorStock(symbol: sym, companyname: s["companyname"] as? String, listing_id: s["listing_id"] as? String)
+            }
+            return SubsectorItem(subsector: name, count: count, stock_count: count, stocks: stocks)
+        }
+    }
+
+    /// Batch stock prices  POST /mobile/stocks/batch-prices
+    func fetchBatchPrices(symbols: [String]) async throws -> [String: BatchPriceData] {
+        let url = try buildURL(path: "/mobile/stocks/batch-prices", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addHeaders(to: &request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["symbols": symbols])
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
+        let payload = (json["data"] as? [String: Any]) ?? json
+        var result: [String: BatchPriceData] = [:]
+        for (symbol, value) in payload {
+            guard let d = value as? [String: Any] else { continue }
+            let price = (d["price"] as? Double) ?? (d["current_price"] as? Double)
+            let change = (d["change"] as? Double) ?? (d["change_amount"] as? Double)
+            let changePct = (d["changePercent"] as? Double) ?? (d["change_percent"] as? Double)
+            result[symbol] = BatchPriceData(price: price, change: change, changePercent: changePct)
+        }
+        return result
+    }
+
+    /// Fetch trading window status (market open / after-hours / pre-market / weekend)
+    func fetchTradingWindow() async throws -> TradingWindowData {
+        let url = try buildURL(path: "/mobile/trading-window", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        let resp = try decoder.decode(TradingWindowResponse.self, from: data)
+        guard let window = resp.data?.tradingWindow else {
+            // Default to market open if response shape is unexpected
+            return TradingWindowData(type: "market_open", canTradeImmediately: true, canCreatePendingOrder: false, executionPrice: "live", message: "Market is open.")
+        }
+        return window
+    }
+
+    /// Execute a trade via the mobile trade endpoint (POST /mobile/trade)
+    func executeMobileTrade(portfolioType: String, symbol: String, companyName: String, action: String, quantity: Int, price: Double) async throws -> MobileTradeResponse {
+        let url = try buildURL(path: "/mobile/trade", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addHeaders(to: &request)
+        let body: [String: Any] = [
+            "symbol": symbol,
+            "quantity": quantity,
+            "price": price,
+            "action": action,
+            "portfolioType": portfolioType,
+            "companyName": companyName
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let data = try await performRequest(request)
+        do {
+            return try decoder.decode(MobileTradeResponse.self, from: data)
+        } catch {
+            throw APIError.decodingError(error.localizedDescription)
+        }
+    }
+
     // MARK: - Leaderboard (from main ShareQuest API)
     
     /// Fetch leaderboard
     func fetchLeaderboard(type: String) async throws -> LeaderboardResponse {
-        let url = try buildURL(path: "/mobile/leaderboards/\(type)", base: APIConfig.mainAppURL)
+        // Use correct endpoint: /api/leaderboards/{type}
+        let url = try buildURL(path: "/leaderboards/\(type)", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
-        
+
         let data = try await performRequest(request)
-        
+
         do {
             return try decoder.decode(LeaderboardResponse.self, from: data)
         } catch {
             throw APIError.decodingError(error.localizedDescription)
         }
     }
-    
+
+    /// Fetch a specific user's portfolio for a leaderboard competition
+    func fetchLeaderboardUserPortfolio(type: String, userId: String) async throws -> LeaderboardUserPortfolio {
+        let encodedId = userId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? userId
+        let url = try buildURL(path: "/mobile/leaderboard/\(type)/user/\(encodedId)", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+
+        let data = try await performRequest(request)
+
+        // Parse flexible shape
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.decodingError("Invalid JSON")
+        }
+        let payload = (json["data"] as? [String: Any]) ?? json
+        let cashBalance = (payload["cash_balance"] as? Double) ?? 0
+        let rank = payload["rank"] as? Int
+
+        var holdings: [LeaderboardUserPortfolio.Holding] = []
+        if let raw = payload["holdings"] as? [[String: Any]] {
+            holdings = raw.compactMap { h in
+                guard let symbol = h["symbol"] as? String else { return nil }
+                let qty = (h["quantity"] as? Double) ?? (h["quantity"] as? Int).map(Double.init) ?? 0
+                let avgPrice = (h["average_price"] as? Double) ?? (h["avg_price"] as? Double) ?? 0
+                let curPrice = (h["current_price"] as? Double) ?? (h["mid_price"] as? Double) ?? (h["mid"] as? Double) ?? 0
+                let name = (h["company_name"] as? String) ?? (h["name"] as? String)
+                return LeaderboardUserPortfolio.Holding(
+                    symbol: symbol,
+                    companyName: name,
+                    quantity: qty,
+                    averagePrice: avgPrice,
+                    currentPrice: curPrice
+                )
+            }
+        }
+        return LeaderboardUserPortfolio(rank: rank, cashBalance: cashBalance, holdings: holdings)
+    }
+
     // MARK: - User Authentication (from main ShareQuest API)
     
     /// Login user
@@ -1099,6 +1280,41 @@ final class APIService: @unchecked Sendable {
             let xp_to_next_level: Int?
             let recentXP: [XPActivity]?
             let recent_xp: [XPActivity]?
+            let currentStreak: Int?
+            let current_streak: Int?
+            let longestStreak: Int?
+            let longest_streak: Int?
+            // Each element may be a bare AchievementData or wrapped as { achievement: {...}, unlocked, unlocked_at }
+            let achievements: [AchievementWrapper]?
+
+            var flatAchievements: [AchievementData] {
+                achievements?.map { $0.resolved } ?? []
+            }
+        }
+        // Wrapper handles both { achievement: { id, name, ... }, unlocked, unlocked_at } and direct AchievementData
+        struct AchievementWrapper: Codable {
+            let achievement: AchievementData?
+            // direct fields present when not wrapped
+            let id: Int?
+            let name: String?
+            let unlocked: Bool?
+            let unlocked_at: String?
+
+            var resolved: AchievementData {
+                if let a = achievement {
+                    // Merge unlocked status from the outer wrapper if the inner object didn't have it
+                    if a.unlocked == nil, let u = unlocked {
+                        return AchievementData(copying: a, unlocked: u, unlocked_at: unlocked_at)
+                    }
+                    return a
+                }
+                // Already a flat AchievementData shape — re-encode and decode
+                if let encoded = try? JSONEncoder().encode(self),
+                   let decoded = try? JSONDecoder().decode(AchievementData.self, from: encoded) {
+                    return decoded
+                }
+                return AchievementData(id: id, name: name, unlocked: unlocked, unlocked_at: unlocked_at)
+            }
         }
     }
 
@@ -1121,7 +1337,6 @@ final class APIService: @unchecked Sendable {
         addHeaders(to: &request)
         let data = try await performRequest(request)
         if let decoded = try? decoder.decode(GamificationProfileAPIResponse.self, from: data), let d = decoded.data {
-            // Map to old GamificationProfileResponse for compatibility
             return GamificationProfileResponse(
                 success: decoded.success,
                 totalXP: d.totalXP,
@@ -1135,7 +1350,10 @@ final class APIService: @unchecked Sendable {
                 xpToNextLevel: d.xpToNextLevel,
                 xp_to_next_level: d.xp_to_next_level,
                 recentXP: d.recentXP,
-                recent_xp: d.recent_xp
+                recent_xp: d.recent_xp,
+                currentStreak: d.currentStreak ?? d.current_streak,
+                longestStreak: d.longestStreak ?? d.longest_streak,
+                achievements: d.flatAchievements
             )
         }
         // fallback to old decoding for legacy/local
@@ -1169,12 +1387,140 @@ final class APIService: @unchecked Sendable {
     // MARK: - User Subscriptions
     /// Fetch user subscriptions (weekly, monthly, etc.)
     func fetchUserSubscriptions() async throws -> UserSubscriptionsResponse? {
-        let url = try buildURL(path: "/mobile/user/subscriptions", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/mobile/subscriptions", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
         let data = try await performRequest(request)
-        return try? decoder.decode(UserSubscriptionsResponse.self, from: data)
+        // Always unwrap envelope — direct decode would succeed with all-nil since fields are optional
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            // API returns { success, subscriptions: { weekly, monthly, annual } }
+            // Fall back to data or top-level for other shapes
+            let payload = (json["subscriptions"] as? [String: Any])
+                       ?? (json["data"] as? [String: Any])
+                       ?? json
+            let payloadData = try JSONSerialization.data(withJSONObject: payload)
+            if let decoded = try? decoder.decode(UserSubscriptionsResponse.self, from: payloadData),
+               decoded.weekly != nil || decoded.monthly != nil || decoded.annual != nil {
+                return decoded
+            }
+        }
+        return nil
+    }
+
+    /// Fetch competition options for a subscription plan
+    func fetchSubscriptionOptions(plan: String) async throws -> SubscriptionOptionsResponse {
+        let url = try buildURL(path: "/subscriptions/options?plan=\(plan)", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        if let decoded = try? decoder.decode(SubscriptionOptionsResponse.self, from: data) { return decoded }
+        return SubscriptionOptionsResponse(current: nil, next: nil, plan: plan)
+    }
+
+    /// Fetch all active subscription details (for manage screen)
+    func fetchActiveSubscriptions() async throws -> [ActiveSubscription] {
+        let url = try buildURL(path: "/subscriptions", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let payload = (json["data"] as? [String: Any]) ?? json
+            if let arr = payload["subscriptions"] as? [[String: Any]] {
+                let arrData = try JSONSerialization.data(withJSONObject: arr)
+                return (try? decoder.decode([ActiveSubscription].self, from: arrData)) ?? []
+            }
+        }
+        return (try? decoder.decode([ActiveSubscription].self, from: data)) ?? []
+    }
+
+    /// Create a Revolut payment order
+    func createRevolutOrder(plan: String, amount: Int, competitionChoice: String) async throws -> RevolutOrderResponse {
+        let url = try buildURL(path: "/payments/create-revolut-order", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addHeaders(to: &request)
+        let body: [String: Any] = ["plan": plan, "amount": amount, "competitionChoice": competitionChoice]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let data = try await performRequest(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let payload = (json["data"] as? [String: Any]) ?? json
+            let publicId = payload["publicId"] as? String ?? payload["public_id"] as? String ?? ""
+            let checkoutUrl = payload["checkoutUrl"] as? String ?? payload["checkout_url"] as? String ?? ""
+            return RevolutOrderResponse(publicId: publicId, checkoutUrl: checkoutUrl)
+        }
+        throw APIError.decodingError("Invalid Revolut order response")
+    }
+
+    /// Verify payment status for a plan
+    func verifyPaymentStatus(plan: String) async throws -> PaymentVerifyResponse {
+        let url = try buildURL(path: "/payments/verify-status?plan=\(plan)", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let payload = (json["data"] as? [String: Any]) ?? json
+            let paid = payload["paid"] as? Bool ?? payload["success"] as? Bool ?? false
+            let status = payload["status"] as? String ?? (paid ? "paid" : "pending")
+            return PaymentVerifyResponse(paid: paid, status: status)
+        }
+        return PaymentVerifyResponse(paid: false, status: "unknown")
+    }
+
+    /// Activate a subscription after successful payment
+    func activateSubscription(plan: String, choice: String) async throws {
+        let url = try buildURL(path: "/subscriptions/activate", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addHeaders(to: &request)
+        let body: [String: Any] = ["plan": plan, "choice": choice]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        _ = try await performRequest(request)
+    }
+
+    /// Cancel a subscription
+    func cancelSubscription(plan: String) async throws {
+        let url = try buildURL(path: "/subscriptions/cancel", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addHeaders(to: &request)
+        let body: [String: Any] = ["plan": plan]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        _ = try await performRequest(request)
+    }
+
+    /// Fetch auto-renew settings
+    func fetchAutoRenewSettings() async throws -> AutoRenewSettings {
+        let url = try buildURL(path: "/subscriptions/auto-renew", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        if let decoded = try? decoder.decode(AutoRenewSettings.self, from: data) { return decoded }
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let payload = (json["data"] as? [String: Any]) ?? json
+            let payloadData = try JSONSerialization.data(withJSONObject: payload)
+            if let decoded = try? decoder.decode(AutoRenewSettings.self, from: payloadData) { return decoded }
+        }
+        return AutoRenewSettings(weekly: false, monthly: false, annual: false)
+    }
+
+    /// Update auto-renew for a plan
+    func updateAutoRenew(plan: String, enabled: Bool) async throws {
+        let url = try buildURL(path: "/subscriptions/auto-renew", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addHeaders(to: &request)
+        let body: [String: Any] = ["plan": plan, "autoRenew": enabled]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        _ = try await performRequest(request)
     }
 
     // MARK: - Helpers
@@ -1237,6 +1583,172 @@ final class APIService: @unchecked Sendable {
         addHeaders(to: &request)
         let data = try await performRequest(request)
         return try decoder.decode(DailyLoginResponse.self, from: data)
+    }
+
+    /// Fetch user's leagues count
+    func fetchLeaguesCount() async -> Int {
+        guard let url = try? buildURL(path: "/mobile/leagues", base: APIConfig.mainAppURL) else { return 0 }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        guard let data = try? await performRequest(request),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return 0 }
+        let payload = (json["data"] as? [String: Any]) ?? json
+        let leagues = payload["myLeagues"] as? [Any] ?? payload["leagues"] as? [Any] ?? []
+        return leagues.count
+    }
+
+    /// Fetch public leagues (discover tab / subscriptions page)
+    func fetchPublicLeagues() async throws -> [League] {
+        // Public/discover leagues are returned from the same /mobile/leagues endpoint
+        // under the "discoverLeagues" key
+        let url = try buildURL(path: "/mobile/leagues", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let payload = (json["data"] as? [String: Any]) ?? json
+            let arr = payload["discoverLeagues"] as? [[String: Any]]
+                   ?? payload["publicLeagues"] as? [[String: Any]]
+                   ?? []
+            if arr.isEmpty { return [] }
+            let arrData = try JSONSerialization.data(withJSONObject: arr)
+            return (try? decoder.decode([League].self, from: arrData)) ?? []
+        }
+        return []
+    }
+
+    /// Fetch user's leagues list
+    func fetchUserLeagues() async throws -> [League] {
+        let url = try buildURL(path: "/mobile/leagues", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        // Response may be array directly or wrapped in data.myLeagues
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let payload = (json["data"] as? [String: Any]) ?? json
+            // Try to extract array from myLeagues or leagues key
+            if let arr = payload["myLeagues"] as? [[String: Any]] ?? payload["leagues"] as? [[String: Any]] {
+                let arrData = try JSONSerialization.data(withJSONObject: arr)
+                return try decoder.decode([League].self, from: arrData)
+            }
+            // Maybe data itself is the array
+            if let arr = json["data"] as? [[String: Any]] {
+                let arrData = try JSONSerialization.data(withJSONObject: arr)
+                return try decoder.decode([League].self, from: arrData)
+            }
+        }
+        // Try decoding as array directly
+        return (try? decoder.decode([League].self, from: data)) ?? []
+    }
+
+    /// Fetch league members/leaderboard
+    func fetchLeagueMembers(leagueId: String) async throws -> [LeagueMember] {
+        let url = try buildURL(path: "/mobile/leagues/\(leagueId)/members", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let payload = (json["data"] as? [String: Any]) ?? json
+            if let arr = payload["members"] as? [[String: Any]] {
+                let arrData = try JSONSerialization.data(withJSONObject: arr)
+                return try decoder.decode([LeagueMember].self, from: arrData)
+            }
+            if let arr = json["data"] as? [[String: Any]] {
+                let arrData = try JSONSerialization.data(withJSONObject: arr)
+                return try decoder.decode([LeagueMember].self, from: arrData)
+            }
+        }
+        return (try? decoder.decode([LeagueMember].self, from: data)) ?? []
+    }
+
+    /// Create a new league
+    struct CreateLeagueResult {
+        let id: String
+        let name: String
+        let code: String
+        let entryFeePence: Int
+        let requiresPayment: Bool
+    }
+
+    func createLeague(name: String, description: String, isPrivate: Bool, competitionType: String, endDate: Date? = nil) async throws -> CreateLeagueResult {
+        let url = try buildURL(path: "/mobile/leagues", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        addHeaders(to: &request)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = [
+            "name": name,
+            "description": description,
+            "is_private": isPrivate,
+            "competitionType": competitionType
+        ]
+        if let endDate {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime]
+            body["endDate"] = formatter.string(from: endDate)
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataObj = json["data"] as? [String: Any],
+              let id = dataObj["id"] as? String else {
+            throw APIError.decodingError("Failed to decode create league response")
+        }
+        return CreateLeagueResult(
+            id: id,
+            name: dataObj["name"] as? String ?? name,
+            code: dataObj["code"] as? String ?? "",
+            entryFeePence: dataObj["entryFeePence"] as? Int ?? 0,
+            requiresPayment: dataObj["requiresPayment"] as? Bool ?? false
+        )
+    }
+
+    struct LeaguePaymentResult {
+        let checkoutUrl: String
+        let amountFormatted: String
+        let leagueName: String
+    }
+
+    func createLeaguePayment(leagueId: String) async throws -> LeaguePaymentResult {
+        let url = try buildURL(path: "/mobile/leagues/\(leagueId)/payment", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataObj = json["data"] as? [String: Any],
+              let checkoutUrl = dataObj["checkoutUrl"] as? String else {
+            throw APIError.decodingError("Failed to decode payment response")
+        }
+        return LeaguePaymentResult(
+            checkoutUrl: checkoutUrl,
+            amountFormatted: dataObj["amountFormatted"] as? String ?? "",
+            leagueName: dataObj["leagueName"] as? String ?? ""
+        )
+    }
+
+    func checkLeaguePaymentStatus(leagueId: String) async throws -> Bool {
+        let url = try buildURL(path: "/mobile/leagues/\(leagueId)/status", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataObj = json["data"] as? [String: Any] else { return false }
+        return dataObj["isPaid"] as? Bool ?? false
+    }
+
+    /// Join a league by code
+    func joinLeagueByCode(code: String) async throws {
+        let url = try buildURL(path: "/mobile/leagues/join/\(code)", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        addHeaders(to: &request)
+        _ = try await performRequest(request)
     }
 
     // MARK: - Daily Challenges
@@ -1731,7 +2243,7 @@ struct TradeResponse: Codable {
     let trade: TradeData?
     let message: String?
     let error: String?
-    
+
     struct TradeData: Codable {
         let id: String
         let symbol: String
@@ -1741,6 +2253,73 @@ struct TradeResponse: Codable {
         let total_value: Double
         let timestamp: String?
     }
+}
+
+// MARK: - Sectors
+
+struct SectorItem: Codable, Identifiable {
+    var id: String { sector }
+    let sector: String
+    let count: Int?
+    let stock_count: Int?
+    var stockCount: Int { stock_count ?? count ?? 0 }
+}
+
+struct SubsectorItem: Codable, Identifiable {
+    var id: String { subsector }
+    let subsector: String
+    let count: Int?
+    let stock_count: Int?
+    let stocks: [SubsectorStock]?
+    var stockCount: Int { stock_count ?? count ?? stocks?.count ?? 0 }
+}
+
+struct SubsectorStock: Codable {
+    let symbol: String
+    let companyname: String?
+    let listing_id: String?
+}
+
+struct BatchPriceData {
+    let price: Double?
+    let change: Double?
+    let changePercent: Double?
+}
+
+// MARK: - Mobile Trade (POST /mobile/trade)
+struct MobileTradeResponse: Codable {
+    let success: Bool
+    let data: MobileTradeData?
+    let error: String?
+    let message: String?
+}
+
+struct MobileTradeData: Codable {
+    let isPendingOrder: Bool?
+    let message: String?
+    let isAfterHours: Bool?
+    let error: String?
+}
+
+// MARK: - Trading Window
+struct TradingWindowResponse: Codable {
+    let success: Bool?
+    let data: Wrapper?
+    struct Wrapper: Codable {
+        let tradingWindow: TradingWindowData?
+    }
+}
+
+struct TradingWindowData: Codable {
+    let type: String          // "market_open" | "after_hours" | "pre_market" | "weekend_holiday"
+    let canTradeImmediately: Bool?
+    let canCreatePendingOrder: Bool?
+    let executionPrice: String?
+    let message: String?
+
+    var isMarketOpen: Bool { type == "market_open" }
+    var isAfterHours: Bool { type == "after_hours" }
+    var isPreMarket: Bool { type == "pre_market" || type == "weekend_holiday" }
 }
 
 struct LeaderboardResponse: Codable {
@@ -1755,19 +2334,14 @@ struct LeaderboardResponse: Codable {
         let user_id: String?
         let username: String?
         let total_portfolio_value: Double?
+        let total_assets: Double? // <-- Add this
         let profit_loss: Double?
         let profit_loss_percent: Double?
         let cash_balance: Double?
         
+        // Raw value in pence — callers divide by 100 to get pounds
         var displayValue: Double {
-            // Values may be in pence
-            let value = total_portfolio_value ?? 0
-            return value > 100000 ? value / 100 : value
-        }
-        
-        var displayProfitLoss: Double {
-            let pl = profit_loss ?? 0
-            return pl > 10000 ? pl / 100 : pl
+            total_assets ?? total_portfolio_value ?? 0
         }
     }
     
@@ -1776,8 +2350,53 @@ struct LeaderboardResponse: Codable {
         let start_date: String?
         let end_date: String?
         let prize_pool: Double?
+        // time_remaining comes as a number (seconds) or string from the API
         let time_remaining: String?
+
+        enum CodingKeys: String, CodingKey {
+            case status, start_date, end_date, prize_pool, time_remaining
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            status    = try c.decodeIfPresent(String.self, forKey: .status)
+            start_date = try c.decodeIfPresent(String.self, forKey: .start_date)
+            end_date   = try c.decodeIfPresent(String.self, forKey: .end_date)
+            // prize_pool may arrive as Int or Double
+            if let d = try? c.decodeIfPresent(Double.self, forKey: .prize_pool) {
+                prize_pool = d
+            } else if let i = try? c.decodeIfPresent(Int.self, forKey: .prize_pool) {
+                prize_pool = Double(i)
+            } else {
+                prize_pool = nil
+            }
+            // time_remaining may arrive as a number (seconds) or string
+            if let s = try? c.decodeIfPresent(String.self, forKey: .time_remaining) {
+                time_remaining = s
+            } else if let n = try? c.decodeIfPresent(Double.self, forKey: .time_remaining) {
+                time_remaining = String(n)
+            } else if let n = try? c.decodeIfPresent(Int.self, forKey: .time_remaining) {
+                time_remaining = String(n)
+            } else {
+                time_remaining = nil
+            }
+        }
     }
+}
+
+// MARK: - Leaderboard User Portfolio
+
+struct LeaderboardUserPortfolio {
+    let rank: Int?
+    let cashBalance: Double
+    struct Holding {
+        let symbol: String
+        let companyName: String?
+        let quantity: Double
+        let averagePrice: Double
+        let currentPrice: Double
+    }
+    let holdings: [Holding]
 }
 
 struct AuthResponse: Codable {
@@ -1899,13 +2518,18 @@ struct GamificationProfileResponse: Codable {
     let xp_to_next_level: Int?
     let recentXP: [XPActivity]?
     let recent_xp: [XPActivity]?
-    
+    let currentStreak: Int?
+    let longestStreak: Int?
+    let achievements: [AchievementData]?
+
     var xp: Int { totalXP ?? total_xp ?? 0 }
     var playerLevel: Int { level ?? player_level ?? 1 }
     var playerLevelName: String { levelName ?? level_name ?? "Rookie" }
     var xpForNextLevel: Int { nextLevelXP ?? next_level_xp ?? 100 }
     var xpNeeded: Int { xpToNextLevel ?? xp_to_next_level ?? 100 }
     var xpActivities: [XPActivity] { recentXP ?? recent_xp ?? [] }
+    var streak: Int { currentStreak ?? 0 }
+    var bestStreak: Int { longestStreak ?? 0 }
 }
 
 struct XPActivity: Codable, Identifiable {
@@ -1974,7 +2598,7 @@ struct AchievementsResponse: Codable {
 }
 
 struct AchievementData: Codable, Identifiable {
-    let id: String?
+    let _id: String?
     let achievement_id: String?
     let name: String?
     let title: String?
@@ -1985,8 +2609,56 @@ struct AchievementData: Codable, Identifiable {
     let xpReward: Int?
     let unlocked: Bool?
     let unlocked_at: String?
-    
-    var achievementId: String { id ?? achievement_id ?? UUID().uuidString }
+
+    enum CodingKeys: String, CodingKey {
+        case _id = "id"
+        case achievement_id, name, title, description, icon, emoji
+        case xp_reward, xpReward, unlocked, unlocked_at
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // "id" may be a string or an integer — handle both
+        if let s = try? c.decodeIfPresent(String.self, forKey: ._id) {
+            _id = s
+        } else if let n = try? c.decodeIfPresent(Int.self, forKey: ._id) {
+            _id = String(n)
+        } else {
+            _id = nil
+        }
+        achievement_id = try? c.decodeIfPresent(String.self, forKey: .achievement_id)
+        name        = try? c.decodeIfPresent(String.self, forKey: .name)
+        title       = try? c.decodeIfPresent(String.self, forKey: .title)
+        description = try? c.decodeIfPresent(String.self, forKey: .description)
+        icon        = try? c.decodeIfPresent(String.self, forKey: .icon)
+        emoji       = try? c.decodeIfPresent(String.self, forKey: .emoji)
+        xp_reward   = try? c.decodeIfPresent(Int.self, forKey: .xp_reward)
+        xpReward    = try? c.decodeIfPresent(Int.self, forKey: .xpReward)
+        unlocked    = try? c.decodeIfPresent(Bool.self, forKey: .unlocked)
+        unlocked_at = try? c.decodeIfPresent(String.self, forKey: .unlocked_at)
+    }
+
+    /// Stable non-nil id — uses numeric id from JSON (even if stored as string), then achievement_id, then name
+    var id: String { _id ?? achievement_id ?? (name ?? title ?? "unknown") }
+
+    /// Convenience init for programmatic construction (e.g. from AchievementWrapper)
+    init(id: Int? = nil, name: String? = nil, unlocked: Bool? = nil, unlocked_at: String? = nil) {
+        _id = id.map(String.init)
+        achievement_id = nil
+        self.name = name; title = nil; description = nil; icon = nil; emoji = nil
+        xp_reward = nil; xpReward = nil
+        self.unlocked = unlocked; self.unlocked_at = unlocked_at
+    }
+
+    /// Copy with unlocked override
+    init(copying other: AchievementData, unlocked: Bool, unlocked_at: String?) {
+        _id = other._id; achievement_id = other.achievement_id
+        name = other.name; title = other.title; description = other.description
+        icon = other.icon; emoji = other.emoji
+        xp_reward = other.xp_reward; xpReward = other.xpReward
+        self.unlocked = unlocked; self.unlocked_at = unlocked_at ?? other.unlocked_at
+    }
+    var achievementId: String { id }
     var displayName: String { name ?? title ?? "Achievement" }
     var displayIcon: String { emoji ?? icon ?? "🏆" }
     var reward: Int { xp_reward ?? xpReward ?? 0 }
@@ -2077,6 +2749,73 @@ struct StockFundamentals: Decodable {
         self.fiftyTwoWeekLow = fiftyTwoWeekLow
         self.taxonomies = taxonomies
     }
+}
+
+// MARK: - Subscription & Payment Models
+
+struct SubscriptionOptionsResponse: Decodable {
+    let current: CompetitionOption?
+    let next: CompetitionOption?
+    let plan: String?
+}
+
+struct CompetitionOption: Decodable, Identifiable {
+    var id: String { label ?? startDate ?? UUID().uuidString }
+    let label: String?
+    let startDate: String?
+    let endDate: String?
+    let startTimestamp: Double?
+    let endTimestamp: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case label, startDate, endDate, startTimestamp, endTimestamp
+        case start_date, end_date
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        label = try? c.decodeIfPresent(String.self, forKey: .label)
+        startDate = (try? c.decodeIfPresent(String.self, forKey: .startDate)) ?? (try? c.decodeIfPresent(String.self, forKey: .start_date))
+        endDate = (try? c.decodeIfPresent(String.self, forKey: .endDate)) ?? (try? c.decodeIfPresent(String.self, forKey: .end_date))
+        startTimestamp = try? c.decodeIfPresent(Double.self, forKey: .startTimestamp)
+        endTimestamp = try? c.decodeIfPresent(Double.self, forKey: .endTimestamp)
+    }
+}
+
+struct ActiveSubscription: Decodable, Identifiable {
+    var id: String { plan ?? UUID().uuidString }
+    let plan: String?
+    let isActive: Bool?
+    let is_active: Bool?
+    let startDate: String?
+    let start_date: String?
+    let endDate: String?
+    let end_date: String?
+    let autoRenew: Bool?
+    let auto_renew: Bool?
+    let competitionChoice: String?
+
+    var active: Bool { isActive ?? is_active ?? false }
+    var autoRenewEnabled: Bool { autoRenew ?? auto_renew ?? false }
+    var planName: String { plan?.capitalized ?? "Unknown" }
+    var start: String { startDate ?? start_date ?? "" }
+    var end: String { endDate ?? end_date ?? "" }
+}
+
+struct RevolutOrderResponse {
+    let publicId: String
+    let checkoutUrl: String
+}
+
+struct PaymentVerifyResponse {
+    let paid: Bool
+    let status: String
+}
+
+struct AutoRenewSettings: Codable {
+    let weekly: Bool?
+    let monthly: Bool?
+    let annual: Bool?
 }
 
 // Small helper to decode arbitrary JSON values into Swift types for flexible taxonomies

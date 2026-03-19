@@ -11,50 +11,68 @@ import Combine
 /// Portfolio screen - matches React Native portfolio.tsx
 struct PortfolioView: View {
     @StateObject private var viewModel = PortfolioViewModel()
-    @State private var selectedPortfolioType: PortfolioType = .practice
+    @State private var selectedPortfolioType: PortfolioType
     @State private var showTradeSheet = false
     @State private var selectedHolding: Holding?
     @State private var availablePortfolios: [PortfolioConfig] = []
-    
+
+    /// When pushed via NavigationLink from Dashboard, skip the inner NavigationStack
+    var isEmbedded: Bool = false
+
+    init(initialType: PortfolioType = .practice, isEmbedded: Bool = false) {
+        _selectedPortfolioType = State(initialValue: initialType)
+        self.isEmbedded = isEmbedded
+    }
+
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.primaryGradient
-                    .ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Portfolio Type Selector
-                        portfolioTypeSelector
-                        
-                        // Portfolio Summary Card
-                        portfolioSummaryCard
-                        
-                        // Holdings Section
-                        holdingsSection
-                    }
-                    .padding()
-                }
-                .refreshable {
-                    await reloadPortfolios()
+        Group {
+            if isEmbedded {
+                portfolioContent
+            } else {
+                NavigationStack {
+                    portfolioContent
                 }
             }
-            .navigationTitle("Portfolio")
-            .navigationBarTitleDisplayMode(.inline)
         }
         .task {
             await reloadPortfolios()
         }
         .onChange(of: selectedPortfolioType) { _, newType in
-            Task {
-                await viewModel.fetchPortfolio(type: newType)
-            }
+            Task { await viewModel.fetchPortfolio(type: newType) }
         }
         .sheet(isPresented: $showTradeSheet) {
             if let holding = selectedHolding {
-                TradeSheetView(holding: holding)
+                StockTradeSheet(stock: Stock(
+                    id: holding.id,
+                    symbol: holding.symbol,
+                    companyName: holding.companyName,
+                    price: holding.currentPrice,
+                    changeAmount: holding.currentPrice - holding.averagePrice,
+                    changePercent: holding.changePercent,
+                    sector: "",
+                    marketCap: 0.0
+                ))
             }
         }
+    }
+
+    private var portfolioContent: some View {
+        ZStack {
+            Theme.primaryGradient
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 20) {
+                    portfolioTypeSelector
+                    portfolioSummaryCard
+                    holdingsSection
+                }
+                .padding()
+            }
+            .refreshable { await reloadPortfolios() }
+        }
+        .navigationTitle("Portfolio")
+        .navigationBarTitleDisplayMode(.inline)
     }
     
     // MARK: - Portfolio Type Selector
@@ -88,12 +106,7 @@ struct PortfolioView: View {
             }
             
             // Change
-            HStack(spacing: 8) {
-                Image(systemName: viewModel.totalChange >= 0 ? "arrow.up.right" : "arrow.down.right")
-                Text(viewModel.formattedChange)
-            }
-            .font(.headline)
-            .foregroundColor(viewModel.totalChange >= 0 ? Theme.accentGreen : Theme.accentRed)
+            ChangePill(percent: viewModel.totalChange)
             
             Divider()
                 .background(Theme.glassBorder)
@@ -242,10 +255,16 @@ struct HoldingRowView: View {
                     Text(holding.companyName)
                         .font(.headline)
                         .foregroundColor(Theme.textPrimary)
-                    Text(holding.symbol)
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        Text(holding.symbol)
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                            .lineLimit(1)
+                        Text("\(holding.quantity) shares")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                    }
                 }
                 
                 Spacer()
@@ -257,12 +276,7 @@ struct HoldingRowView: View {
                         .fontWeight(.semibold)
                         .foregroundColor(Theme.textPrimary)
                     
-                    HStack(spacing: 4) {
-                        Text(holding.formattedChange)
-                        Image(systemName: holding.changePercent >= 0 ? "arrow.up.right" : "arrow.down.right")
-                    }
-                    .font(.caption)
-                    .foregroundColor(holding.changePercent >= 0 ? Theme.accentGreen : Theme.accentRed)
+                    ChangePill(percent: holding.changePercent)
                 }
             }
             .padding()

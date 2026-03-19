@@ -556,13 +556,24 @@ export default function PortfolioScreen() {
 
                     return (
                       <Animated.View key={holding.symbol} entering={FadeInDown.delay(holdingIndex * 60).duration(350)} style={styles.holdingCard}>
-                        {/* Header row with symbol and price */}
+                        {/* Header row with symbol, price, and shares */}
                         <View style={styles.holdingHeader}>
                           <View style={styles.holdingLeft}>
-                            <TouchableOpacity onPress={() => router.push(`/(tabs)/stocks?symbol=${holding.symbol}`)}>
+                            <TouchableOpacity onPress={() => {
+                              if (holding.quantity > 0) {
+                                openTradeModal(holding, 'sell');
+                              } else {
+                                router.push(`/(tabs)/stocks?symbol=${holding.symbol}`);
+                              }
+                            }}>
                               <Text style={styles.holdingSymbol}>{holding.companyname || holding.company_name || holding.symbol}</Text>
                             </TouchableOpacity>
-                            <Text style={styles.holdingName}>{holding.symbol}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                              <Text style={[styles.holdingName]}>{holding.symbol}</Text>
+                              <Text style={{ fontWeight: 'bold', color: '#fff', marginLeft: 8 }}>
+                                {holding.quantity.toLocaleString()} shares
+                              </Text>
+                            </View>
                           </View>
                           <View style={styles.holdingRight}>
                             <Text style={styles.holdingPrice}>{formatPence(holding.current_price)}</Text>

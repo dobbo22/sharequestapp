@@ -38,11 +38,10 @@ struct MainTabView: View {
                     Label("Leaderboard", systemImage: selectedTab == 3 ? "trophy.fill" : "trophy")
                 }
                 .tag(3)
-            
-            ProfileView()
-                .environmentObject(authManager)
+
+            LeaguesView()
                 .tabItem {
-                    Label("Profile", systemImage: selectedTab == 4 ? "person.circle.fill" : "person.circle")
+                    Label("Leagues", systemImage: selectedTab == 4 ? "person.3.fill" : "person.3")
                 }
                 .tag(4)
         }

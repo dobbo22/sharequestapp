@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import AuthenticationServices
 
 /// Manages authentication state across the app
 @MainActor
@@ -245,6 +246,71 @@ class AuthManager: ObservableObject {
         resetOnboarding()
         UserDefaults.standard.removeObject(forKey: "auth_token")
         UserDefaults.standard.removeObject(forKey: "user_id")
+    }
+
+    // MARK: - Sign in with Apple
+
+    func signInWithApple(identityToken: String, email: String?, firstName: String?, lastName: String?, appleUserId: String) async -> Bool {
+        isLoading = true
+        errorMessage = nil
+        do {
+            let result = try await apiService.signInWithApple(
+                identityToken: identityToken, email: email,
+                firstName: firstName, lastName: lastName, appleUserId: appleUserId
+            )
+            return handleOAuthResult(result)
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
+            return false
+        }
+    }
+
+    // MARK: - Web OAuth (Google / Facebook / LinkedIn)
+    // Called by the app's onOpenURL handler after ASWebAuthenticationSession completes
+
+    func handleOAuthCallback(url: URL) -> Bool {
+        guard url.scheme == "sharequest", url.host == "auth",
+              url.path == "/callback" else { return false }
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        var params: [String: String] = [:]
+        for item in components?.queryItems ?? [] {
+            params[item.name] = item.value ?? ""
+        }
+        if let error = params["error"] {
+            DispatchQueue.main.async { self.errorMessage = error; self.isLoading = false }
+            return false
+        }
+        guard let token = params["token"] else { return false }
+        let result = APIService.OAuthTokenResult(
+            token: token,
+            userId: params["userId"] ?? "",
+            username: params["username"] ?? "",
+            email: params["email"] ?? "",
+            firstName: params["firstName"].flatMap { $0.isEmpty ? nil : $0 },
+            lastName: params["lastName"].flatMap { $0.isEmpty ? nil : $0 }
+        )
+        return handleOAuthResult(result)
+    }
+
+    private func handleOAuthResult(_ result: APIService.OAuthTokenResult) -> Bool {
+        apiService.saveToken(result.token)
+        if let uid = result.userId.isEmpty ? nil : result.userId {
+            UserDefaults.standard.set(uid, forKey: "user_id")
+        }
+        currentUser = User(
+            id: result.userId,
+            username: result.username,
+            email: result.email,
+            firstName: result.firstName,
+            lastName: result.lastName
+        )
+        if let fn = result.firstName, !fn.isEmpty {
+            UserDefaults.standard.set(fn, forKey: "user_first_name")
+        }
+        isAuthenticated = true
+        isLoading = false
+        return true
     }
 }
 

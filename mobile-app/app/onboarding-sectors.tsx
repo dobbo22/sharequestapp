@@ -50,10 +50,22 @@ export default function OnboardingSectors() {
   // Load accumulated XP
   useEffect(() => {
     (async () => {
+      let xp = 0;
       try {
-        const pending = await AsyncStorage.getItem('pending_xp');
-        if (pending) setXp(parseInt(pending, 10));
+        let cachedXp = await AsyncStorage.getItem('user_xp');
+        if (cachedXp) {
+          xp = parseInt(cachedXp, 10);
+        } else {
+          // Fallback: fetch from backend
+          const xpRes = await apiService.getGamificationProfile();
+          if (xpRes.success && xpRes.data) {
+            xp = xpRes.data.totalXP ?? xpRes.data.total_xp ?? 0;
+            await AsyncStorage.setItem('user_xp', xp.toString());
+            await AsyncStorage.setItem('pending_xp', xp.toString());
+          }
+        }
       } catch {}
+      setXp(xp);
     })();
   }, []);
 
@@ -86,13 +98,24 @@ export default function OnboardingSectors() {
     })();
   }, []);
 
+  // On XP gain or onboarding completion, POST to backend and update AsyncStorage
+  const postXPToBackend = async (xp: number) => {
+    try {
+      await apiService.privateRequest('/mobile/gamification/xp', {
+        method: 'POST',
+        body: JSON.stringify({ xp }),
+      });
+      await AsyncStorage.setItem('pending_xp', xp.toString());
+      await AsyncStorage.setItem('user_onboarding_xp', xp.toString());
+      await AsyncStorage.setItem('user_xp', xp.toString());
+    } catch {}
+  };
+
   // Deduct 1 XP for wrong selection with animation
   const penalizeWrong = async () => {
     const newXp = Math.max(0, xp - 1);
     setXp(newXp);
-    try {
-      await AsyncStorage.setItem('pending_xp', newXp.toString());
-    } catch {}
+    await postXPToBackend(newXp);
     // Animate "-1 XP Oops!" floating up and fading out
     setShowPenalty(true);
     penaltyOpacity.setValue(1);
@@ -164,9 +187,7 @@ export default function OnboardingSectors() {
       setFoundRR(true);
       const newXp = xp + 100;
       setXp(newXp);
-      try {
-        await AsyncStorage.setItem('pending_xp', newXp.toString());
-      } catch {}
+      await postXPToBackend(newXp);
     } else {
       await penalizeWrong();
     }

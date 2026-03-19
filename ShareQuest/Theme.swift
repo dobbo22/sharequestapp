@@ -63,3 +63,43 @@ extension View {
         modifier(GlassCard())
     }
 }
+
+/// Solid pill showing a % change — blue=up, red=down, green=unchanged
+struct ChangePill: View {
+    let percent: Double
+    /// Override the displayed text (e.g. pre-formatted "+1.4%")
+    var label: String? = nil
+    /// Compact mode for tight spaces like the stock ticker
+    var compact: Bool = false
+
+    private var text: String {
+        label ?? String(format: "%+.2f%%", percent)
+    }
+
+    private var pillColor: Color {
+        if percent > 0 { return Color(red: 0.18, green: 0.45, blue: 0.90) }  // blue
+        if percent < 0 { return Color(red: 0.78, green: 0.15, blue: 0.15) }  // red
+        return Color(red: 0.05, green: 0.55, blue: 0.37)                      // green (unchanged)
+    }
+
+    private var arrowIcon: String {
+        if percent > 0 { return "arrow.up.right" }
+        if percent < 0 { return "arrow.down.right" }
+        return "minus"
+    }
+
+    var body: some View {
+        HStack(spacing: compact ? 2 : 3) {
+            Image(systemName: arrowIcon)
+                .font(.system(size: compact ? 8 : 10, weight: .bold))
+            Text(text)
+                .font(compact ? .system(size: 10, weight: .bold) : .caption)
+                .fontWeight(.bold)
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, compact ? 7 : 10)
+        .padding(.vertical, compact ? 3 : 5)
+        .background(pillColor)
+        .cornerRadius(20)
+    }
+}

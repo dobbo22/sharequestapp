@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Fallback: if no user_data, try getProfile
           const token = await AsyncStorage.getItem('auth_token');
           if (token) {
-            const timeoutPromise = new Promise((_, reject) => 
+            const timeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error('Request timeout')), 5000)
             );
             const apiPromise = apiService.getProfile();
@@ -60,6 +60,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setError('Connection timeout. Please check your network.');
             }
           }
+        }
+        // Always refresh XP from backend on app start
+        try {
+          const xpRes = await apiService.getGamificationProfile();
+          if (xpRes.success && xpRes.data) {
+            const xp = xpRes.data.totalXP ?? xpRes.data.total_xp ?? 0;
+            await AsyncStorage.setItem('user_xp', xp.toString());
+          }
+        } catch (err) {
+          console.warn('Failed to refresh XP from backend on app start:', err);
         }
       } catch (err) {
         console.error('Error loading user:', err);
@@ -80,6 +90,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (response.success && response.data) {
         setUser(response.data.user);
+        // --- XP SYNC: Fetch XP from backend and cache locally ---
+        try {
+          const xpRes = await apiService.getGamificationProfile();
+          if (xpRes.success && xpRes.data) {
+            // XP may be under totalXP or total_xp
+            const xp = xpRes.data.totalXP ?? xpRes.data.total_xp ?? 0;
+            await AsyncStorage.setItem('user_xp', xp.toString());
+          }
+        } catch (err) {
+          console.warn('Failed to fetch XP from backend after login:', err);
+        }
+        // --- END XP SYNC ---
         return true;
       } else {
         setError(response.error || 'Login failed');

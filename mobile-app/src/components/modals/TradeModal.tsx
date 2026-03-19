@@ -58,8 +58,10 @@ export default function TradeModal({ visible, onClose, holding, action, onExecut
       setXpGain(0);
       setShowXPToast(false);
       setUnlockedAchievement(null);
+    } else if (visible && action === 'sell' && holding && holding.quantity > 0) {
+      setQuantity(holding.quantity.toString());
     }
-  }, [visible]);
+  }, [visible, action, holding]);
 
   if (!holding) return null;
 

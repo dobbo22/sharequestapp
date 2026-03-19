@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import apiService from '../path/to/apiService'; // Adjust the import based on your project structure
 
 export default function OnboardingPortfolio() {
   const router = useRouter();
@@ -43,12 +44,22 @@ export default function OnboardingPortfolio() {
   // Load accumulated XP from storage (includes all buy XP so far)
   useEffect(() => {
     (async () => {
+      let xp = 0;
       try {
-        const pending = await AsyncStorage.getItem('pending_xp');
-        if (pending) {
-          setBaseXp(parseInt(pending, 10));
+        let cachedXp = await AsyncStorage.getItem('user_xp');
+        if (cachedXp) {
+          xp = parseInt(cachedXp, 10);
+        } else {
+          // Fallback: fetch from backend
+          const xpRes = await apiService.getGamificationProfile();
+          if (xpRes.success && xpRes.data) {
+            xp = xpRes.data.totalXP ?? xpRes.data.total_xp ?? 0;
+            await AsyncStorage.setItem('user_xp', xp.toString());
+            await AsyncStorage.setItem('pending_xp', xp.toString());
+          }
         }
       } catch {}
+      setBaseXp(xp);
     })();
   }, []);
 
@@ -124,7 +135,7 @@ export default function OnboardingPortfolio() {
     const sellXp = 50;
     const newTotal = totalXp + sellXp;
     setRiseXp(riseXp + sellXp);
-    AsyncStorage.setItem('pending_xp', newTotal.toString()).catch(() => {});
+    postXPToBackend(newTotal);
 
     setTimeout(() => {
       setPhase('sold');
@@ -135,18 +146,25 @@ export default function OnboardingPortfolio() {
   const handleContinueToApp = async () => {
     if (continueDisabled) return;
     setContinueDisabled(true);
-    // Save XP before navigating
     let xpToSave = baseXp + riseXp;
     if (phase === 'sold') {
-      // Add sell XP if on sell complete screen
       xpToSave += 50;
     }
-    try {
-      await AsyncStorage.setItem('pending_xp', xpToSave.toString());
-      // Persist XP to user profile for future use
-      await AsyncStorage.setItem('user_onboarding_xp', xpToSave.toString());
-    } catch {}
+    await postXPToBackend(xpToSave);
     router.replace('/onboarding-search');
+  };
+
+  // On XP gain or onboarding completion, POST to backend and update AsyncStorage
+  const postXPToBackend = async (xp: number) => {
+    try {
+      await apiService.privateRequest('/mobile/gamification/xp', {
+        method: 'POST',
+        body: JSON.stringify({ xp }),
+      });
+      await AsyncStorage.setItem('pending_xp', xp.toString());
+      await AsyncStorage.setItem('user_onboarding_xp', xp.toString());
+      await AsyncStorage.setItem('user_xp', xp.toString());
+    } catch {}
   };
 
   // Sell in-progress screen

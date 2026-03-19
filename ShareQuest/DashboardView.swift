@@ -16,9 +16,10 @@ struct DashboardView: View {
     @State private var showXPToast = false
     @State private var xpGained = 0
     @State private var showNotifications = false
-    // Auto-scroll state for ticker
+    @State private var showProfile = false
+    // Auto-scroll state for ticker — timer stored as stable let so it doesn't recreate on re-renders
     @State private var tickerScrollIndex: Int = 0
-    private let tickerAutoscrollInterval: TimeInterval = 2.5
+    private let tickerTimer = Timer.publish(every: 3.5, on: .main, in: .common).autoconnect()
     // Computed safe display name: prefer firstName when present and non-empty
     private var displayFirstName: String {
         if let user = authManager.currentUser {
@@ -62,14 +63,26 @@ struct DashboardView: View {
                         VStack(spacing: 20) {
                             // Gamification Bar (always reserve space, show placeholder if nil)
                             Group {
-                                if let gamProfile = viewModel.gamProfile {
+                                if viewModel.gamProfile != nil {
                                     gamificationBar
                                 } else {
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(Theme.glassBackground)
-                                        .frame(height: 48)
-                                        .redacted(reason: .placeholder)
-                                        .padding(.horizontal)
+                                    HStack(spacing: 16) {
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Theme.primaryBlue.opacity(0.3))
+                                            .frame(width: 80, height: 18)
+                                        Spacer()
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color(red: 1, green: 0.84, blue: 0).opacity(0.3))
+                                            .frame(width: 60, height: 18)
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.orange.opacity(0.3))
+                                            .frame(width: 40, height: 18)
+                                    }
+                                    .padding()
+                                    .background(Theme.backgroundCard)
+                                    .cornerRadius(16)
+                                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.glassBorder, lineWidth: 1))
+                                    .padding(.horizontal)
                                 }
                             }
                             
@@ -143,13 +156,20 @@ struct DashboardView: View {
                 Text(viewModel.greeting)
                     .font(.subheadline)
                     .foregroundColor(Theme.textSecondary)
-                Text(displayFirstName)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .frame(minHeight: 22)
+                HStack(spacing: 8) {
+                    Text(displayFirstName)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(minHeight: 22)
+                    Button { showProfile = true } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                }
             }
             
             Spacer()
@@ -173,6 +193,10 @@ struct DashboardView: View {
         // Present notifications sheet when bell tapped
         .sheet(isPresented: $showNotifications) {
             NotificationsView()
+        }
+        .sheet(isPresented: $showProfile) {
+            ProfileView()
+                .environmentObject(authManager)
         }
     }
     
@@ -300,7 +324,7 @@ struct DashboardView: View {
                     }
                     .padding(.horizontal)
                 }
-                .onReceive(Timer.publish(every: tickerAutoscrollInterval, on: .main, in: .common).autoconnect()) { _ in
+                .onReceive(tickerTimer) { _ in
                     guard !viewModel.tickerStocks.isEmpty else { return }
                     tickerScrollIndex = (tickerScrollIndex + 1) % max(viewModel.tickerStocks.count, 1)
                     let target = viewModel.tickerStocks[tickerScrollIndex].id
@@ -498,16 +522,24 @@ struct TickerStockView: View {
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 2) {
+                VStack(alignment: .trailing, spacing: 4) {
+                    // Price with same directional colour as the pill
                     Text(stock.formattedPrice)
-                        .font(.caption)
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white)
-                    HStack(spacing: 4) {
-                        Image(systemName: stock.changePercent >= 0 ? "arrow.up" : "arrow.down")
-                        Text(stock.formattedChange)
-                    }
-                    .font(.caption2)
-                    .foregroundColor(stock.changePercent >= 0 ? Theme.accentGreen : Theme.accentRed)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(
+                            stock.changePercent > 0
+                                ? Color(red: 0.18, green: 0.45, blue: 0.90)
+                                : stock.changePercent < 0
+                                    ? Color(red: 0.78, green: 0.15, blue: 0.15)
+                                    : Color(red: 0.05, green: 0.55, blue: 0.37)
+                        )
+                        .cornerRadius(6)
+                    ChangePill(percent: stock.changePercent,
+                               label: stock.formattedChange,
+                               compact: true)
                 }
             }
             .padding(.horizontal, 12)
@@ -784,59 +816,45 @@ class DashboardViewModel: ObservableObject {
     
     private func loadPortfolios() async {
         print("[DashboardViewModel] Loading portfolios...")
-        // 1. Fetch user subscriptions
-        var enabledTypes: [String] = ["default"] // Always show Practice/default
+        var cards: [PortfolioSummary] = []
         do {
-            if let subs = try await apiService.fetchUserSubscriptions() {
-                if subs.weekly == true { enabledTypes.append("weekly") }
-                if subs.monthly == true { enabledTypes.append("monthly") }
-                // If you want to show annual, add: if subs.annual == true { enabledTypes.append("annual") }
+            // Fetch dashboard to get portfolio configs
+            let dashboardResponse = try await apiService.fetchDashboard()
+            // Try to get portfolios array from dashboard response
+            let portfolios: [PortfolioConfig]? = dashboardResponse.data?.portfolios // <-- update here
+            let configs = portfolios?.filter { $0.isSubscribed } ?? []
+            for config in configs {
+                do {
+                    if let portfolio = try await apiService.fetchPortfolioDetails(type: config.type) {
+                        let totalValue = portfolio.totalPortfolioValue > 0 ? portfolio.totalPortfolioValue : portfolio.cashBalanceValue
+                        let initialBalance = portfolio.initialBalanceValue
+                        let changePercent = initialBalance > 0 ? ((totalValue - initialBalance) / initialBalance) * 100 : 0
+                        cards.append(PortfolioSummary(
+                            id: config.type,
+                            name: config.label,
+                            emoji: config.emoji,
+                            value: totalValue,
+                            changePercent: changePercent,
+                            gradientColors: portfolioGradient(for: config.type)
+                        ))
+                    } else {
+                        print("[DashboardViewModel] No portfolio found for type \(config.type)")
+                    }
+                } catch {
+                    print("[DashboardViewModel] Error loading portfolio for type \(config.type): \(error)")
+                }
             }
         } catch {
-            // If subscriptions fail, fallback to showing all
-            enabledTypes = ["default", "weekly", "monthly"]
-        }
-        // 2. Build configs for enabled types only
-        let allConfigs: [(type: String, name: String, emoji: String, colors: [Color])] = [
-            ("default", "Practice", "🎯", [Color(red: 0.231, green: 0.510, blue: 0.965), Color(red: 0.149, green: 0.388, blue: 0.918)]),
-            ("weekly", "Weekly", "⚡", [Color(red: 0.388, green: 0.400, blue: 0.945), Color(red: 0.263, green: 0.224, blue: 0.792)]),
-            ("monthly", "Monthly", "📅", [Color(red: 0.545, green: 0.361, blue: 0.965), Color(red: 0.486, green: 0.227, blue: 0.929)])
-            // Add annual if needed
-        ]
-        let configs = allConfigs.filter { enabledTypes.contains($0.type) }
-        var cards: [PortfolioSummary] = []
-        for config in configs {
-            do {
-                if let portfolio = try await apiService.fetchPortfolioDetails(type: config.type) {
-                    print("[DashboardViewModel] Portfolio loaded for type \(config.type): \(portfolio)")
-                    let totalValue = portfolio.totalPortfolioValue > 0 ? portfolio.totalPortfolioValue : portfolio.cashBalanceValue
-                    let initialBalance = portfolio.initialBalanceValue
-                    let changePercent = initialBalance > 0 ? ((totalValue - initialBalance) / initialBalance) * 100 : 0
-                    cards.append(PortfolioSummary(
-                        id: config.type,
-                        name: config.name,
-                        emoji: config.emoji,
-                        value: totalValue,
-                        changePercent: changePercent,
-                        gradientColors: config.colors
-                    ))
-                } else {
-                    print("[DashboardViewModel] No portfolio found for type \(config.type)")
-                }
-            } catch {
-                print("[DashboardViewModel] Error loading portfolio for type \(config.type): \(error)")
-                // Only add fallback card for Practice/default
-                if config.type == "default" {
-                    cards.append(PortfolioSummary(
-                        id: config.type,
-                        name: config.name,
-                        emoji: config.emoji,
-                        value: 100000,
-                        changePercent: 0,
-                        gradientColors: config.colors
-                    ))
-                }
-            }
+            print("[DashboardViewModel] Error loading dashboard portfolios: \(error)")
+            // Fallback: show Practice portfolio only
+            cards.append(PortfolioSummary(
+                id: "default",
+                name: "Practice",
+                emoji: "🎯",
+                value: 100000,
+                changePercent: 0,
+                gradientColors: portfolioGradient(for: "default")
+            ))
         }
         await MainActor.run {
             portfolioCards = cards
@@ -867,6 +885,29 @@ class DashboardViewModel: ObservableObject {
     }
 }
 
+// MARK: - Portfolio Colour Helpers (shared across Dashboard + Trade modal)
+
+func portfolioColor(for type: String) -> Color {
+    switch type {
+    case "default":  return Color(red: 0.23, green: 0.51, blue: 0.96)   // Vivid blue
+    case "weekly":   return Color(red: 0.06, green: 0.73, blue: 0.51)   // Vivid green
+    case "monthly":  return Color(red: 0.55, green: 0.36, blue: 0.96)   // Vivid purple
+    case "annual":   return Color(red: 0.96, green: 0.62, blue: 0.04)   // Vivid amber/gold
+    default:         return Color(red: 0.39, green: 0.40, blue: 0.95)
+    }
+}
+
+func portfolioGradient(for type: String) -> [Color] {
+    let base = portfolioColor(for: type)
+    switch type {
+    case "default":  return [Color(red: 0.23, green: 0.51, blue: 0.96), Color(red: 0.15, green: 0.39, blue: 0.92)]
+    case "weekly":   return [Color(red: 0.06, green: 0.73, blue: 0.51), Color(red: 0.02, green: 0.55, blue: 0.37)]
+    case "monthly":  return [Color(red: 0.55, green: 0.36, blue: 0.96), Color(red: 0.38, green: 0.20, blue: 0.82)]
+    case "annual":   return [Color(red: 0.96, green: 0.62, blue: 0.04), Color(red: 0.78, green: 0.46, blue: 0.02)]
+    default:         return [base, base.opacity(0.75)]
+    }
+}
+
 // MARK: - Portfolio Summary Model
 
 struct PortfolioSummary: Identifiable {
@@ -890,44 +931,80 @@ struct PortfolioSummary: Identifiable {
 
 struct PortfolioCardView: View {
     let portfolio: PortfolioSummary
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(portfolio.emoji)
-                    .font(.title2)
-                Text(portfolio.name)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+        NavigationLink(destination: PortfolioView(
+            initialType: PortfolioType(rawValue: portfolio.id) ?? .practice,
+            isEmbedded: true
+        )) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(portfolio.emoji)
+                        .font(.title2)
+                    Text(portfolio.name)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+
+                Text(portfolio.formattedValue)
+                    .font(.title3)
+                    .fontWeight(.bold)
                     .foregroundColor(.white)
+
+                ChangePill(percent: portfolio.changePercent)
             }
-            
-            Text(portfolio.formattedValue)
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            
-            HStack {
-                Image(systemName: portfolio.changePercent >= 0 ? "arrow.up.right" : "arrow.down.right")
-                Text(portfolio.formattedChange)
-            }
-            .font(.caption)
-            .foregroundColor(portfolio.changePercent >= 0 ? Theme.accentGreen : Theme.accentRed)
-        }
-        .padding()
-        .frame(width: 160)
-        .background(
-            LinearGradient(
-                colors: portfolio.gradientColors,
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+            .padding()
+            .frame(width: 165)
+            .background(
+                LinearGradient(
+                    colors: portfolio.gradientColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             )
-        )
-        .cornerRadius(16)
+            .cornerRadius(16)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
 #Preview {
     DashboardView()
         .environmentObject(AuthManager.shared)
+}
+
+struct PortfolioConfig: Codable, Hashable, Identifiable {
+    let type: String
+    let label: String
+    let emoji: String
+    let color: String
+    let isSubscribed: Bool
+    var id: String { type }
+}
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int = UInt64()
+        Scanner(string: hex).scanHexInt64(&int)
+        let r, g, b: UInt64
+        switch hex.count {
+        case 6: // RGB (24-bit)
+            (r, g, b) = ((int >> 16) & 0xFF, (int >> 8) & 0xFF, int & 0xFF)
+        default:
+            (r, g, b) = (1, 1, 1)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: 1
+        )
+    }
 }

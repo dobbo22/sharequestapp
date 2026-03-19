@@ -18,12 +18,22 @@ export default function OnboardingSearch() {
   // Load carried forward XP from storage on mount
   useEffect(() => {
     (async () => {
+      let xp = 0;
       try {
-        const pending = await AsyncStorage.getItem('pending_xp');
-        if (pending) {
-          setXp(parseInt(pending, 10));
+        let cachedXp = await AsyncStorage.getItem('user_xp');
+        if (cachedXp) {
+          xp = parseInt(cachedXp, 10);
+        } else {
+          // Fallback: fetch from backend
+          const xpRes = await apiService.getGamificationProfile();
+          if (xpRes.success && xpRes.data) {
+            xp = xpRes.data.totalXP ?? xpRes.data.total_xp ?? 0;
+            await AsyncStorage.setItem('user_xp', xp.toString());
+            await AsyncStorage.setItem('pending_xp', xp.toString());
+          }
         }
       } catch {}
+      setXp(xp);
     })();
   }, []);
 
@@ -65,19 +75,27 @@ export default function OnboardingSearch() {
   };
 
   const [continueDisabled, setContinueDisabled] = useState(false);
+  // On XP gain or onboarding completion, POST to backend and update AsyncStorage
+  const postXPToBackend = async (xp: number) => {
+    try {
+      await apiService.privateRequest('/mobile/gamification/xp', {
+        method: 'POST',
+        body: JSON.stringify({ xp }),
+      });
+      await AsyncStorage.setItem('pending_xp', xp.toString());
+      await AsyncStorage.setItem('user_onboarding_xp', xp.toString());
+      await AsyncStorage.setItem('user_xp', xp.toString());
+    } catch {}
+  };
+
   const handleContinue = async () => {
     if (continueDisabled) return;
     setContinueDisabled(true);
-    // Award XP for finding NatWest (if not already awarded)
     let newXp = xp;
     if (foundNatWest) {
       newXp += 100;
       setXp(newXp);
-      try {
-        await AsyncStorage.setItem('pending_xp', newXp.toString());
-        // Persist XP to user profile for future use
-        await AsyncStorage.setItem('user_onboarding_xp', newXp.toString());
-      } catch {}
+      await postXPToBackend(newXp);
     }
     router.replace('/onboarding-sectors');
   };

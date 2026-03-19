@@ -48,6 +48,10 @@ struct ContentView: View {
                 }
             }
         }
+        .onOpenURL { url in
+            // Handle sharequest://auth/callback?token=... from OAuth web flow
+            _ = authManager.handleOAuthCallback(url: url)
+        }
     }
 }
 
