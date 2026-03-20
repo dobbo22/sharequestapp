@@ -238,7 +238,7 @@ struct StockDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showTradeSheet) {
-            StockTradeSheet(stock: stock, portfolioType: .practice)
+            StockTradeSheet(stock: stock)
         }
     }
 }

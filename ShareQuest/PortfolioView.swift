@@ -12,7 +12,6 @@ import Combine
 struct PortfolioView: View {
     @StateObject private var viewModel = PortfolioViewModel()
     @State private var selectedPortfolioType: PortfolioType
-    @State private var showTradeSheet = false
     @State private var selectedHolding: Holding?
     @State private var availablePortfolios: [PortfolioConfig] = []
 
@@ -41,18 +40,13 @@ struct PortfolioView: View {
         .onChange(of: selectedPortfolioType) { _, newType in
             Task { await viewModel.fetchPortfolio(type: newType) }
         }
-        .sheet(isPresented: $showTradeSheet, onDismiss: {
-            selectedHolding = nil
-            showTradeSheet = false
-        }) {
-            if let holding = selectedHolding {
-                StockTradeSheet(
-                    stock: holding.toStock(),
-                    portfolioType: selectedPortfolioType,
-                    initialTradeType: .sell,
-                    initialQuantity: String(holding.quantity)
-                )
-            }
+        .sheet(item: $selectedHolding) { holding in
+            StockTradeSheet(
+                stock: holding.toStock(),
+                portfolioType: selectedPortfolioType,
+                initialTradeType: "sell",
+                initialQuantity: String(holding.quantity)
+            )
         }
     }
 
@@ -165,7 +159,6 @@ struct PortfolioView: View {
                 ForEach(viewModel.holdings) { holding in
                     HoldingRowView(holding: holding) {
                         selectedHolding = holding
-                        showTradeSheet = true
                     }
                 }
             }
