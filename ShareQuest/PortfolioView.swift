@@ -34,24 +34,24 @@ struct PortfolioView: View {
                 }
             }
         }
-        .task {
+        .task(id: selectedPortfolioType) {
+            // Only reload when selectedPortfolioType changes
             await reloadPortfolios()
         }
         .onChange(of: selectedPortfolioType) { _, newType in
             Task { await viewModel.fetchPortfolio(type: newType) }
         }
-        .sheet(isPresented: $showTradeSheet) {
+        .sheet(isPresented: $showTradeSheet, onDismiss: {
+            selectedHolding = nil
+            showTradeSheet = false
+        }) {
             if let holding = selectedHolding {
-                StockTradeSheet(stock: Stock(
-                    id: holding.id,
-                    symbol: holding.symbol,
-                    companyName: holding.companyName,
-                    price: holding.currentPrice,
-                    changeAmount: holding.currentPrice - holding.averagePrice,
-                    changePercent: holding.changePercent,
-                    sector: "",
-                    marketCap: 0.0
-                ))
+                StockTradeSheet(
+                    stock: holding.toStock(),
+                    portfolioType: selectedPortfolioType,
+                    initialTradeType: .sell,
+                    initialQuantity: String(holding.quantity)
+                )
             }
         }
     }
@@ -286,93 +286,20 @@ struct HoldingRowView: View {
     }
 }
 
-// MARK: - Trade Sheet View
-struct TradeSheetView: View {
-    let holding: Holding
-    @Environment(\.dismiss) private var dismiss
-    @State private var quantity = ""
-    @State private var tradeType: TradeType = .buy
-    
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.backgroundPrimary
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 24) {
-                    // Stock Info
-                    VStack(spacing: 8) {
-                        Text(holding.symbol)
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(Theme.textPrimary)
-                        Text(holding.companyName)
-                            .font(.subheadline)
-                            .foregroundColor(Theme.textSecondary)
-                        Text(holding.formattedPrice)
-                            .font(.title2)
-                            .foregroundColor(Theme.textPrimary)
-                    }
-                    
-                    // Trade Type Picker
-                    Picker("Trade Type", selection: $tradeType) {
-                        Text("Buy").tag(TradeType.buy)
-                        Text("Sell").tag(TradeType.sell)
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                    .padding()
-                    
-                    // Quantity Input
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Quantity")
-                            .font(.subheadline)
-                            .foregroundColor(Theme.textSecondary)
-                        TextField("0", text: $quantity)
-                            .keyboardType(.numberPad)
-                            .font(.title2)
-                            .padding()
-                            .background(Theme.glassBackground)
-                            .cornerRadius(12)
-                            .foregroundColor(Theme.textPrimary)
-                    }
-                    .padding(.horizontal)
-                    
-                    Spacer()
-                    
-                    // Trade Button
-                    Button(action: executeTrade) {
-                        Text(tradeType == .buy ? "Buy" : "Sell")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(tradeType == .buy ? Theme.accentGreen : Theme.accentRed)
-                            .cornerRadius(12)
-                    }
-                    .padding()
-                }
-            }
-            .navigationTitle("Trade")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(Theme.primaryBlue)
-                }
-            }
-        }
+// Helper to convert Holding to Stock
+extension Holding {
+    func toStock() -> Stock {
+        Stock(
+            id: self.id,
+            symbol: self.symbol,
+            companyName: self.companyName,
+            price: self.currentPrice,
+            changeAmount: 0, // Placeholder, update if available
+            changePercent: self.changePercent,
+            sector: "Portfolio", // Placeholder
+            marketCap: 0 // Placeholder
+        )
     }
-    
-    private func executeTrade() {
-        // TODO: Implement trade execution
-        dismiss()
-    }
-}
-
-enum TradeType {
-    case buy, sell
 }
 
 // MARK: - Portfolio Type Enum
