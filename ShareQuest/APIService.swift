@@ -575,6 +575,37 @@ final class APIService: @unchecked Sendable {
         }
     }
     
+    /// Fetch trade ticks via the mobile JWT-authenticated endpoint.
+    /// Falls back to the legacy /tradeticks path if the mobile path returns 404.
+    func fetchMobileTradeTicks(symbol: String, date: String? = nil) async throws -> [TradeTick] {
+        let day: String = {
+            if let date { return date }
+            let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+            return f.string(from: Date())
+        }()
+        let mobilePath = "/mobile/stocks/\(symbol)/tradeticks?date=\(day)"
+        let url = try buildURL(path: mobilePath, base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        do {
+            let data = try await performRequest(request)
+            if let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let arr = root["data"] as? [[String: Any]] {
+                let arrData = try JSONSerialization.data(withJSONObject: arr)
+                if let decoded = try? decoder.decode([TradeTick].self, from: arrData) { return decoded }
+            }
+            if let decoded = try? decoder.decode([TradeTick].self, from: data) { return decoded }
+            throw APIError.decodingError("Unable to decode mobile tradeticks response")
+        } catch let apiErr as APIError {
+            // If mobile endpoint doesn't exist yet, fall back to legacy path
+            if case .serverError(let code) = apiErr, code == 404 {
+                return try await fetchTradeTicks(symbol: symbol, date: day)
+            }
+            throw apiErr
+        }
+    }
+
     /// Fetch trade ticks for a stock from main app endpoint (/api/tradeticks).
     /// Web app sends: symbol, feedNumber, date(YYYY-MM-DD).
     func fetchTradeTicks(symbol: String, feedNumber: Int = 19, date: String? = nil) async throws -> [TradeTick] {

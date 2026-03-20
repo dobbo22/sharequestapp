@@ -70,25 +70,23 @@ final class StockDetailViewModel: ObservableObject {
                 print("[StockDetailViewModel] Infront live fetch FAILED: \(error)")
             }
 
-            // Fetch stock-specific trade ticks from /api/tradeticks (Infront-backed)
+            // Fetch trade ticks via mobile endpoint (JWT-authenticated)
             do {
-                let ticks = try await api.fetchTradeTicks(symbol: symbol, feedNumber: 19)
+                let ticks = try await api.fetchMobileTradeTicks(symbol: symbol)
                 self.tradeTicks = ticks
                 self.requiresSubscriptionForTrades = false
                 print("[StockDetailViewModel] trade ticks SUCCESS: \(ticks.count)")
             } catch {
                 self.tradeTicks = []
-                // If unauthorized, set subscription flag so UI can show gating
-                if let apiErr = error as? APIError {
-                    switch apiErr {
-                    case .unauthorized:
-                        self.requiresSubscriptionForTrades = true
-                    default:
-                        self.requiresSubscriptionForTrades = false
-                    }
+                if let apiErr = error as? APIError, case .unauthorized = apiErr {
+                    // Only gate behind subscription wall if the user genuinely has no paid plan.
+                    // A 401 on a subscribed user means an auth/endpoint issue, not a missing plan.
+                    let subs = try? await api.fetchUserSubscriptions()
+                    let hasActivePlan = subs?.annual == true || subs?.monthly == true || subs?.weekly == true
+                    self.requiresSubscriptionForTrades = !hasActivePlan
+                    print("[StockDetailViewModel] trade ticks 401 — hasActivePlan=\(hasActivePlan)")
                 } else {
-                    let desc = (error as NSError).localizedDescription.lowercased()
-                    self.requiresSubscriptionForTrades = desc.contains("unauthor")
+                    self.requiresSubscriptionForTrades = false
                 }
                 print("[StockDetailViewModel] trade ticks FAILED: \(error)")
             }
