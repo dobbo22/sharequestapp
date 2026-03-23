@@ -73,6 +73,12 @@ struct DashboardView: View {
     @State private var showProfile = false
     @State private var selectedChallenge: ChallengeData? = nil
     @State private var showStockHuntHub = false
+    // Global challenge completion popup
+    @State private var pendingCompletions: [ChallengeCompletion] = []
+    @State private var showCompletionPopup = false
+    // Scale/opacity used for entry animation only
+    @State private var popupScale: CGFloat = 0.7
+    @State private var popupOpacity: Double = 0
     // Auto-scroll state for ticker — timer stored as stable let so it doesn't recreate on re-renders
     @State private var tickerScrollIndex: Int = 0
     private let tickerTimer = Timer.publish(every: 3.5, on: .main, in: .common).autoconnect()
@@ -101,8 +107,9 @@ struct DashboardView: View {
             ZStack {
                 Theme.backgroundPrimary
                     .ignoresSafeArea()
-                
+
                 VStack(spacing: 12) {
+
                     // Fixed header at the top so user name and bell are always visible
                     headerSection
                     
@@ -253,8 +260,136 @@ struct DashboardView: View {
         .onReceive(NotificationCenter.default.publisher(for: .stockHuntClaimed)) { _ in
             Task { await viewModel.refreshChallenges() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .challengeCompleted)) { note in
+            guard !showCompletionPopup,                          // ignore if popup already showing
+                  let completions = note.userInfo?["completions"] as? [ChallengeCompletion],
+                  !completions.isEmpty else { return }
+            pendingCompletions = completions
+            popupScale = 0.7
+            popupOpacity = 0
+            showCompletionPopup = true
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                popupScale = 1.0
+                popupOpacity = 1.0
+            }
+            Task { await viewModel.refreshChallenges() }
+        }
+        .overlay {
+            if showCompletionPopup, let first = pendingCompletions.first {
+                // Black scrim — no tap gesture (button handles dismiss)
+                Color.black.opacity(0.55).ignoresSafeArea()
+
+                VStack(spacing: 20) {
+                    Text("🎉").font(.system(size: 64))
+
+                    Text("Challenge Complete!")
+                        .font(.title2).fontWeight(.bold).foregroundColor(.white)
+
+                    Text(first.displayName)
+                        .font(.subheadline).foregroundColor(.white.opacity(0.8))
+                        .multilineTextAlignment(.center)
+
+                    if pendingCompletions.count > 1 {
+                        Text("+ \(pendingCompletions.count - 1) more completed!")
+                            .font(.caption).foregroundColor(.white.opacity(0.6))
+                    }
+
+                    HStack(spacing: 8) {
+                        Image(systemName: "star.fill").foregroundColor(Theme.accentYellow)
+                        Text("+\(pendingCompletions.reduce(0) { $0 + $1.xp }) XP Earned")
+                            .font(.headline).fontWeight(.bold).foregroundColor(Theme.accentYellow)
+                    }
+                    .padding(.horizontal, 20).padding(.vertical, 10)
+                    .background(Theme.accentYellow.opacity(0.15))
+                    .cornerRadius(12)
+
+                    Button {
+                        // Clear immediately — no async delay that allows re-trigger
+                        showCompletionPopup = false
+                        pendingCompletions = []
+                        popupScale = 0.7
+                        popupOpacity = 0
+                    } label: {
+                        Text("Awesome!")
+                            .font(.headline).fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Theme.accentGreen)
+                            .cornerRadius(14)
+                    }
+                    .padding(.horizontal, 30)
+                }
+                .padding(28)
+                .background(
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(Color(red: 0.1, green: 0.13, blue: 0.2))
+                        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Theme.accentGreen.opacity(0.4), lineWidth: 1.5))
+                )
+                .padding(.horizontal, 24)
+                .scaleEffect(popupScale)
+                .opacity(popupOpacity)
+                .transition(.scale(scale: 0.85).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: showCompletionPopup)
     }
     
+    // MARK: - Gamification Bar
+
+    private var gamificationBar: some View {
+        let info = sqLevelInfo(totalXP: viewModel.displayedXP)
+        let progress = info.rangeXP > 0 ? min(Double(info.progressXP) / Double(info.rangeXP), 1.0) : 1.0
+        let lvColor = sqLevelColor(info.level)
+
+        return VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                HStack(spacing: 5) {
+                    Image(systemName: info.icon)
+                        .foregroundColor(lvColor)
+                        .font(.caption)
+                    Text("Lv.\(info.level)")
+                        .fontWeight(.bold)
+                        .foregroundColor(lvColor)
+                    Text(info.name)
+                        .fontWeight(.semibold)
+                        .foregroundColor(lvColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+                .font(.subheadline)
+                .layoutPriority(1)
+
+                Spacer(minLength: 4)
+
+                Text("\(info.progressXP) / \(info.rangeXP) XP")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(Color(red: 1, green: 0.84, blue: 0))
+                    .lineLimit(1)
+
+                StreakBadge(streak: viewModel.streak)
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.1)).frame(height: 5)
+                    Capsule()
+                        .fill(LinearGradient(colors: [lvColor.opacity(0.8), lvColor],
+                                             startPoint: .leading, endPoint: .trailing))
+                        .frame(width: geo.size.width * progress, height: 5)
+                        .animation(.easeOut(duration: 0.6), value: progress)
+                }
+            }
+            .frame(height: 5)
+        }
+        .padding()
+        .background(Theme.glassBackground)
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.glassBorder, lineWidth: 1))
+    }
+
     // Extracted market pill for reuse
     private var marketPill: some View {
         HStack(spacing: 8) {
@@ -311,63 +446,6 @@ struct DashboardView: View {
     }
     
     // MARK: - Gamification Bar
-    private var gamificationBar: some View {
-        let info = sqLevelInfo(totalXP: viewModel.displayedXP)
-        let progress = info.rangeXP > 0 ? min(Double(info.progressXP) / Double(info.rangeXP), 1.0) : 1.0
-        let lvColor = sqLevelColor(info.level)
-
-        return VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                // Level badge
-                HStack(spacing: 5) {
-                    Image(systemName: info.icon)
-                        .foregroundColor(lvColor)
-                        .font(.caption)
-                    Text("Lv.\(info.level)")
-                        .fontWeight(.bold)
-                        .foregroundColor(lvColor)
-                    Text(info.name)
-                        .fontWeight(.semibold)
-                        .foregroundColor(lvColor)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-                .font(.subheadline)
-                .layoutPriority(1)
-
-                Spacer(minLength: 4)
-
-                // XP within current level
-                Text("\(info.progressXP) / \(info.rangeXP) XP")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(Color(red: 1, green: 0.84, blue: 0))
-                    .lineLimit(1)
-
-                // Streak
-                StreakBadge(streak: viewModel.streak)
-            }
-
-            // XP progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.1)).frame(height: 5)
-                    Capsule()
-                        .fill(LinearGradient(colors: [lvColor.opacity(0.8), lvColor],
-                                             startPoint: .leading, endPoint: .trailing))
-                        .frame(width: geo.size.width * progress, height: 5)
-                        .animation(.easeOut(duration: 0.6), value: progress)
-                }
-            }
-            .frame(height: 5)
-        }
-        .padding()
-        .background(Theme.glassBackground)
-        .background(.ultraThinMaterial)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.glassBorder, lineWidth: 1))
-    }
-    
     // MARK: - Stock Ticker
     private var stockTickerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1112,15 +1190,29 @@ struct DailyTaskDetailSheet: View {
     /// Short action label shown in the "How to complete" card.
     private var howToComplete: String {
         switch criteriaKey {
-        case "trade":           return "Go to any stock → tap Trade"
-        case "login":           return "Already done by opening the app"
-        case "watchlist":       return "Find a stock → tap the ★ icon"
-        case "portfolio_check": return "Open your Portfolio tab"
-        case "leaderboard":     return "Open the Leaderboard tab"
-        case "sector":          return "Go to Stocks → Sectors"
-        case "stock_hunt":      return "Go to Stocks → search for a matching stock → trade it"
-        case "pnl_check":       return "Open your Portfolio and review holdings"
+        case "trade":           return "Go to any stock and tap Trade"
+        case "login":           return "Already done — you're in the app!"
+        case "watchlist":       return "Find a stock and tap the ★ star icon to add it"
+        case "portfolio_check": return "Open your Portfolio tab to review your positions"
+        case "leaderboard":     return "Open the Leaderboard tab to see your rank"
+        case "sector":          return "Go to Stocks → Sectors and explore a sector"
+        case "stock_hunt":      return "Browse Stocks, open a stock detail, tap Claim for Stock Hunt"
+        case "pnl_check":       return "Open your Portfolio tab and review your P&L"
         default:                return "Complete the required action in the app"
+        }
+    }
+
+    /// (Button label, SF symbol) for the action button — nil if no direct navigation available.
+    private var actionButton: (String, String)? {
+        switch criteriaKey {
+        case "trade":           return ("Go to Stocks", "arrow.left.arrow.right")
+        case "watchlist":       return ("Browse Stocks", "star.circle")
+        case "portfolio_check": return ("Open Portfolio", "chart.pie.fill")
+        case "pnl_check":       return ("Open Portfolio", "chart.line.uptrend.xyaxis")
+        case "leaderboard":     return ("Open Leaderboard", "list.number")
+        case "sector":          return ("Explore Sectors", "building.2.fill")
+        case "stock_hunt":      return ("Browse Stocks", "chart.bar.fill")
+        default:                return nil
         }
     }
 
@@ -1168,20 +1260,34 @@ struct DailyTaskDetailSheet: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
 
-                        // How to complete (only when not done)
-                        if !isCompleted {
-                            HStack(spacing: 12) {
-                                Image(systemName: "lightbulb.fill")
-                                    .foregroundColor(Color(red: 0.96, green: 0.85, blue: 0.3))
-                                    .font(.subheadline)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("How to complete")
-                                        .font(.caption).foregroundColor(Theme.textSecondary)
-                                    Text(howToComplete)
-                                        .font(.subheadline).fontWeight(.medium)
-                                        .foregroundColor(.white)
+                        // Action card: instructions + Go button (only when not done, not stock_hunt)
+                        if !isCompleted && criteriaKey != "stock_hunt" {
+                            VStack(spacing: 12) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "lightbulb.fill")
+                                        .foregroundColor(Color(red: 0.96, green: 0.85, blue: 0.3))
+                                        .font(.subheadline)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("How to complete")
+                                            .font(.caption).foregroundColor(Theme.textSecondary)
+                                        Text(howToComplete)
+                                            .font(.subheadline).fontWeight(.medium)
+                                            .foregroundColor(.white)
+                                    }
+                                    Spacer()
                                 }
-                                Spacer()
+
+                                if let (label, icon) = actionButton {
+                                    Button { dismiss() } label: {
+                                        Label(label, systemImage: icon)
+                                            .font(.subheadline).fontWeight(.semibold)
+                                            .foregroundColor(.white)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 11)
+                                            .background(iconColor)
+                                            .cornerRadius(12)
+                                    }
+                                }
                             }
                             .padding()
                             .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.06)))

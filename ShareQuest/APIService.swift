@@ -1831,9 +1831,9 @@ final class APIService: @unchecked Sendable {
         return (try decoder.decode(Wrapper.self, from: data)).data ?? StockHuntClaimResult(matched: false, challengeName: nil, xpReward: nil)
     }
 
-    /// Report progress for a daily challenge action. Returns names of any newly completed challenges.
+    /// Report progress for a daily challenge action. Returns any newly completed challenges (name + XP).
     @discardableResult
-    func postChallengeProgress(criteriaType: String, increment: Int = 1) async -> [String] {
+    func postChallengeProgress(criteriaType: String, increment: Int = 1) async -> [ChallengeCompletion] {
         guard !criteriaType.isEmpty else { return [] }
         do {
             let url = try buildURL(path: "/mobile/gamification/challenges/progress", base: APIConfig.mainAppURL)
@@ -1845,13 +1845,12 @@ final class APIService: @unchecked Sendable {
             let data = try await performRequest(request)
             struct Resp: Decodable {
                 struct Inner: Decodable {
-                    struct Done: Decodable { let name: String? }
-                    let completed: [Done]?
+                    let completed: [ChallengeCompletion]?
                 }
                 let data: Inner?
             }
             let resp = try? decoder.decode(Resp.self, from: data)
-            return resp?.data?.completed?.compactMap { $0.name } ?? []
+            return resp?.data?.completed ?? []
         } catch {
             return []
         }
@@ -2686,6 +2685,15 @@ struct StockHuntChallengeResponse: Codable {
         let xp_reward: Int?
         let difficulty: String?
     }
+}
+
+/// A challenge that was just completed by a progress-update call.
+struct ChallengeCompletion: Codable, Identifiable {
+    let name: String?
+    let xp_reward: Int?
+    var id: String { name ?? UUID().uuidString }
+    var displayName: String { name ?? "Daily Challenge" }
+    var xp: Int { xp_reward ?? 0 }
 }
 
 struct ChallengesResponse: Codable {

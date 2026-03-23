@@ -118,7 +118,8 @@ struct LeaderboardView: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
         .task {
-            await APIService.shared.postChallengeProgress(criteriaType: "leaderboard")
+            let done = await APIService.shared.postChallengeProgress(criteriaType: "leaderboard")
+            postCompletionNotification(done)
             await viewModel.loadAll()
         }
         .sheet(item: $selectedUser) { user in

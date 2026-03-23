@@ -34,7 +34,11 @@ struct PortfolioView: View {
             }
         }
         .task {
-            await APIService.shared.postChallengeProgress(criteriaType: "portfolio_check")
+            let done = await APIService.shared.postChallengeProgress(criteriaType: "portfolio_check")
+            postCompletionNotification(done)
+            // pnl_check fires here too — viewing portfolio counts as reviewing P&L
+            let pnlDone = await APIService.shared.postChallengeProgress(criteriaType: "pnl_check")
+            postCompletionNotification(pnlDone)
         }
         .task(id: selectedPortfolioType) {
             // Only reload when selectedPortfolioType changes

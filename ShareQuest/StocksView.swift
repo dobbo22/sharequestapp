@@ -8,6 +8,18 @@
 import SwiftUI
 import Combine
 
+// MARK: - Challenge Completion Helper
+
+/// Posts a notification so any listening view can show the 🎉 completion popup.
+func postCompletionNotification(_ completions: [ChallengeCompletion]) {
+    guard !completions.isEmpty else { return }
+    NotificationCenter.default.post(
+        name: .challengeCompleted,
+        object: nil,
+        userInfo: ["completions": completions]
+    )
+}
+
 // MARK: - Watchlist Manager
 
 struct WatchlistItem: Codable, Equatable {
@@ -42,7 +54,10 @@ final class WatchlistManager: ObservableObject {
             items.remove(at: idx)
         } else {
             items.append(WatchlistItem(symbol: stock.symbol, companyName: stock.companyName))
-            Task { await APIService.shared.postChallengeProgress(criteriaType: "watchlist") }
+            Task {
+                let done = await APIService.shared.postChallengeProgress(criteriaType: "watchlist")
+                postCompletionNotification(done)
+            }
         }
         save()
     }
@@ -492,7 +507,8 @@ private enum HuntClaimState: Equatable {
 // MARK: - Notification Names
 
 extension Notification.Name {
-    static let stockHuntClaimed = Notification.Name("com.sharequest.stockHuntClaimed")
+    static let stockHuntClaimed    = Notification.Name("com.sharequest.stockHuntClaimed")
+    static let challengeCompleted  = Notification.Name("com.sharequest.challengeCompleted")
 }
 
 // MARK: - Stock Detail View
@@ -552,7 +568,8 @@ struct StockDetailView: View {
             }
         }
         .task {
-            await APIService.shared.postChallengeProgress(criteriaType: "stock_view")
+            let done = await APIService.shared.postChallengeProgress(criteriaType: "stock_view")
+            postCompletionNotification(done)
             // Load active stock hunt challenges
             if let response = try? await APIService.shared.getDailyChallenges() {
                 activeHunts = response.allChallenges.filter {
@@ -856,7 +873,8 @@ class SectorsViewModel: ObservableObject {
         stockQuotes = [:]
         subsectors = []
         isLoading = true
-        await APIService.shared.postChallengeProgress(criteriaType: "sector")
+        let done = await APIService.shared.postChallengeProgress(criteriaType: "sector")
+        postCompletionNotification(done)
         do { subsectors = try await APIService.shared.fetchSubsectors(sector: name) } catch {}
         isLoading = false
     }
