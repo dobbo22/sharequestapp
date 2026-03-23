@@ -52,7 +52,10 @@ struct PortfolioView: View {
                 stock: holding.toStock(),
                 portfolioType: selectedPortfolioType,
                 initialTradeType: "sell",
-                initialQuantity: String(holding.quantity)
+                initialQuantity: String(holding.quantity),
+                onTradeSuccess: {
+                    Task { await viewModel.fetchPortfolio(type: selectedPortfolioType) }
+                }
             )
         }
     }
@@ -476,14 +479,17 @@ class PortfolioViewModel: ObservableObject {
         isLoading = false
     }
     
-    func executeTrade(portfolioType: PortfolioType, symbol: String, action: String, quantity: Int) async throws {
-        let _ = try await apiService.executeTrade(
+    func executeTrade(portfolioType: PortfolioType, symbol: String, companyName: String, price: Double, action: String, quantity: Int) async throws {
+        // Convert price to pence (Int)
+        let pricePence = Int(round(price * 100))
+        let _ = try await apiService.executeMobileTrade(
             portfolioType: portfolioType.rawValue,
             symbol: symbol,
+            companyName: companyName,
             action: action,
-            quantity: quantity
+            quantity: quantity,
+            price: Double(pricePence)
         )
-        
         // Refresh portfolio after trade
         await fetchPortfolio(type: portfolioType)
     }

@@ -17,27 +17,28 @@ private struct SQLevel {
     let icon: String
 }
 
+// Gaps: L1→2=500, L2→3=1000 … L19→20=9500 (mirrors GamificationService.ts LEVEL_THRESHOLDS)
 private let sqLevelTable: [SQLevel] = [
     .init(level: 1,  minXP: 0,      name: "Rookie",             icon: "graduationcap"),
-    .init(level: 2,  minXP: 100,    name: "Market Watcher",     icon: "eye"),
-    .init(level: 3,  minXP: 300,    name: "Day Trader",         icon: "arrow.up.right"),
-    .init(level: 4,  minXP: 750,    name: "Swing Trader",       icon: "arrow.left.arrow.right"),
-    .init(level: 5,  minXP: 1500,   name: "Portfolio Pro",      icon: "briefcase"),
-    .init(level: 6,  minXP: 3000,   name: "Fund Manager",       icon: "chart.bar"),
-    .init(level: 7,  minXP: 5000,   name: "Market Maker",       icon: "building.columns"),
-    .init(level: 8,  minXP: 8000,   name: "Trading Elite",      icon: "banknote"),
-    .init(level: 9,  minXP: 12000,  name: "Hedge Fund Boss",    icon: "shield"),
-    .init(level: 10, minXP: 20000,  name: "Wall Street Wolf",   icon: "trophy"),
-    .init(level: 11, minXP: 30000,  name: "Alpha Seeker",       icon: "sparkles"),
-    .init(level: 12, minXP: 45000,  name: "Quant Master",       icon: "function"),
-    .init(level: 13, minXP: 65000,  name: "Market Sage",        icon: "eyes"),
-    .init(level: 14, minXP: 90000,  name: "Risk Architect",     icon: "puzzlepiece.fill"),
-    .init(level: 15, minXP: 125000, name: "Grand Trader",       icon: "crown"),
-    .init(level: 16, minXP: 175000, name: "Market Oracle",      icon: "globe"),
-    .init(level: 17, minXP: 240000, name: "Apex Investor",      icon: "bolt.fill"),
-    .init(level: 18, minXP: 320000, name: "Titan of Finance",   icon: "mountain.2"),
-    .init(level: 19, minXP: 420000, name: "Financial Elite",    icon: "diamond"),
-    .init(level: 20, minXP: 550000, name: "ShareQuest Legend",  icon: "star.fill"),
+    .init(level: 2,  minXP: 500,    name: "Market Watcher",     icon: "eye"),
+    .init(level: 3,  minXP: 1500,   name: "Day Trader",         icon: "arrow.up.right"),
+    .init(level: 4,  minXP: 3000,   name: "Swing Trader",       icon: "arrow.left.arrow.right"),
+    .init(level: 5,  minXP: 5000,   name: "Portfolio Pro",      icon: "briefcase"),
+    .init(level: 6,  minXP: 7500,   name: "Fund Manager",       icon: "chart.bar"),
+    .init(level: 7,  minXP: 10500,  name: "Market Maker",       icon: "building.columns"),
+    .init(level: 8,  minXP: 14000,  name: "Trading Elite",      icon: "banknote"),
+    .init(level: 9,  minXP: 18000,  name: "Hedge Fund Boss",    icon: "shield"),
+    .init(level: 10, minXP: 22500,  name: "Wall Street Wolf",   icon: "trophy"),
+    .init(level: 11, minXP: 27500,  name: "Alpha Seeker",       icon: "sparkles"),
+    .init(level: 12, minXP: 33000,  name: "Quant Master",       icon: "function"),
+    .init(level: 13, minXP: 39000,  name: "Market Sage",        icon: "eyes"),
+    .init(level: 14, minXP: 45500,  name: "Risk Architect",     icon: "puzzlepiece.fill"),
+    .init(level: 15, minXP: 52500,  name: "Grand Trader",       icon: "crown"),
+    .init(level: 16, minXP: 60000,  name: "Market Oracle",      icon: "globe"),
+    .init(level: 17, minXP: 68000,  name: "Apex Investor",      icon: "bolt.fill"),
+    .init(level: 18, minXP: 76500,  name: "Titan of Finance",   icon: "mountain.2"),
+    .init(level: 19, minXP: 85500,  name: "Financial Elite",    icon: "diamond"),
+    .init(level: 20, minXP: 95000,  name: "ShareQuest Legend",  icon: "star.fill"),
 ]
 
 /// Returns (level, name, icon, progressXP within level, rangeXP of level) for any total XP.
@@ -64,6 +65,9 @@ func sqLevelColor(_ level: Int) -> Color {
 
 /// Dashboard/Home screen - matches React Native index.tsx
 struct DashboardView: View {
+        // Level up animation state
+        @State private var showLevelUp = false
+        @State private var levelUpInfo: (level: Int, name: String, icon: String)? = nil
     @EnvironmentObject var authManager: AuthManager
     @Environment(\.horizontalSizeClass) private var hSizeClass
     @StateObject private var viewModel = DashboardViewModel()
@@ -76,9 +80,6 @@ struct DashboardView: View {
     // Global challenge completion popup
     @State private var pendingCompletions: [ChallengeCompletion] = []
     @State private var showCompletionPopup = false
-    // Scale/opacity used for entry animation only
-    @State private var popupScale: CGFloat = 0.7
-    @State private var popupOpacity: Double = 0
     // Auto-scroll state for ticker — timer stored as stable let so it doesn't recreate on re-renders
     @State private var tickerScrollIndex: Int = 0
     private let tickerTimer = Timer.publish(every: 3.5, on: .main, in: .common).autoconnect()
@@ -171,6 +172,13 @@ struct DashboardView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                         .zIndex(100)
                 }
+
+                // Level Up Overlay
+                if showLevelUp, let info = levelUpInfo {
+                    LevelUpOverlay(level: info.level, levelName: info.name, icon: info.icon, onDismiss: { withAnimation { showLevelUp = false } })
+                        .transition(.scale.combined(with: .opacity))
+                        .zIndex(200)
+                }
             }
             // Hide the navigation bar to reclaim vertical space; bell moved into the header
             .navigationBarHidden(true)
@@ -189,6 +197,16 @@ struct DashboardView: View {
                         withAnimation {
                             showXPToast = false
                         }
+                    }
+                }
+            }
+            .onChange(of: viewModel.displayedXP) { oldXP, newXP in
+                let oldLevel = sqLevelInfo(totalXP: oldXP).level
+                let newLevelInfo = sqLevelInfo(totalXP: newXP)
+                if newLevelInfo.level > oldLevel {
+                    levelUpInfo = (newLevelInfo.level, newLevelInfo.name, newLevelInfo.icon)
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                        showLevelUp = true
                     }
                 }
             }
@@ -261,78 +279,20 @@ struct DashboardView: View {
             Task { await viewModel.refreshChallenges() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .challengeCompleted)) { note in
-            guard !showCompletionPopup,                          // ignore if popup already showing
+            // Always refresh — even if popup is suppressed, the list must update
+            Task { await viewModel.refreshChallenges() }
+            guard !showCompletionPopup,
                   let completions = note.userInfo?["completions"] as? [ChallengeCompletion],
                   !completions.isEmpty else { return }
             pendingCompletions = completions
-            popupScale = 0.7
-            popupOpacity = 0
             showCompletionPopup = true
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                popupScale = 1.0
-                popupOpacity = 1.0
-            }
-            Task { await viewModel.refreshChallenges() }
         }
-        .overlay {
-            if showCompletionPopup, let first = pendingCompletions.first {
-                // Black scrim — no tap gesture (button handles dismiss)
-                Color.black.opacity(0.55).ignoresSafeArea()
-
-                VStack(spacing: 20) {
-                    Text("🎉").font(.system(size: 64))
-
-                    Text("Challenge Complete!")
-                        .font(.title2).fontWeight(.bold).foregroundColor(.white)
-
-                    Text(first.displayName)
-                        .font(.subheadline).foregroundColor(.white.opacity(0.8))
-                        .multilineTextAlignment(.center)
-
-                    if pendingCompletions.count > 1 {
-                        Text("+ \(pendingCompletions.count - 1) more completed!")
-                            .font(.caption).foregroundColor(.white.opacity(0.6))
-                    }
-
-                    HStack(spacing: 8) {
-                        Image(systemName: "star.fill").foregroundColor(Theme.accentYellow)
-                        Text("+\(pendingCompletions.reduce(0) { $0 + $1.xp }) XP Earned")
-                            .font(.headline).fontWeight(.bold).foregroundColor(Theme.accentYellow)
-                    }
-                    .padding(.horizontal, 20).padding(.vertical, 10)
-                    .background(Theme.accentYellow.opacity(0.15))
-                    .cornerRadius(12)
-
-                    Button {
-                        // Clear immediately — no async delay that allows re-trigger
-                        showCompletionPopup = false
-                        pendingCompletions = []
-                        popupScale = 0.7
-                        popupOpacity = 0
-                    } label: {
-                        Text("Awesome!")
-                            .font(.headline).fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Theme.accentGreen)
-                            .cornerRadius(14)
-                    }
-                    .padding(.horizontal, 30)
-                }
-                .padding(28)
-                .background(
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(Color(red: 0.1, green: 0.13, blue: 0.2))
-                        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Theme.accentGreen.opacity(0.4), lineWidth: 1.5))
-                )
-                .padding(.horizontal, 24)
-                .scaleEffect(popupScale)
-                .opacity(popupOpacity)
-                .transition(.scale(scale: 0.85).combined(with: .opacity))
+        .fullScreenCover(isPresented: $showCompletionPopup) {
+            CompletionPopupView(completions: pendingCompletions) {
+                showCompletionPopup = false
+                pendingCompletions = []
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: showCompletionPopup)
     }
     
     // MARK: - Gamification Bar

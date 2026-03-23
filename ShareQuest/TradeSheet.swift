@@ -13,7 +13,14 @@ struct Stock: Identifiable {
     let marketCap: Double
 
     var formattedPrice: String {
-        "£\(String(format: "%.2f", price))"
+        // Show price in pence with decimals (e.g., 30.9p)
+        let pence = price * 100
+        // Show up to 2 decimals, but trim trailing zeros
+        var s = String(format: "%.2f", pence)
+        while s.contains(".") && (s.hasSuffix("0") || s.hasSuffix(".")) {
+            s.removeLast()
+        }
+        return "\(s)p"
     }
 
     var formattedChange: String {
@@ -265,13 +272,15 @@ class TradeSheetViewModel: ObservableObject {
         error = nil
         tradeSuccess = nil
         do {
+            // Ensure price is rounded and cast to Int (pence)
+            let pricePence = Int(round(stock.price * 100))
             let resp = try await APIService.shared.executeMobileTrade(
                 portfolioType: selectedPortfolio,
                 symbol: stock.symbol,
                 companyName: stock.companyName,
                 action: tradeAction,
                 quantity: qty,
-                price: stock.price * 100 // API expects pence
+                price: Double(pricePence)
             )
             if resp.success {
                 let isPending = resp.data?.isPendingOrder ?? false
@@ -310,8 +319,10 @@ struct StockTradeSheet: View {
     }
 
     /// From portfolio page — pre-fills action/quantity and locks the portfolio
-    init(stock: Stock, portfolioType: PortfolioType, initialTradeType: String, initialQuantity: String) {
+    private var onTradeSuccess: (() -> Void)? = nil
+    init(stock: Stock, portfolioType: PortfolioType, initialTradeType: String, initialQuantity: String, onTradeSuccess: (() -> Void)? = nil) {
         self.stock = stock
+        self.onTradeSuccess = onTradeSuccess
         _vm = StateObject(wrappedValue: TradeSheetViewModel(
             stock: stock,
             initialAction: initialTradeType,
@@ -397,6 +408,8 @@ struct StockTradeSheet: View {
         }
         .onChange(of: vm.tradeSuccess) { _, newSuccess in
             guard let success = newSuccess else { return }
+            // Call the onTradeSuccess callback immediately after a successful trade
+            onTradeSuccess?()
             let delay: UInt64 = success.isPendingOrder ? 2_500_000_000 : 1_500_000_000
             Task {
                 try? await Task.sleep(nanoseconds: delay)
@@ -643,6 +656,7 @@ struct StockTradeSheet: View {
                     .font(.subheadline).fontWeight(.semibold)
                     .foregroundColor(.white)
                 Spacer()
+                // Show estimated total in pounds, rounded to 2 decimals
                 Text("£\(String(format: "%.2f", vm.estimatedTotalPounds))")
                     .font(.title3).fontWeight(.bold)
                     .foregroundColor(Theme.primaryBlue)

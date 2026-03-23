@@ -668,11 +668,15 @@ struct StockDetailView: View {
             let result = try await APIService.shared.claimStockHunt(symbol: stock.symbol)
             if result.matched {
                 let xp = result.xpReward ?? activeHunts.first?.reward ?? 0
+                let huntName = activeHunts.first?.displayTitle ?? "Stock Hunt"
                 huntClaimState = .matched(xp: xp)
                 // Remove the claimed hunt from active list
                 activeHunts = activeHunts.dropFirst().map { $0 }
-                // Notify dashboard to refresh challenge queue + progress bar
+                // stockHuntClaimed → dashboard refreshes challenge queue
                 NotificationCenter.default.post(name: .stockHuntClaimed, object: nil)
+                // challengeCompleted → shows global popup + second refresh ensures card disappears
+                let completion = ChallengeCompletion(name: huntName, xp_reward: xp)
+                postCompletionNotification([completion])
             } else {
                 huntClaimState = .noMatch
             }
