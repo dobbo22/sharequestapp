@@ -35,19 +35,13 @@ struct LoginView: View {
                     Spacer(minLength: 60)
                     
                     // Logo
-                    VStack(spacing: 8) {
-                        LogoView(size: .large)
-                        
-                        Text("UK Stock Trading Competitions")
-                            .font(.subheadline)
-                            .foregroundColor(Theme.textSecondary)
-                    }
-                    .padding(.bottom, 20)
+                    LogoView(size: .large)
+                        .padding(.bottom, 20)
                     
                     // Login Card
                     VStack(spacing: 20) {
                         // Social Login Buttons
-                        SocialAuthButtons()
+                        SocialAuthButtons(mode: .login)
 
                         // Divider
                         HStack {
@@ -109,13 +103,27 @@ struct LoginView: View {
 
 // MARK: - Social Auth Buttons (Apple + Google + Facebook + LinkedIn)
 
+enum AuthMode {
+    case login, register
+    var heading: String { self == .login ? "Login with" : "Register with" }
+    var appleLabel: SignInWithAppleButton.Label { self == .login ? .signIn : .signUp }
+}
+
 struct SocialAuthButtons: View {
+    var mode: AuthMode = .login
     @EnvironmentObject var authManager: AuthManager
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
+            // Section heading
+            Text(mode.heading)
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
             // Apple Sign In (native)
-            SignInWithAppleButton(.continue) { request in
+            SignInWithAppleButton(mode.appleLabel) { request in
                 request.requestedScopes = [.fullName, .email]
             } onCompletion: { result in
                 Task { await handleApple(result) }
@@ -124,15 +132,9 @@ struct SocialAuthButtons: View {
             .frame(height: 50)
             .cornerRadius(12)
 
-            // Google
-            SocialLoginButton(provider: "google", icon: "g.circle.fill", title: "Continue with Google",
-                              bg: .white, fg: .black)
-            // Facebook
-            SocialLoginButton(provider: "facebook", icon: "f.circle.fill", title: "Continue with Facebook",
-                              bg: Color(red: 0.23, green: 0.35, blue: 0.60), fg: .white)
-            // LinkedIn
-            SocialLoginButton(provider: "linkedin", icon: "network", title: "Continue with LinkedIn",
-                              bg: Color(red: 0.0, green: 0.47, blue: 0.71), fg: .white)
+            SocialLoginButton(provider: "google",   title: "Google")
+            SocialLoginButton(provider: "facebook", title: "Facebook")
+            SocialLoginButton(provider: "linkedin", title: "LinkedIn")
         }
     }
 
@@ -161,31 +163,118 @@ struct SocialAuthButtons: View {
     }
 }
 
+// MARK: - Brand Logo Views
+
+struct GoogleLogo: View {
+    var size: CGFloat = 28
+    var body: some View {
+        ZStack {
+            Circle().fill(.white).frame(width: size, height: size)
+            Text("G")
+                .font(.system(size: size * 0.62, weight: .bold))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color(hex: "4285F4"), Color(hex: "EA4335")],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                )
+        }
+    }
+}
+
+struct FacebookLogo: View {
+    var size: CGFloat = 28
+    var body: some View {
+        ZStack {
+            Circle().fill(Color(hex: "1877F2")).frame(width: size, height: size)
+            Text("f")
+                .font(.system(size: size * 0.65, weight: .bold))
+                .foregroundColor(.white)
+                .offset(x: 1, y: 0)
+        }
+    }
+}
+
+struct LinkedInLogo: View {
+    var size: CGFloat = 28
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.22).fill(Color(hex: "0A66C2")).frame(width: size, height: size)
+            Text("in")
+                .font(.system(size: size * 0.48, weight: .bold))
+                .foregroundColor(.white)
+        }
+    }
+}
+
+// MARK: - Web Auth Presentation Context
+
+private final class WebAuthContext: NSObject, ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        if let keyWindow = scenes.flatMap({ $0.windows }).first(where: { $0.isKeyWindow }) {
+            return keyWindow
+        }
+        if let anyWindow = scenes.flatMap({ $0.windows }).first {
+            return anyWindow
+        }
+        if let scene = scenes.first {
+            return UIWindow(windowScene: scene)
+        }
+        // No connected scene — unreachable in a running app
+        fatalError("No UIWindowScene available for web authentication presentation")
+    }
+}
+
 // MARK: - Web OAuth Button (Google / Facebook / LinkedIn)
 
 struct SocialLoginButton: View {
     let provider: String
-    let icon: String
     let title: String
-    let bg: Color
-    let fg: Color
 
     @EnvironmentObject var authManager: AuthManager
     @State private var session: ASWebAuthenticationSession?
+    private let webAuthContext = WebAuthContext()
+
+    private var bg: Color {
+        switch provider {
+        case "google":   return .white
+        case "facebook": return Color(hex: "1877F2")
+        case "linkedin": return Color(hex: "0A66C2")
+        default:         return .white
+        }
+    }
+
+    private var fg: Color {
+        provider == "google" ? Color(hex: "3C4043") : .white
+    }
 
     var body: some View {
         Button { startOAuth() } label: {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 20))
+            ZStack {
+                // Centred label
                 Text(title)
-                    .font(.headline)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(fg)
+
+                // Logo offset to the left of centre — mirrors Apple button spacing
+                GeometryReader { geo in
+                    let logoX = geo.size.width / 2 - 90
+                    Group {
+                        switch provider {
+                        case "google":   GoogleLogo(size: 34)
+                        case "facebook": FacebookLogo(size: 34)
+                        case "linkedin": LinkedInLogo(size: 34)
+                        default:         Image(systemName: "network").font(.system(size: 22))
+                        }
+                    }
+                    .position(x: logoX, y: geo.size.height / 2)
+                }
             }
-            .foregroundColor(fg)
-            .frame(maxWidth: .infinity)
-            .padding()
+            .frame(maxWidth: .infinity, minHeight: 50)
             .background(bg)
             .cornerRadius(12)
+            .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
         }
     }
 
@@ -198,16 +287,29 @@ struct SocialLoginButton: View {
         let s = ASWebAuthenticationSession(url: url, callbackURLScheme: "sharequest") { callbackURL, error in
             DispatchQueue.main.async {
                 if let callbackURL {
+                    print("[OAuth] Session completed with URL: \(callbackURL)")
                     _ = authManager.handleOAuthCallback(url: callbackURL)
-                } else {
+                } else if let error {
+                    let code = (error as NSError).code
+                    print("[OAuth] Session error code \(code): \(error.localizedDescription)")
                     authManager.isLoading = false
-                    if let error, (error as NSError).code != 1 { // 1 = canceledLogin
+                    if code != 1 { // 1 = canceledLogin
                         authManager.errorMessage = error.localizedDescription
                     }
+                } else {
+                    print("[OAuth] Session finished with no URL and no error")
+                    authManager.isLoading = false
                 }
             }
         }
+        // Non-ephemeral allows shared Safari cookies (stay logged in),
+        // but triggers MCPasscodeManager warning on simulator — use ephemeral there.
+        #if targetEnvironment(simulator)
+        s.prefersEphemeralWebBrowserSession = true
+        #else
         s.prefersEphemeralWebBrowserSession = false
+        #endif
+        s.presentationContextProvider = webAuthContext
         session = s
         s.start()
     }
@@ -509,8 +611,8 @@ struct RegisterView: View {
                     // Main Card
                     VStack(spacing: 20) {
                         // Social Login Buttons
-                        SocialAuthButtons()
-                        
+                        SocialAuthButtons(mode: .register)
+
                         // Error Message
                         if let error = authManager.errorMessage {
                             HStack {
@@ -525,20 +627,6 @@ struct RegisterView: View {
                             .background(Theme.accentRed.opacity(0.1))
                             .cornerRadius(8)
                         }
-                        
-                        // Form Header
-                        HStack {
-                            Image(systemName: "person.badge.plus")
-                                .foregroundColor(Theme.accentPurple)
-                            Text("Create Account")
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                        }
-                        .font(.headline)
-                        .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.accentPurple.opacity(0.2))
-                        .cornerRadius(12)
                         
                         // Show Form Button or Form
                         if !showForm {

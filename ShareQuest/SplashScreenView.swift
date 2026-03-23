@@ -55,12 +55,6 @@ struct SplashScreenView: View {
                         .opacity(isAnimating ? 1.0 : 0.0)
                 }
                 
-                // Tagline
-                Text("UK Stock Trading Competitions")
-                    .font(.subheadline)
-                    .foregroundColor(Theme.textSecondary)
-                    .opacity(showContent ? 1.0 : 0.0)
-                
                 // Loading indicator
                 if showContent {
                     ProgressView()

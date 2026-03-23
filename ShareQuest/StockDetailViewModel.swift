@@ -78,13 +78,18 @@ final class StockDetailViewModel: ObservableObject {
                 print("[StockDetailViewModel] trade ticks SUCCESS: \(ticks.count)")
             } catch {
                 self.tradeTicks = []
-                if let apiErr = error as? APIError, case .unauthorized = apiErr {
-                    // Only gate behind subscription wall if the user genuinely has no paid plan.
-                    // A 401 on a subscribed user means an auth/endpoint issue, not a missing plan.
-                    let subs = try? await api.fetchUserSubscriptions()
-                    let hasActivePlan = subs?.annual == true || subs?.monthly == true || subs?.weekly == true
-                    self.requiresSubscriptionForTrades = !hasActivePlan
-                    print("[StockDetailViewModel] trade ticks 401 — hasActivePlan=\(hasActivePlan)")
+                if let apiErr = error as? APIError {
+                    let is401 = { if case .unauthorized = apiErr { return true }; return false }()
+                    let is403 = { if case .serverError(let c) = apiErr, c == 403 { return true }; return false }()
+                    if is401 || is403 {
+                        // Show subscription wall only if user genuinely has no paid plan
+                        let subs = try? await api.fetchUserSubscriptions()
+                        let hasActivePlan = subs?.annual == true || subs?.monthly == true || subs?.weekly == true
+                        self.requiresSubscriptionForTrades = !hasActivePlan
+                        print("[StockDetailViewModel] trade ticks \(is401 ? 401 : 403) — hasActivePlan=\(hasActivePlan)")
+                    } else {
+                        self.requiresSubscriptionForTrades = false
+                    }
                 } else {
                     self.requiresSubscriptionForTrades = false
                 }
@@ -427,13 +432,25 @@ final class StockDetailViewModel: ObservableObject {
     }
 
     func tradeTimeString(_ timestamp: String) -> String {
+        let out = DateFormatter()
+        out.dateFormat = "dd/MM HH:mm"
+
+        // Try ISO8601 with fractional seconds first (e.g. 2026-03-23T09:52:00.000Z)
+        let isoFrac = ISO8601DateFormatter()
+        isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = isoFrac.date(from: timestamp) { return out.string(from: d) }
+
+        // Try plain ISO8601 (e.g. 2026-03-23T09:52:00Z)
         let iso = ISO8601DateFormatter()
-        if let d = iso.date(from: timestamp) {
-            let out = DateFormatter()
-            out.dateFormat = "HH:mm:ss"
-            return out.string(from: d)
-        }
-        return timestamp
+        if let d = iso.date(from: timestamp) { return out.string(from: d) }
+
+        // Try space-separated datetime (e.g. 2026-03-23 09:52:00)
+        let space = DateFormatter()
+        space.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        if let d = space.date(from: timestamp) { return out.string(from: d) }
+
+        // Fallback: truncate raw string to first 16 chars if long
+        return timestamp.count > 16 ? String(timestamp.prefix(16)) : timestamp
     }
 
     func tradePriceString(_ price: Double) -> String {

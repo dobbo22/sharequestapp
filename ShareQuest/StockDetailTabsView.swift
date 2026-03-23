@@ -330,25 +330,29 @@ struct BidAskCard: View {
                         .fontWeight(.heavy)
                         .foregroundColor(.black.opacity(0.7))
                     Text(bid)
-                        .font(.title3)
+                        .font(.subheadline)
                         .fontWeight(.black)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .foregroundColor(.black)
                 }
                 .frame(maxWidth: .infinity)
-                
+
                 // Divider
                 Rectangle()
                     .fill(Color.black.opacity(0.2))
                     .frame(width: 1, height: 40)
-                
+
                 VStack(spacing: 4) {
                     Text("BUYING PRICE")
                         .font(.caption2)
                         .fontWeight(.heavy)
                         .foregroundColor(.black.opacity(0.7))
                     Text(ask)
-                        .font(.title3)
+                        .font(.subheadline)
                         .fontWeight(.black)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .foregroundColor(.black)
                 }
                 .frame(maxWidth: .infinity)
@@ -360,8 +364,10 @@ struct BidAskCard: View {
                         .fontWeight(.heavy)
                         .foregroundColor(.black.opacity(0.7))
                     Text(closePrice)
-                        .font(.title2)
+                        .font(.subheadline)
                         .fontWeight(.black)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .foregroundColor(.black)
                 }
                 .frame(maxWidth: .infinity)

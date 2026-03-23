@@ -28,13 +28,15 @@ enum APIConfig {
 
     static var selectedEnvironment: Environment {
         get {
+#if targetEnvironment(simulator)
+            // Simulator: respect any stored preference, default to local
             if let raw = UserDefaults.standard.string(forKey: selectedEnvironmentKey),
                let env = Environment(rawValue: raw) {
                 return env
             }
-#if targetEnvironment(simulator)
             return .local
 #else
+            // Physical device: always remote — stored value is ignored
             return .remote
 #endif
         }
@@ -1608,7 +1610,7 @@ final class APIService: @unchecked Sendable {
     // MARK: - Daily Login
     /// Record daily login and return streak/xp/achievements
     func recordDailyLogin() async throws -> DailyLoginResponse {
-        let url = try buildURL(path: "/mobile/auth/daily-login", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/mobile/gamification/login", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         addHeaders(to: &request)
@@ -1785,12 +1787,74 @@ final class APIService: @unchecked Sendable {
     // MARK: - Daily Challenges
     /// Fetch daily challenges for the user
     func getDailyChallenges() async throws -> ChallengesResponse {
-        let url = try buildURL(path: "/mobile/challenges/daily", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/mobile/gamification/challenges", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
         let data = try await performRequest(request)
         return try decoder.decode(ChallengesResponse.self, from: data)
+    }
+
+    /// Fetch today's stock hunt challenge detail (name, description, hint, difficulty, matching count)
+    func getStockHuntChallenge() async throws -> StockHuntChallengeResponse {
+        let url = try buildURL(path: "/mobile/gamification/challenges/stock-hunt", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        return try decoder.decode(StockHuntChallengeResponse.self, from: data)
+    }
+
+    /// Search stocks filtered by today's stock hunt criteria
+    func searchStockHunt(query: String) async throws -> [StockHuntSearchResult] {
+        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        let url = try buildURL(path: "/mobile/gamification/challenges/stock-hunt/search?q=\(encoded)", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        struct Wrapper: Decodable { let success: Bool?; let data: [StockHuntSearchResult]? }
+        return (try decoder.decode(Wrapper.self, from: data)).data ?? []
+    }
+
+    /// Claim a stock for today's stock hunt — awards XP if it matches criteria
+    @discardableResult
+    func claimStockHunt(symbol: String) async throws -> StockHuntClaimResult {
+        let url = try buildURL(path: "/mobile/gamification/challenges/stock-hunt/claim", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        addHeaders(to: &request)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["symbol": symbol])
+        let data = try await performRequest(request)
+        struct Wrapper: Decodable { let success: Bool?; let data: StockHuntClaimResult? }
+        return (try decoder.decode(Wrapper.self, from: data)).data ?? StockHuntClaimResult(matched: false, challengeName: nil, xpReward: nil)
+    }
+
+    /// Report progress for a daily challenge action. Returns names of any newly completed challenges.
+    @discardableResult
+    func postChallengeProgress(criteriaType: String, increment: Int = 1) async -> [String] {
+        guard !criteriaType.isEmpty else { return [] }
+        do {
+            let url = try buildURL(path: "/mobile/gamification/challenges/progress", base: APIConfig.mainAppURL)
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            addHeaders(to: &request)
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["criteria_type": criteriaType, "increment": increment])
+            let data = try await performRequest(request)
+            struct Resp: Decodable {
+                struct Inner: Decodable {
+                    struct Done: Decodable { let name: String? }
+                    let completed: [Done]?
+                }
+                let data: Inner?
+            }
+            let resp = try? decoder.decode(Resp.self, from: data)
+            return resp?.data?.completed?.compactMap { $0.name } ?? []
+        } catch {
+            return []
+        }
     }
 
     private func buildURL(path: String, base: String) throws -> URL {
@@ -2579,41 +2643,144 @@ struct DailyLoginResponse: Codable {
     let xp_awarded: Int?
     let newAchievements: [AchievementData]?
     let new_achievements: [AchievementData]?
-    
-    var streak: Int { currentStreak ?? current_streak ?? 0 }
-    var xp: Int { xpAwarded ?? xp_awarded ?? 0 }
+    let data: DailyLoginData?
+
+    var streak: Int { data?.currentStreak ?? currentStreak ?? current_streak ?? 0 }
+    var xp: Int { data?.streakXP ?? xpAwarded ?? xp_awarded ?? 0 }
     var achievements: [AchievementData] { newAchievements ?? new_achievements ?? [] }
+}
+
+struct DailyLoginData: Codable {
+    let currentStreak: Int?
+    let longestStreak: Int?
+    let streakXP: Int?
+}
+
+struct StockHuntSearchResult: Codable, Identifiable {
+    let symbol: String
+    let companyname: String
+    let matches: Bool
+    var id: String { symbol }
+}
+
+struct StockHuntClaimResult: Codable {
+    let matched: Bool
+    let challengeName: String?
+    let xpReward: Int?
+}
+
+struct StockHuntChallengeResponse: Codable {
+    let success: Bool?
+    let data: StockHuntData?
+
+    struct StockHuntData: Codable {
+        let template: StockHuntTemplate?
+        let completed: Bool?
+        let matchingStockCount: Int?
+    }
+
+    struct StockHuntTemplate: Codable {
+        let name: String?
+        let description: String?
+        let hint: String?
+        let xp_reward: Int?
+        let difficulty: String?
+    }
 }
 
 struct ChallengesResponse: Codable {
     let success: Bool?
     let challenges: [ChallengeData]?
     let daily_challenges: [ChallengeData]?
-    
-    var allChallenges: [ChallengeData] { challenges ?? daily_challenges ?? [] }
+    let data: ChallengesData?
+
+    var allChallenges: [ChallengeData] { data?.challenges ?? challenges ?? daily_challenges ?? [] }
+    var dailyCompletedCount: Int { data?.daily_completed_count ?? 0 }
+    var dailyLimit: Int { data?.daily_limit ?? 10 }
+    var allDone: Bool { data?.all_done ?? false }
 }
 
-struct ChallengeData: Codable, Identifiable {
-    let id: String?
-    let challenge_id: String?
+struct ChallengesData: Codable {
+    let challenges: [ChallengeData]?
+    let daily_completed_count: Int?
+    let daily_limit: Int?
+    let all_done: Bool?
+}
+
+struct ChallengeData: Identifiable {
+    // Server returns id as Int; stored as String for Identifiable
+    let id: String
     let title: String?
+    let name: String?
     let description: String?
     let xp_reward: Int?
     let xpReward: Int?
     let progress: Int?
+    let user_progress: Int?
     let target: Int?
+    let criteria_value: Int?
     let completed: Bool?
+    let user_completed: Bool?
     let type: String?
     let criteria_type: String?
-    
-    var challengeId: String { id ?? challenge_id ?? UUID().uuidString }
+
+    var displayTitle: String { title ?? name ?? "Daily Task" }
     var reward: Int { xp_reward ?? xpReward ?? 0 }
-    var isCompleted: Bool { completed ?? false }
-    var currentProgress: Int { progress ?? 0 }
-    var targetProgress: Int { target ?? 1 }
+    var isCompleted: Bool { user_completed ?? completed ?? false }
+    var currentProgress: Int { user_progress ?? progress ?? 0 }
+    var targetProgress: Int { criteria_value ?? target ?? 1 }
     var progressPercent: Double {
-        guard targetProgress > 0 else { return 0 }
+        guard targetProgress > 0 else { return isCompleted ? 1.0 : 0.0 }
         return min(Double(currentProgress) / Double(targetProgress), 1.0)
+    }
+}
+
+extension ChallengeData: Codable {
+    enum CodingKeys: String, CodingKey {
+        case id, challenge_id, title, name, description
+        case xp_reward, xpReward, progress, user_progress
+        case target, criteria_value, completed, user_completed, type, criteria_type
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // id can be Int or String from different endpoints
+        if let intId = try? c.decode(Int.self, forKey: .id) {
+            id = String(intId)
+        } else {
+            id = (try? c.decode(String.self, forKey: .id))
+                ?? (try? c.decode(String.self, forKey: .challenge_id))
+                ?? UUID().uuidString
+        }
+        title        = try? c.decode(String.self, forKey: .title)
+        name         = try? c.decode(String.self, forKey: .name)
+        description  = try? c.decode(String.self, forKey: .description)
+        xp_reward    = try? c.decode(Int.self, forKey: .xp_reward)
+        xpReward     = try? c.decode(Int.self, forKey: .xpReward)
+        progress     = try? c.decode(Int.self, forKey: .progress)
+        user_progress = try? c.decode(Int.self, forKey: .user_progress)
+        target       = try? c.decode(Int.self, forKey: .target)
+        criteria_value = try? c.decode(Int.self, forKey: .criteria_value)
+        completed    = try? c.decode(Bool.self, forKey: .completed)
+        user_completed = try? c.decode(Bool.self, forKey: .user_completed)
+        type         = try? c.decode(String.self, forKey: .type)
+        criteria_type = try? c.decode(String.self, forKey: .criteria_type)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encodeIfPresent(title, forKey: .title)
+        try c.encodeIfPresent(name, forKey: .name)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encodeIfPresent(xp_reward, forKey: .xp_reward)
+        try c.encodeIfPresent(progress, forKey: .progress)
+        try c.encodeIfPresent(user_progress, forKey: .user_progress)
+        try c.encodeIfPresent(criteria_value, forKey: .criteria_value)
+        try c.encodeIfPresent(completed, forKey: .completed)
+        try c.encodeIfPresent(user_completed, forKey: .user_completed)
+        try c.encodeIfPresent(type, forKey: .type)
+        try c.encodeIfPresent(criteria_type, forKey: .criteria_type)
     }
 }
 

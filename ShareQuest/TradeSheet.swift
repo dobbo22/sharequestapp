@@ -301,6 +301,7 @@ struct StockTradeSheet: View {
     let stock: Stock
     @Environment(\.dismiss) private var dismiss
     @StateObject private var vm: TradeSheetViewModel
+    @State private var showNumpad = false
 
     /// From stock detail page — defaults to buy, no pre-fill
     init(stock: Stock) {
@@ -547,15 +548,85 @@ struct StockTradeSheet: View {
                 .font(.caption).fontWeight(.semibold)
                 .foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
 
-            TextField("Enter number of shares", text: $vm.quantity)
-                .keyboardType(.numberPad)
-                .font(.title3)
-                .foregroundColor(.white)
+            // Display — tap to open numpad
+            Button { showNumpad = true } label: {
+                HStack {
+                    Text(vm.quantity.isEmpty ? "0" : vm.quantity)
+                        .font(.title2).fontWeight(.bold)
+                        .foregroundColor(vm.quantity.isEmpty ? Color(red: 0.42, green: 0.45, blue: 0.52) : .white)
+                    Spacer()
+                    Text("shares")
+                        .font(.subheadline)
+                        .foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
+                    Image(systemName: showNumpad ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
+                }
                 .padding(16)
                 .background(RoundedRectangle(cornerRadius: 12)
                     .fill(Color(red: 0.12, green: 0.16, blue: 0.22).opacity(0.5)))
                 .overlay(RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color(red: 0.29, green: 0.34, blue: 0.39).opacity(0.4), lineWidth: 1))
+                    .stroke(showNumpad ? Theme.primaryBlue.opacity(0.6) : Color(red: 0.29, green: 0.34, blue: 0.39).opacity(0.4), lineWidth: 1))
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            if showNumpad { numpad }
+        }
+    }
+
+    private var numpad: some View {
+        VStack(spacing: 8) {
+            ForEach([["1","2","3"], ["4","5","6"], ["7","8","9"], ["done","0","⌫"]], id: \.self) { row in
+                HStack(spacing: 8) {
+                    ForEach(row, id: \.self) { key in
+                        numpadButton(key)
+                    }
+                }
+            }
+        }
+    }
+
+    private func numpadButton(_ key: String) -> some View {
+        let isDone = key == "done"
+        let isDelete = key == "⌫"
+        return Button { handleNumpadKey(key) } label: {
+            Group {
+                if isDone {
+                    Text("Done")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Theme.primaryBlue)
+                } else if isDelete {
+                    Image(systemName: "delete.left")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                } else {
+                    Text(key)
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundColor(.white)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(RoundedRectangle(cornerRadius: 10)
+                .fill(isDone
+                    ? Theme.primaryBlue.opacity(0.15)
+                    : Color(red: 0.18, green: 0.22, blue: 0.28)))
+            .overlay(RoundedRectangle(cornerRadius: 10)
+                .stroke(isDone ? Theme.primaryBlue.opacity(0.4) : Color.clear, lineWidth: 1))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func handleNumpadKey(_ key: String) {
+        switch key {
+        case "done":
+            vm.revalidate()
+            showNumpad = false
+        case "⌫":
+            if !vm.quantity.isEmpty { vm.quantity.removeLast() }
+        default:
+            if vm.quantity == "0" { return }
+            if vm.quantity.count < 7 { vm.quantity += key }
         }
     }
 

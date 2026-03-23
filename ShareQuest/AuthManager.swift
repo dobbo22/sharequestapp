@@ -270,18 +270,28 @@ class AuthManager: ObservableObject {
     // Called by the app's onOpenURL handler after ASWebAuthenticationSession completes
 
     func handleOAuthCallback(url: URL) -> Bool {
+        print("[OAuth] Callback URL: \(url)")
         guard url.scheme == "sharequest", url.host == "auth",
-              url.path == "/callback" else { return false }
+              url.path == "/callback" else {
+            print("[OAuth] Guard failed — scheme:\(url.scheme ?? "nil") host:\(url.host ?? "nil") path:\(url.path)")
+            return false
+        }
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         var params: [String: String] = [:]
         for item in components?.queryItems ?? [] {
             params[item.name] = item.value ?? ""
         }
+        print("[OAuth] Params: \(params.keys.sorted())")
         if let error = params["error"] {
+            print("[OAuth] Error from server: \(error)")
             DispatchQueue.main.async { self.errorMessage = error; self.isLoading = false }
             return false
         }
-        guard let token = params["token"] else { return false }
+        guard let token = params["token"] else {
+            print("[OAuth] No token in callback — setting error")
+            DispatchQueue.main.async { self.errorMessage = "Sign in failed — no token received"; self.isLoading = false }
+            return false
+        }
         let result = APIService.OAuthTokenResult(
             token: token,
             userId: params["userId"] ?? "",
@@ -295,8 +305,8 @@ class AuthManager: ObservableObject {
 
     private func handleOAuthResult(_ result: APIService.OAuthTokenResult) -> Bool {
         apiService.saveToken(result.token)
-        if let uid = result.userId.isEmpty ? nil : result.userId {
-            UserDefaults.standard.set(uid, forKey: "user_id")
+        if !result.userId.isEmpty {
+            apiService.setUserId(result.userId)  // updates in-memory + UserDefaults so x-user-id header is sent immediately
         }
         currentUser = User(
             id: result.userId,

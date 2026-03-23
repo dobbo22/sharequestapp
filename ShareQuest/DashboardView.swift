@@ -8,6 +8,60 @@
 import SwiftUI
 import Combine
 
+// MARK: - Level System (mirrors GamificationService.ts LEVEL_THRESHOLDS)
+
+private struct SQLevel {
+    let level: Int
+    let minXP: Int
+    let name: String
+    let icon: String
+}
+
+private let sqLevelTable: [SQLevel] = [
+    .init(level: 1,  minXP: 0,      name: "Rookie",             icon: "graduationcap"),
+    .init(level: 2,  minXP: 100,    name: "Market Watcher",     icon: "eye"),
+    .init(level: 3,  minXP: 300,    name: "Day Trader",         icon: "arrow.up.right"),
+    .init(level: 4,  minXP: 750,    name: "Swing Trader",       icon: "arrow.left.arrow.right"),
+    .init(level: 5,  minXP: 1500,   name: "Portfolio Pro",      icon: "briefcase"),
+    .init(level: 6,  minXP: 3000,   name: "Fund Manager",       icon: "chart.bar"),
+    .init(level: 7,  minXP: 5000,   name: "Market Maker",       icon: "building.columns"),
+    .init(level: 8,  minXP: 8000,   name: "Trading Elite",      icon: "banknote"),
+    .init(level: 9,  minXP: 12000,  name: "Hedge Fund Boss",    icon: "shield"),
+    .init(level: 10, minXP: 20000,  name: "Wall Street Wolf",   icon: "trophy"),
+    .init(level: 11, minXP: 30000,  name: "Alpha Seeker",       icon: "sparkles"),
+    .init(level: 12, minXP: 45000,  name: "Quant Master",       icon: "function"),
+    .init(level: 13, minXP: 65000,  name: "Market Sage",        icon: "eyes"),
+    .init(level: 14, minXP: 90000,  name: "Risk Architect",     icon: "puzzlepiece.fill"),
+    .init(level: 15, minXP: 125000, name: "Grand Trader",       icon: "crown"),
+    .init(level: 16, minXP: 175000, name: "Market Oracle",      icon: "globe"),
+    .init(level: 17, minXP: 240000, name: "Apex Investor",      icon: "bolt.fill"),
+    .init(level: 18, minXP: 320000, name: "Titan of Finance",   icon: "mountain.2"),
+    .init(level: 19, minXP: 420000, name: "Financial Elite",    icon: "diamond"),
+    .init(level: 20, minXP: 550000, name: "ShareQuest Legend",  icon: "star.fill"),
+]
+
+/// Returns (level, name, icon, progressXP within level, rangeXP of level) for any total XP.
+func sqLevelInfo(totalXP: Int) -> (level: Int, name: String, icon: String, progressXP: Int, rangeXP: Int) {
+    let current = sqLevelTable.last(where: { totalXP >= $0.minXP }) ?? sqLevelTable[0]
+    let next = sqLevelTable.first(where: { $0.level == current.level + 1 })
+    let progressXP = totalXP - current.minXP
+    let rangeXP = (next?.minXP ?? current.minXP + 50000) - current.minXP
+    return (current.level, current.name, current.icon, progressXP, rangeXP)
+}
+
+/// Accent colour that scales with prestige.
+func sqLevelColor(_ level: Int) -> Color {
+    switch level {
+    case 1...3:   return Color(red: 0.23, green: 0.51, blue: 0.96)  // blue
+    case 4...6:   return Color(red: 0.18, green: 0.78, blue: 0.45)  // green
+    case 7...9:   return Color(red: 0.55, green: 0.36, blue: 0.96)  // purple
+    case 10:      return Color(red: 1.0,  green: 0.84, blue: 0.0)   // gold
+    case 11...14: return Color(red: 0.96, green: 0.62, blue: 0.04)  // orange
+    case 15...17: return Color(red: 0.94, green: 0.27, blue: 0.27)  // red
+    default:      return Color(red: 1.0,  green: 0.84, blue: 0.0)   // legendary gold
+    }
+}
+
 /// Dashboard/Home screen - matches React Native index.tsx
 struct DashboardView: View {
     @EnvironmentObject var authManager: AuthManager
@@ -17,6 +71,8 @@ struct DashboardView: View {
     @State private var xpGained = 0
     @State private var showNotifications = false
     @State private var showProfile = false
+    @State private var selectedChallenge: ChallengeData? = nil
+    @State private var showStockHuntHub = false
     // Auto-scroll state for ticker — timer stored as stable let so it doesn't recreate on re-renders
     @State private var tickerScrollIndex: Int = 0
     private let tickerTimer = Timer.publish(every: 3.5, on: .main, in: .common).autoconnect()
@@ -43,17 +99,8 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background gradient
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.059, green: 0.090, blue: 0.165),
-                        Color(red: 0.118, green: 0.227, blue: 0.373),
-                        Color(red: 0.345, green: 0.110, blue: 0.529)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                Theme.backgroundPrimary
+                    .ignoresSafeArea()
                 
                 VStack(spacing: 12) {
                     // Fixed header at the top so user name and bell are always visible
@@ -92,21 +139,14 @@ struct DashboardView: View {
                             // Swipeable Portfolio Cards
                             portfolioCardsSection
                             
-                            // Daily Challenges
-                            if !viewModel.dailyChallenges.isEmpty {
-                                challengesSection
-                            }
+                            // Daily Challenges (always show section so all-done state is visible)
+                            challengesSection
                             
                             // Market Sentiment
                             if viewModel.marketSentiment != nil {
                                 marketSentimentSection
                             }
-                            
-                            // XP Activity Feed
-                            if !viewModel.recentXP.isEmpty {
-                                xpActivitySection
-                            }
-                            
+
                             // Bottom padding for tab bar
                             Spacer(minLength: 100)
                         }
@@ -198,6 +238,21 @@ struct DashboardView: View {
             ProfileView()
                 .environmentObject(authManager)
         }
+        .sheet(item: $selectedChallenge) { challenge in
+            DailyTaskDetailSheet(challenge: challenge) {
+                Task { await viewModel.refreshChallenges() }
+            }
+            .onDisappear {
+                Task { await viewModel.refreshChallenges() }
+            }
+        }
+        .sheet(isPresented: $showStockHuntHub) {
+            StockHuntHubSheet(allChallenges: viewModel.dailyChallenges)
+                .onDisappear { Task { await viewModel.refreshChallenges() } }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .stockHuntClaimed)) { _ in
+            Task { await viewModel.refreshChallenges() }
+        }
     }
     
     // Extracted market pill for reuse
@@ -257,56 +312,60 @@ struct DashboardView: View {
     
     // MARK: - Gamification Bar
     private var gamificationBar: some View {
-        HStack(spacing: 16) {
-            // Level and Name
-            HStack(spacing: 6) {
-                Image(systemName: levelIcon)
-                    .foregroundColor(Theme.primaryBlue)
-                Text("Lv.\(viewModel.gamProfile?.playerLevel ?? 1)")
-                    .fontWeight(.bold)
-                    .foregroundColor(Theme.primaryBlue)
-                Text(viewModel.gamProfile?.playerLevelName ?? "Rookie")
-                    .fontWeight(.semibold)
-                    .foregroundColor(Theme.primaryBlue)
-            }
-            .font(.subheadline)
-            
-            Spacer()
-            
-            // XP (use displayedXP which accounts for local onboarding XP fallback)
-            Text("\(viewModel.displayedXP)/\(viewModel.displayedXPForNext) XP")
+        let info = sqLevelInfo(totalXP: viewModel.displayedXP)
+        let progress = info.rangeXP > 0 ? min(Double(info.progressXP) / Double(info.rangeXP), 1.0) : 1.0
+        let lvColor = sqLevelColor(info.level)
+
+        return VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                // Level badge
+                HStack(spacing: 5) {
+                    Image(systemName: info.icon)
+                        .foregroundColor(lvColor)
+                        .font(.caption)
+                    Text("Lv.\(info.level)")
+                        .fontWeight(.bold)
+                        .foregroundColor(lvColor)
+                    Text(info.name)
+                        .fontWeight(.semibold)
+                        .foregroundColor(lvColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
                 .font(.subheadline)
-                .fontWeight(.bold)
-                .foregroundColor(Color(red: 1, green: 0.84, blue: 0)) // Gold
-            
-            // Streak
-            StreakBadge(streak: viewModel.streak)
+                .layoutPriority(1)
+
+                Spacer(minLength: 4)
+
+                // XP within current level
+                Text("\(info.progressXP) / \(info.rangeXP) XP")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(Color(red: 1, green: 0.84, blue: 0))
+                    .lineLimit(1)
+
+                // Streak
+                StreakBadge(streak: viewModel.streak)
+            }
+
+            // XP progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.1)).frame(height: 5)
+                    Capsule()
+                        .fill(LinearGradient(colors: [lvColor.opacity(0.8), lvColor],
+                                             startPoint: .leading, endPoint: .trailing))
+                        .frame(width: geo.size.width * progress, height: 5)
+                        .animation(.easeOut(duration: 0.6), value: progress)
+                }
+            }
+            .frame(height: 5)
         }
         .padding()
         .background(Theme.glassBackground)
         .background(.ultraThinMaterial)
         .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Theme.glassBorder, lineWidth: 1)
-        )
-    }
-    
-    private var levelIcon: String {
-        let level = viewModel.gamProfile?.playerLevel ?? 1
-        let icons = [
-            1: "graduationcap",
-            2: "eye",
-            3: "arrow.up.right",
-            4: "arrow.left.arrow.right",
-            5: "briefcase",
-            6: "chart.bar",
-            7: "banknote",
-            8: "shield",
-            9: "diamond",
-            10: "trophy"
-        ]
-        return icons[level] ?? "star"
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.glassBorder, lineWidth: 1))
     }
     
     // MARK: - Stock Ticker
@@ -337,55 +396,134 @@ struct DashboardView: View {
     }
     
     // MARK: - Portfolio Cards Section
+    @State private var portfolioPageIndex = 0
+
     private var portfolioCardsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Your Portfolios")
-                .font(.headline)
-                .foregroundColor(.white)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center) {
+                Text("Your Portfolios")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+                if viewModel.portfolioCards.count > 1 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "hand.draw")
+                            .font(.caption2)
+                            .foregroundColor(Theme.textSecondary)
+                        Text("Swipe")
+                            .font(.caption2)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                }
+            }
+
             if viewModel.portfolioCards.isEmpty {
-                // Show a placeholder or message if no portfolios are available
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Theme.glassBackground)
-                    .frame(width: 160, height: 100)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 110)
                     .overlay(
                         Text("No portfolios available")
                             .foregroundColor(Theme.textSecondary)
                             .font(.subheadline)
                     )
-                    .padding(.vertical, 8)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 16) {
-                        ForEach(viewModel.portfolioCards) { card in
-                            PortfolioCardView(portfolio: card)
+                TabView(selection: $portfolioPageIndex) {
+                    ForEach(viewModel.portfolioCards.indices, id: \.self) { idx in
+                        PortfolioCardView(portfolio: viewModel.portfolioCards[idx])
+                            .tag(idx)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: 130)
+
+                // Page dots
+                if viewModel.portfolioCards.count > 1 {
+                    HStack(spacing: 6) {
+                        ForEach(viewModel.portfolioCards.indices, id: \.self) { idx in
+                            Circle()
+                                .fill(idx == portfolioPageIndex ? Color.white : Color.white.opacity(0.3))
+                                .frame(width: idx == portfolioPageIndex ? 8 : 5, height: idx == portfolioPageIndex ? 8 : 5)
+                                .animation(.easeInOut(duration: 0.2), value: portfolioPageIndex)
                         }
                     }
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
     }
     
-    // MARK: - Challenges Section
+    // MARK: - Daily Tasks Section
     private var challengesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Daily Challenges")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            VStack(spacing: 8) {
-                ForEach(viewModel.dailyChallenges.prefix(3)) { challenge in
-                    ChallengeRowView(challenge: challenge)
+        let xpEarned = viewModel.dailyChallenges.filter { $0.isCompleted }.reduce(0) { $0 + $1.reward }
+        let completed = viewModel.dailyCompletedCount
+        let limit = viewModel.dailyLimit
+        let progress = limit > 0 ? Double(completed) / Double(limit) : 0.0
+
+        return VStack(alignment: .leading, spacing: 12) {
+            // Header
+            HStack {
+                Text("Daily Tasks")
+                    .font(.headline).foregroundColor(.white)
+                Spacer()
+                Text("\(completed)/\(limit)")
+                    .font(.caption).fontWeight(.bold)
+                    .foregroundColor(viewModel.allChallengesDone ? Theme.accentGreen : Theme.textSecondary)
+            }
+
+            // Daily progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.08)).frame(height: 6)
+                    Capsule()
+                        .fill(viewModel.allChallengesDone
+                              ? AnyShapeStyle(Theme.accentGreen)
+                              : AnyShapeStyle(LinearGradient(colors: [Theme.primaryBlue, Theme.accentPurple],
+                                               startPoint: .leading, endPoint: .trailing)))
+                        .frame(width: geo.size.width * progress, height: 6)
+                        .animation(.easeOut(duration: 0.5), value: progress)
                 }
             }
-            
-            if viewModel.dailyChallenges.count > 3 {
-                Button(action: {}) {
-                    Text("View All Challenges →")
-                        .font(.caption)
-                        .foregroundColor(Theme.accentYellow)
+            .frame(height: 6)
+
+            // Stats row
+            HStack(spacing: 10) {
+                DailyTaskStatView(icon: "flame.fill", iconColor: .orange, value: "\(viewModel.streak)", label: "Streak")
+                DailyTaskStatView(icon: "checkmark.circle.fill", iconColor: Theme.accentGreen, value: "\(completed)/\(limit)", label: "Done")
+                DailyTaskStatView(icon: "star.fill", iconColor: Theme.accentYellow, value: "+\(xpEarned)", label: "XP Earned")
+            }
+
+            // All-done state
+            if viewModel.allChallengesDone {
+                HStack(spacing: 12) {
+                    Text("🎉")
+                        .font(.title2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("All done for today!")
+                            .font(.subheadline).fontWeight(.bold)
+                            .foregroundColor(.white)
+                        Text("You've completed all \(limit) challenges. Come back tomorrow!")
+                            .font(.caption).foregroundColor(Theme.textSecondary)
+                    }
+                    Spacer()
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.top, 4)
+                .padding()
+                .background(RoundedRectangle(cornerRadius: 14).fill(Theme.accentGreen.opacity(0.1)))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.accentGreen.opacity(0.3), lineWidth: 1))
+            } else {
+                // Active + completed task cards
+                VStack(spacing: 8) {
+                    ForEach(viewModel.dailyChallenges) { challenge in
+                        let isHunt = (challenge.criteria_type ?? challenge.type ?? "") == "stock_hunt"
+                        Button {
+                            if isHunt { showStockHuntHub = true }
+                            else { selectedChallenge = challenge }
+                        } label: {
+                            DailyTaskRowView(challenge: challenge)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
             }
         }
     }
@@ -460,20 +598,6 @@ struct DashboardView: View {
         }
     }
     
-    // MARK: - XP Activity Section
-    private var xpActivitySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Recent XP")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            VStack(spacing: 8) {
-                ForEach(viewModel.recentXP.prefix(5)) { activity in
-                    XPActivityRow(activity: activity)
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Supporting Views
@@ -552,81 +676,712 @@ struct TickerStockView: View {
     }
 }
 
-struct ChallengeRowView: View {
-    let challenge: ChallengeData
-    
+// Stat chip for the Daily Tasks stats row
+struct DailyTaskStatView: View {
+    let icon: String
+    let iconColor: Color
+    let value: String
+    let label: String
+
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(challenge.title ?? "Challenge")
+        VStack(spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.caption)
+                    .foregroundColor(iconColor)
+                Text(value)
                     .font(.subheadline)
-                    .fontWeight(.medium)
+                    .fontWeight(.bold)
                     .foregroundColor(.white)
-                
-                if let description = challenge.description {
-                    Text(description)
+            }
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(Theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(Theme.glassBackground)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.glassBorder, lineWidth: 1))
+    }
+}
+
+// Richer daily task row
+struct DailyTaskRowView: View {
+    let challenge: ChallengeData
+
+    private var taskIcon: String {
+        switch challenge.criteria_type ?? challenge.type ?? "" {
+        case "trade":             return "arrow.left.arrow.right.circle.fill"
+        case "login":             return "person.fill.checkmark"
+        case "watchlist":         return "star.circle.fill"
+        case "portfolio_check":   return "chart.pie.fill"
+        case "leaderboard":       return "list.number"
+        case "sector":            return "building.2.fill"
+        case "stock_hunt":        return "magnifyingglass.circle.fill"
+        case "pnl_check":         return "chart.line.uptrend.xyaxis.circle.fill"
+        default:                  return "checkmark.circle.fill"
+        }
+    }
+
+    private var taskIconColor: Color {
+        if challenge.isCompleted { return Theme.accentGreen }
+        switch challenge.criteria_type ?? challenge.type ?? "" {
+        case "trade":           return Color(red: 0.23, green: 0.51, blue: 0.96)
+        case "stock_hunt":      return Color(red: 0.55, green: 0.36, blue: 0.96)
+        case "watchlist":       return Theme.accentYellow
+        default:                return Theme.primaryBlue
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(taskIconColor.opacity(0.15))
+                    .frame(width: 40, height: 40)
+                Image(systemName: taskIcon)
+                    .font(.system(size: 18))
+                    .foregroundColor(taskIconColor)
+            }
+
+            // Title + progress
+            VStack(alignment: .leading, spacing: 5) {
+                Text(challenge.displayTitle)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+
+                if let desc = challenge.description {
+                    Text(desc)
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-            }
-            
-            Spacer()
-            
-            // Progress
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("+\(challenge.reward) XP")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(Theme.accentYellow)
-                
+
                 // Progress bar
-                GeometryReader { geometry in
+                GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Theme.glassBackground)
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(challenge.isCompleted ? Theme.accentGreen : Theme.primaryBlue)
-                            .frame(width: geometry.size.width * challenge.progressPercent)
+                        Capsule()
+                            .fill(Color.white.opacity(0.1))
+                            .frame(height: 4)
+                        Capsule()
+                            .fill(challenge.isCompleted ? Theme.accentGreen : taskIconColor)
+                            .frame(width: geo.size.width * challenge.progressPercent, height: 4)
                     }
                 }
-                .frame(width: 60, height: 4)
+                .frame(height: 4)
+            }
+
+            Spacer()
+
+            // XP badge / checkmark
+            VStack(alignment: .trailing, spacing: 4) {
+                if challenge.isCompleted {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(Theme.accentGreen)
+                } else {
+                    Text("+\(challenge.reward)")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.accentYellow)
+                    Text("XP")
+                        .font(.caption2)
+                        .foregroundColor(Theme.accentYellow.opacity(0.7))
+                }
+                // Progress fraction
+                if !challenge.isCompleted && challenge.targetProgress > 1 {
+                    Text("\(challenge.currentProgress)/\(challenge.targetProgress)")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textSecondary)
+                }
             }
         }
         .padding()
-        .glassCard()
+        .background(challenge.isCompleted ? Theme.accentGreen.opacity(0.08) : Theme.glassBackground)
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(challenge.isCompleted ? Theme.accentGreen.opacity(0.3) : Theme.glassBorder, lineWidth: 1)
+        )
+    }
+}
+
+// Keep for backward-compat (no longer used in main body)
+struct ChallengeRowView: View {
+    let challenge: ChallengeData
+    var body: some View { DailyTaskRowView(challenge: challenge) }
+}
+
+/// MARK: - Stock Hunt Hub Sheet
+
+struct StockHuntHubSheet: View {
+    /// All daily challenges — filtered internally for stock_hunt type
+    let allChallenges: [ChallengeData]
+    @Environment(\.dismiss) private var dismiss
+    @State private var stockHunt: StockHuntChallengeResponse.StockHuntData? = nil
+    @State private var isLoading = true
+
+    private let huntColor = Color(red: 0.55, green: 0.36, blue: 0.96)
+
+    private var huntChallenges: [ChallengeData] {
+        allChallenges.filter { ($0.criteria_type ?? $0.type ?? "") == "stock_hunt" }
+    }
+    private var completedCount: Int { huntChallenges.filter(\.isCompleted).count }
+    private var total: Int { huntChallenges.count }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.backgroundPrimary.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 20) {
+
+                        // Header icon + progress
+                        VStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(huntColor.opacity(0.15))
+                                    .frame(width: 72, height: 72)
+                                Image(systemName: "scope")
+                                    .font(.system(size: 32, weight: .semibold))
+                                    .foregroundColor(huntColor)
+                            }
+
+                            Text("Stock Hunt")
+                                .font(.title2).fontWeight(.bold).foregroundColor(.white)
+
+                            Text("\(completedCount) of \(total) completed today")
+                                .font(.subheadline).foregroundColor(Theme.textSecondary)
+
+                            // Progress bar
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(Color.white.opacity(0.1)).frame(height: 8)
+                                    Capsule()
+                                        .fill(completedCount == total && total > 0
+                                              ? AnyShapeStyle(Theme.accentGreen)
+                                              : AnyShapeStyle(LinearGradient(
+                                                    colors: [huntColor, Color(red: 0.23, green: 0.51, blue: 0.96)],
+                                                    startPoint: .leading, endPoint: .trailing)))
+                                        .frame(width: geo.size.width * (total > 0 ? Double(completedCount) / Double(total) : 0), height: 8)
+                                        .animation(.easeOut(duration: 0.5), value: completedCount)
+                                }
+                            }
+                            .frame(height: 8)
+                            .padding(.horizontal)
+                        }
+                        .padding(.top, 8)
+
+                        // Today's criteria card (from API)
+                        if isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: huntColor))
+                                .padding()
+                        } else if let hunt = stockHunt {
+                            criteriaCard(hunt)
+                        }
+
+                        // Challenge list
+                        VStack(spacing: 10) {
+                            ForEach(huntChallenges) { challenge in
+                                huntRow(challenge)
+                            }
+                        }
+                        .padding(.horizontal)
+
+                        // CTA
+                        if huntChallenges.contains(where: { !$0.isCompleted }) {
+                            Button { dismiss() } label: {
+                                Label("Browse Stocks to Find a Match", systemImage: "chart.bar.fill")
+                                    .font(.subheadline).fontWeight(.semibold)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(huntColor)
+                                    .cornerRadius(14)
+                            }
+                            .padding(.horizontal)
+
+                            Text("Open any stock's detail page and tap **Claim for Stock Hunt** when you find a match.")
+                                .font(.caption)
+                                .foregroundColor(Theme.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+                        }
+
+                        Spacer(minLength: 40)
+                    }
+                    .padding(.horizontal)
+                }
+            }
+            .navigationTitle("Stock Hunt")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Theme.backgroundPrimary, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(huntColor)
+                }
+            }
+            .task {
+                stockHunt = (try? await APIService.shared.getStockHuntChallenge())?.data
+                isLoading = false
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func criteriaCard(_ hunt: StockHuntChallengeResponse.StockHuntData) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "target").foregroundColor(huntColor).font(.subheadline)
+                Text("Today's Criteria")
+                    .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                Spacer()
+                if let diff = hunt.template?.difficulty {
+                    Text(diff.capitalized)
+                        .font(.caption).fontWeight(.bold)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(difficultyColor(diff).opacity(0.2))
+                        .foregroundColor(difficultyColor(diff))
+                        .cornerRadius(6)
+                }
+            }
+            if let name = hunt.template?.name {
+                Text(name).font(.headline).fontWeight(.bold).foregroundColor(.white)
+            }
+            if let desc = hunt.template?.description ?? hunt.template?.hint {
+                Text(desc).font(.caption).foregroundColor(Theme.textSecondary)
+            }
+            if let hint = hunt.template?.hint, hunt.template?.description != nil {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "lightbulb.fill").foregroundColor(Theme.accentYellow).font(.caption)
+                    Text(hint).font(.caption).foregroundColor(Theme.textSecondary)
+                }
+            }
+            if let count = hunt.matchingStockCount {
+                HStack(spacing: 6) {
+                    Image(systemName: "chart.bar.fill").foregroundColor(Theme.accentGreen).font(.caption)
+                    Text("\(count) matching stock\(count == 1 ? "" : "s") available today")
+                        .font(.caption).foregroundColor(Theme.accentGreen)
+                }
+            }
+        }
+        .padding()
+        .background(RoundedRectangle(cornerRadius: 14).fill(huntColor.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(huntColor.opacity(0.3), lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private func huntRow(_ challenge: ChallengeData) -> some View {
+        HStack(spacing: 12) {
+            // Status icon
+            ZStack {
+                Circle()
+                    .fill(challenge.isCompleted ? Theme.accentGreen.opacity(0.15) : huntColor.opacity(0.12))
+                    .frame(width: 36, height: 36)
+                Image(systemName: challenge.isCompleted ? "checkmark.circle.fill" : "scope")
+                    .foregroundColor(challenge.isCompleted ? Theme.accentGreen : huntColor)
+                    .font(.system(size: 16))
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(challenge.displayTitle)
+                    .font(.subheadline).fontWeight(.semibold)
+                    .foregroundColor(challenge.isCompleted ? Theme.accentGreen : .white)
+                if let desc = challenge.description, !desc.isEmpty {
+                    Text(desc)
+                        .font(.caption).foregroundColor(Theme.textSecondary).lineLimit(2)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("+\(challenge.reward) XP")
+                    .font(.caption).fontWeight(.bold)
+                    .foregroundColor(challenge.isCompleted ? Theme.accentGreen : Theme.accentYellow)
+                if challenge.isCompleted {
+                    Text("Earned").font(.caption2).foregroundColor(Theme.accentGreen)
+                }
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12)
+            .fill(challenge.isCompleted ? Theme.accentGreen.opacity(0.06) : Theme.glassBackground))
+        .overlay(RoundedRectangle(cornerRadius: 12)
+            .stroke(challenge.isCompleted ? Theme.accentGreen.opacity(0.25) : Theme.glassBorder, lineWidth: 1))
+    }
+
+    private func difficultyColor(_ d: String) -> Color {
+        switch d.lowercased() {
+        case "easy":   return Theme.accentGreen
+        case "medium": return Color(red: 0.96, green: 0.62, blue: 0.04)
+        case "hard":   return Color(red: 0.94, green: 0.27, blue: 0.27)
+        default:       return Theme.primaryBlue
+        }
+    }
+}
+
+// MARK: - Daily Task Detail Sheet
+
+struct DailyTaskDetailSheet: View {
+    let challenge: ChallengeData
+    var onCompleted: (() -> Void)? = nil
+    @Environment(\.dismiss) private var dismiss
+    @State private var stockHunt: StockHuntChallengeResponse.StockHuntData? = nil
+    @State private var isLoadingHunt = false
+    // Local mutable progress state (updates live without mutating the immutable `challenge`)
+    @State private var localCompleted: Bool = false
+    @State private var localProgress: Int = 0
+    @State private var localXP: Int = 0
+
+    private var criteriaKey: String { challenge.criteria_type ?? challenge.type ?? "" }
+    private var target: Int { challenge.targetProgress }
+    // Use local state so progress bar / status update live after claim
+    private var isCompleted: Bool  { localCompleted }
+    private var currentProgress: Int { localProgress }
+    private var progressPercent: Double {
+        guard target > 0 else { return isCompleted ? 1.0 : 0.0 }
+        return min(Double(currentProgress) / Double(target), 1.0)
+    }
+
+    private var iconName: String {
+        switch criteriaKey {
+        case "trade":           return "arrow.left.arrow.right.circle.fill"
+        case "login":           return "person.fill.checkmark"
+        case "watchlist":       return "star.circle.fill"
+        case "portfolio_check": return "chart.pie.fill"
+        case "leaderboard":     return "list.number"
+        case "sector":          return "building.2.fill"
+        case "stock_hunt":      return "magnifyingglass.circle.fill"
+        case "pnl_check":       return "chart.line.uptrend.xyaxis.circle.fill"
+        default:                return "checkmark.circle.fill"
+        }
+    }
+
+    private var iconColor: Color {
+        if isCompleted { return Theme.accentGreen }
+        switch criteriaKey {
+        case "trade":           return Color(red: 0.23, green: 0.51, blue: 0.96)
+        case "stock_hunt":      return Color(red: 0.55, green: 0.36, blue: 0.96)
+        case "watchlist":       return Theme.accentYellow
+        case "portfolio_check": return Theme.accentGreen
+        case "pnl_check":       return Theme.accentGreen
+        case "leaderboard":     return Theme.accentPurple
+        case "sector":          return Color(red: 0.96, green: 0.62, blue: 0.04)
+        default:                return Theme.primaryBlue
+        }
+    }
+
+    /// Always show a meaningful description — stock_hunt uses live template, others use DB or fallback.
+    private var challengeDescription: String {
+        if criteriaKey == "stock_hunt", let t = stockHunt?.template {
+            return t.description ?? "Find and trade a stock matching today's criteria."
+        }
+        if let desc = challenge.description, !desc.isEmpty { return desc }
+        let n = target
+        switch criteriaKey {
+        case "trade":
+            return n > 1
+                ? "Execute \(n) trades on any stock in your portfolio today."
+                : "Execute a trade on any stock in your portfolio today."
+        case "login":           return "Log in to ShareQuest today to keep your streak alive."
+        case "watchlist":
+            return n > 1
+                ? "Add \(n) stocks to your watchlist today."
+                : "Add a stock to your watchlist today."
+        case "portfolio_check": return "Open and review your portfolio to track your performance."
+        case "leaderboard":     return "Check the leaderboard to see how you rank against other traders."
+        case "sector":
+            return n > 1
+                ? "Explore \(n) sectors in the market browser today."
+                : "Explore a sector in the market browser today."
+        case "stock_hunt":      return "Search for a stock that matches today's specific criteria."
+        case "pnl_check":       return "Review your profit & loss to see how your positions are performing."
+        default:                return "Complete this challenge to earn XP and grow your trading skills."
+        }
+    }
+
+    /// Short action label shown in the "How to complete" card.
+    private var howToComplete: String {
+        switch criteriaKey {
+        case "trade":           return "Go to any stock → tap Trade"
+        case "login":           return "Already done by opening the app"
+        case "watchlist":       return "Find a stock → tap the ★ icon"
+        case "portfolio_check": return "Open your Portfolio tab"
+        case "leaderboard":     return "Open the Leaderboard tab"
+        case "sector":          return "Go to Stocks → Sectors"
+        case "stock_hunt":      return "Go to Stocks → search for a matching stock → trade it"
+        case "pnl_check":       return "Open your Portfolio and review holdings"
+        default:                return "Complete the required action in the app"
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.backgroundPrimary.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 20) {
+
+                        // Icon + title + status
+                        VStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(iconColor.opacity(0.15))
+                                    .frame(width: 76, height: 76)
+                                    .overlay(Circle().stroke(iconColor.opacity(0.3), lineWidth: 1.5))
+                                Image(systemName: isCompleted ? "checkmark.circle.fill" : iconName)
+                                    .font(.system(size: 36))
+                                    .foregroundColor(iconColor)
+                            }
+                            .padding(.top, 8)
+
+                            Text(challenge.displayTitle)
+                                .font(.title3).fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+
+                            if isCompleted {
+                                Label("Challenge Complete!", systemImage: "checkmark.circle.fill")
+                                    .font(.subheadline).fontWeight(.semibold)
+                                    .foregroundColor(Theme.accentGreen)
+                            } else {
+                                Text("In Progress")
+                                    .font(.subheadline)
+                                    .foregroundColor(Theme.textSecondary)
+                            }
+                        }
+
+                        // Description
+                        Text(challengeDescription)
+                            .font(.body)
+                            .foregroundColor(Color(red: 0.75, green: 0.78, blue: 0.84))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+
+                        // How to complete (only when not done)
+                        if !isCompleted {
+                            HStack(spacing: 12) {
+                                Image(systemName: "lightbulb.fill")
+                                    .foregroundColor(Color(red: 0.96, green: 0.85, blue: 0.3))
+                                    .font(.subheadline)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("How to complete")
+                                        .font(.caption).foregroundColor(Theme.textSecondary)
+                                    Text(howToComplete)
+                                        .font(.subheadline).fontWeight(.medium)
+                                        .foregroundColor(.white)
+                                }
+                                Spacer()
+                            }
+                            .padding()
+                            .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.06)))
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                            .padding(.horizontal)
+                        }
+
+                        // Stock Hunt — criteria header + live search/claim
+                        if criteriaKey == "stock_hunt" {
+                            if isLoadingHunt {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: iconColor))
+                                    .padding()
+                            } else if let hunt = stockHunt {
+                                VStack(alignment: .leading, spacing: 14) {
+
+                                    // Criteria header
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "target")
+                                            .foregroundColor(iconColor).font(.subheadline)
+                                        Text("Today's Criteria")
+                                            .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                                        Spacer()
+                                        if let diff = hunt.template?.difficulty {
+                                            Text(diff.capitalized)
+                                                .font(.caption).fontWeight(.bold)
+                                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                                .background(difficultyColor(diff).opacity(0.2))
+                                                .foregroundColor(difficultyColor(diff))
+                                                .cornerRadius(6)
+                                        }
+                                    }
+                                    if let name = hunt.template?.name {
+                                        Text(name)
+                                            .font(.headline).fontWeight(.bold).foregroundColor(.white)
+                                    }
+                                    if let hint = hunt.template?.hint {
+                                        HStack(alignment: .top, spacing: 8) {
+                                            Image(systemName: "info.circle")
+                                                .foregroundColor(Theme.primaryBlue).font(.caption)
+                                            Text(hint).font(.caption).foregroundColor(Theme.textSecondary)
+                                        }
+                                    }
+                                    if let count = hunt.matchingStockCount {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "chart.bar.fill")
+                                                .foregroundColor(Theme.accentGreen).font(.caption)
+                                            Text("\(count) matching stock\(count == 1 ? "" : "s") available today")
+                                                .font(.caption).foregroundColor(Theme.accentGreen)
+                                        }
+                                    }
+
+                                    // How to find the stock (hidden once completed)
+                                    if !isCompleted {
+                                        Divider().background(Color.white.opacity(0.1))
+
+                                        VStack(spacing: 10) {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: "arrow.right.circle.fill")
+                                                    .foregroundColor(iconColor)
+                                                Text("How to complete")
+                                                    .font(.caption).fontWeight(.semibold)
+                                                    .foregroundColor(Theme.textSecondary)
+                                            }
+                                            Text("Browse the Stocks tab to research and find a matching stock. Open the stock's detail page, then tap **Claim for Stock Hunt** to earn your XP.")
+                                                .font(.caption)
+                                                .foregroundColor(Theme.textSecondary)
+                                                .multilineTextAlignment(.leading)
+
+                                            Button {
+                                                dismiss()
+                                            } label: {
+                                                Label("Go to Stocks", systemImage: "chart.bar.fill")
+                                                    .font(.subheadline).fontWeight(.semibold)
+                                                    .foregroundColor(.white)
+                                                    .frame(maxWidth: .infinity)
+                                                    .padding(.vertical, 11)
+                                                    .background(iconColor)
+                                                    .cornerRadius(12)
+                                            }
+                                            .padding(.top, 4)
+                                        }
+                                    }
+                                }
+                                .padding()
+                                .background(RoundedRectangle(cornerRadius: 14).fill(iconColor.opacity(0.08)))
+                                .overlay(RoundedRectangle(cornerRadius: 14).stroke(iconColor.opacity(0.3), lineWidth: 1))
+                                .padding(.horizontal)
+                            }
+                        }
+
+                        // Progress card
+                        VStack(spacing: 14) {
+                            HStack {
+                                Text("Today's Progress")
+                                    .font(.subheadline).fontWeight(.semibold)
+                                    .foregroundColor(Theme.textSecondary)
+                                Spacer()
+                                Text("\(currentProgress) / \(target)")
+                                    .font(.subheadline).fontWeight(.bold)
+                                    .foregroundColor(.white)
+                            }
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(Color.white.opacity(0.1)).frame(height: 10)
+                                    Capsule()
+                                        .fill(isCompleted ? Theme.accentGreen : iconColor)
+                                        .frame(width: geo.size.width * progressPercent, height: 10)
+                                        .animation(.easeOut(duration: 0.5), value: progressPercent)
+                                }
+                            }
+                            .frame(height: 10)
+                        }
+                        .padding()
+                        .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.06)))
+                        .padding(.horizontal)
+
+                        // XP reward
+                        HStack(spacing: 14) {
+                            Image(systemName: "star.fill")
+                                .foregroundColor(Theme.accentYellow).font(.title3)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("XP Reward")
+                                    .font(.caption).foregroundColor(Theme.textSecondary)
+                                Text("+\(challenge.reward) XP")
+                                    .font(.headline).fontWeight(.bold)
+                                    .foregroundColor(Theme.accentYellow)
+                            }
+                            Spacer()
+                            if isCompleted {
+                                Label("Earned", systemImage: "checkmark.seal.fill")
+                                    .font(.caption).fontWeight(.semibold)
+                                    .foregroundColor(Theme.accentGreen)
+                            }
+                        }
+                        .padding()
+                        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.accentYellow.opacity(0.08)))
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.accentYellow.opacity(0.25), lineWidth: 1))
+                        .padding(.horizontal)
+
+                        Spacer(minLength: 30)
+                    }
+                }
+
+            }
+            .navigationTitle(challenge.displayTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Theme.backgroundPrimary, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(isCompleted ? Theme.accentGreen : Theme.primaryBlue)
+                }
+            }
+            .task {
+                // Initialise local mutable state from the immutable challenge
+                localCompleted = challenge.isCompleted
+                localProgress  = challenge.currentProgress
+                localXP        = challenge.reward
+
+                if criteriaKey == "stock_hunt" {
+                    isLoadingHunt = true
+                    stockHunt = (try? await APIService.shared.getStockHuntChallenge())?.data
+                    isLoadingHunt = false
+                }
+                // Pre-completed challenges open in completed state without re-showing the popup
+            }
+        }
+    }
+
+    private func difficultyColor(_ difficulty: String) -> Color {
+        switch difficulty.lowercased() {
+        case "easy":   return Theme.accentGreen
+        case "medium": return Color(red: 0.96, green: 0.62, blue: 0.04)
+        case "hard":   return Color(red: 0.94, green: 0.27, blue: 0.27)
+        default:       return Theme.primaryBlue
+        }
     }
 }
 
 struct XPActivityRow: View {
     let activity: XPActivity
-    
+
     var body: some View {
         HStack {
             Image(systemName: "star.fill")
                 .foregroundColor(Theme.accentYellow)
-            
             VStack(alignment: .leading, spacing: 2) {
                 Text(activity.source)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.white)
+                    .font(.caption).fontWeight(.medium).foregroundColor(.white)
                 if let description = activity.description {
-                    Text(description)
-                        .font(.caption2)
-                        .foregroundColor(Theme.textSecondary)
+                    Text(description).font(.caption2).foregroundColor(Theme.textSecondary)
                 }
             }
-            
             Spacer()
-            
             Text("+\(activity.amount) XP")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(Theme.accentYellow)
+                .font(.caption).fontWeight(.bold).foregroundColor(Theme.accentYellow)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(.horizontal).padding(.vertical, 8)
         .glassCard()
     }
 }
@@ -706,6 +1461,9 @@ class DashboardViewModel: ObservableObject {
     @Published var displayedXPForNext: Int = 100
     @Published var marketSentiment: MarketSentimentData?
     @Published var dailyChallenges: [ChallengeData] = []
+    @Published var dailyCompletedCount: Int = 0
+    @Published var dailyLimit: Int = 10
+    @Published var allChallengesDone: Bool = false
     @Published var portfolioCards: [PortfolioSummary] = []
     @Published var recentXP: [XPActivity] = []
     @Published var tickerStocks: [TickerStock] = []
@@ -774,18 +1532,33 @@ class DashboardViewModel: ObservableObject {
     }
     
     private func recordLogin() async {
-        do {
-            let response = try await apiService.recordDailyLogin()
+        // Record login (updates streak) — don't let a failure block challenge loading
+        if let response = try? await apiService.recordDailyLogin() {
             streak = response.streak
-            
-            // Load challenges after login
+        }
+        // Always attempt to load today's challenges independently
+        do {
             let challengesResponse = try await apiService.getDailyChallenges()
             dailyChallenges = challengesResponse.allChallenges
+            dailyCompletedCount = challengesResponse.dailyCompletedCount
+            dailyLimit = challengesResponse.dailyLimit
+            allChallengesDone = challengesResponse.allDone
+            print("[Dashboard] Loaded \(dailyChallenges.count) challenges, \(dailyCompletedCount)/\(dailyLimit) done")
         } catch {
-            // Login record error - suppressed in production
+            print("[Dashboard] Failed to load challenges: \(error)")
         }
     }
     
+    func refreshChallenges() async {
+        do {
+            let resp = try await apiService.getDailyChallenges()
+            dailyChallenges = resp.allChallenges
+            dailyCompletedCount = resp.dailyCompletedCount
+            dailyLimit = resp.dailyLimit
+            allChallengesDone = resp.allDone
+        } catch {}
+    }
+
     private func loadGamificationProfile() async {
         print("[DashboardViewModel] Loading gamification profile...")
         do {
@@ -959,7 +1732,7 @@ struct PortfolioCardView: View {
                 ChangePill(percent: portfolio.changePercent)
             }
             .padding()
-            .frame(width: 165)
+            .frame(maxWidth: .infinity)
             .background(
                 LinearGradient(
                     colors: portfolio.gradientColors,

@@ -1,10 +1,3 @@
-//
-//  LeaderboardView.swift
-//  ShareQuest
-//
-//  Created by MartinD on 12/03/2026.
-//
-
 import SwiftUI
 import Combine
 
@@ -23,19 +16,11 @@ enum LeaderboardType: String, CaseIterable {
         }
     }
 
-    var emoji: String {
-        switch self {
-        case .weekly: return "⚡"
-        case .monthly: return "📅"
-        case .annual: return "🏆"
-        }
-    }
-
     var title: String {
         switch self {
-        case .weekly: return "Weekly ShareQuest"
-        case .monthly: return "Monthly ShareQuest"
-        case .annual: return "Annual ShareQuest"
+        case .weekly: return "Weekly Quest"
+        case .monthly: return "Monthly Quest"
+        case .annual: return "Annual Quest"
         }
     }
 
@@ -49,16 +34,16 @@ enum LeaderboardType: String, CaseIterable {
 
     var icon: String {
         switch self {
-        case .weekly: return "calendar"
-        case .monthly: return "calendar.badge.clock"
-        case .annual: return "trophy"
+        case .weekly: return "bolt.fill"
+        case .monthly: return "calendar"
+        case .annual: return "trophy.fill"
         }
     }
 }
 
 // MARK: - Leaderboard Entry Model
 
-struct LeaderboardEntry: Identifiable {
+struct LeaderboardEntry: Identifiable, Equatable {
     let id: String
     let userId: String
     let username: String
@@ -68,20 +53,31 @@ struct LeaderboardEntry: Identifiable {
     let playerLevel: Int?
     let rank: Int
 
+    // Compact — used on podium steps where space is tight
     var formattedValue: String {
         let pounds = totalAssets / 100.0
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        formatter.groupingSeparator = ","
-        formatter.decimalSeparator = "."
-        let formatted = formatter.string(from: NSNumber(value: pounds)) ?? String(format: "%.2f", pounds)
-        return "£\(formatted)"
+        if pounds >= 1_000_000 { return String(format: "£%.2fM", pounds / 1_000_000) }
+        if pounds >= 1_000    { return String(format: "£%.1fK", pounds / 1_000) }
+        return String(format: "£%.0f", pounds)
+    }
+
+    // Full — used on rank tiles where full precision is shown
+    var formattedValueFull: String {
+        let pounds = totalAssets / 100.0
+        let fmt = NumberFormatter()
+        fmt.numberStyle = .decimal
+        fmt.minimumFractionDigits = 2
+        fmt.maximumFractionDigits = 2
+        let s = fmt.string(from: NSNumber(value: pounds)) ?? String(format: "%.2f", pounds)
+        return "£\(s)"
     }
 
     var formattedReturn: String {
         String(format: "%+.2f%%", profitLossPercent)
+    }
+
+    var initials: String {
+        String(username.prefix(2)).uppercased()
     }
 }
 
@@ -90,37 +86,20 @@ struct LeaderboardEntry: Identifiable {
 struct LeaderboardView: View {
     @StateObject private var viewModel = LeaderboardViewModel()
     @State private var selectedUser: LeaderboardEntry? = nil
-    @State private var showUserModal = false
 
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background gradient matching rest of app
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.059, green: 0.090, blue: 0.165),
-                        Color(red: 0.118, green: 0.227, blue: 0.373),
-                        Color(red: 0.345, green: 0.110, blue: 0.529)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                Theme.backgroundPrimary
+                    .ignoresSafeArea()
 
                 if viewModel.isLoading {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.primaryBlue))
-                            .scaleEffect(1.4)
-                        Text("Loading leaderboard...")
-                            .foregroundColor(Theme.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    loadingView
                 } else {
                     VStack(spacing: 0) {
-                        // Type tabs
                         if !viewModel.availableTypes.isEmpty {
                             typeSelector
+                                .padding(.top, 4)
                         }
 
                         if let error = viewModel.errorMessage {
@@ -139,487 +118,271 @@ struct LeaderboardView: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
         .task {
+            await APIService.shared.postChallengeProgress(criteriaType: "leaderboard")
             await viewModel.loadAll()
         }
-        .sheet(isPresented: $showUserModal) {
-            if let user = selectedUser {
-                UserPortfolioSheet(
-                    entry: user,
-                    competitionType: viewModel.selectedType,
-                    isPresented: $showUserModal
-                )
-            }
+        .sheet(item: $selectedUser) { user in
+            UserPortfolioSheet(
+                entry: user,
+                competitionType: viewModel.selectedType
+            )
         }
     }
 
     // MARK: - Type Selector
 
     private var typeSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(viewModel.availableTypes, id: \.self) { type in
-                    Button {
-                        Task { await viewModel.selectType(type) }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: type.icon)
-                                .font(.caption)
-                            Text(type.displayName)
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(viewModel.selectedType == type ? type.color : Color.white.opacity(0.05))
-                        .foregroundColor(viewModel.selectedType == type ? .white : Theme.textSecondary)
-                        .cornerRadius(20)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(viewModel.selectedType == type ? type.color : Color.white.opacity(0.1), lineWidth: 1)
-                        )
+        HStack(spacing: 8) {
+            ForEach(viewModel.availableTypes, id: \.self) { type in
+                Button {
+                    Task { await viewModel.selectType(type) }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: type.icon)
+                            .font(.system(size: 11, weight: .bold))
+                        Text(type.displayName)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(
+                        viewModel.selectedType == type
+                            ? type.color
+                            : Color.white.opacity(0.08)
+                    )
+                    .foregroundColor(viewModel.selectedType == type ? .white : .white.opacity(0.55))
+                    .cornerRadius(22)
                 }
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            Spacer()
         }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
     }
 
     // MARK: - Main Content
 
     private var mainContent: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                // Competition info banner (orange card)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 14) {
+                // Competition info strip
                 if let info = viewModel.competitionInfo {
-                    competitionBanner(info: info)
-                        .padding(.horizontal)
-                        .padding(.top, 8)
+                    competitionStrip(info: info)
                 }
 
-                // Your position card
-                if let userEntry = viewModel.currentUserEntry {
-                    yourPositionCard(entry: userEntry)
-                        .padding(.horizontal)
-                        .padding(.top, 10)
+                // Your position banner (if not rank 1)
+                if let userEntry = viewModel.currentUserEntry, userEntry.rank > 1 {
+                    yourPositionBanner(entry: userEntry)
                 }
 
-                // Leaderboard entries
-                let leaderValue = viewModel.entries.first?.totalAssets ?? 1.0
-                VStack(spacing: 10) {
-                    ForEach(viewModel.entries) { entry in
-                        leaderboardCard(entry: entry, leaderValue: leaderValue)
-                            .onTapGesture {
-                                selectedUser = entry
-                                showUserModal = true
-                            }
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.top, 12)
-                .padding(.bottom, 100)
+                // All entries as tiles
+                rankList(entries: viewModel.entries)
             }
+            .padding(.horizontal)
+            .padding(.bottom, 100)
         }
-        .refreshable {
-            await viewModel.refresh()
-        }
+        .refreshable { await viewModel.refresh() }
     }
 
-    // MARK: - Competition Banner
+    // MARK: - Competition Strip
 
-    private func competitionBanner(info: LeaderboardViewModel.CompetitionInfo) -> some View {
-        HStack(spacing: 12) {
-            // Icon
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.black.opacity(0.15))
-                    .frame(width: 44, height: 44)
-                Image(systemName: viewModel.selectedType.icon)
-                    .font(.title3)
-                    .foregroundColor(.white)
-            }
+    private func competitionStrip(info: LeaderboardViewModel.CompetitionInfo) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: viewModel.selectedType.icon)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(viewModel.selectedType.color)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(viewModel.selectedType.title)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                if let status = info.status {
-                    Text(status.capitalized)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.black.opacity(0.2))
-                        .foregroundColor(.white)
-                        .cornerRadius(6)
-                }
+            Text(viewModel.selectedType.title)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
+                .lineLimit(1)
+
+            if let status = info.status {
+                Text(status.capitalized)
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(viewModel.selectedType.color.opacity(0.25))
+                    .foregroundColor(viewModel.selectedType.color)
+                    .cornerRadius(6)
             }
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 2) {
-                if let timeLeft = info.timeRemaining {
-                    Text("Time Left")
+            if let timeLeft = info.timeRemaining {
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(.white.opacity(0.55))
                     Text(timeLeft)
-                        .font(.subheadline)
+                        .font(.caption)
                         .fontWeight(.bold)
                         .foregroundColor(.white)
                 }
-                if let prize = info.prizePool {
-                    Text("Prize: £\(Int(prize))")
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.8))
-                }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(Color(red: 1.0, green: 0.60, blue: 0.0))
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(red: 0.9, green: 0.54, blue: 0), lineWidth: 1)
-        )
-    }
-
-    // MARK: - Your Position Card
-
-    private func yourPositionCard(entry: LeaderboardEntry) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Your Position")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(Theme.primaryBlue)
-                Text("#\(entry.rank)")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(entry.formattedValue)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                ChangePill(percent: entry.profitLossPercent)
-            }
-        }
-        .padding()
-        .background(Theme.primaryBlue.opacity(0.12))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.07))
+        .background(.ultraThinMaterial)
         .cornerRadius(14)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Theme.primaryBlue.opacity(0.4), lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.1), lineWidth: 1))
     }
 
-    // MARK: - Per-Rank Cards
+    // MARK: - Your Position Banner
 
-    @ViewBuilder
-    private func leaderboardCard(entry: LeaderboardEntry, leaderValue: Double) -> some View {
-        let progress = leaderValue > 0 ? entry.totalAssets / leaderValue : 0
-        let isCurrentUser = entry.userId == viewModel.currentUserId
+    private func yourPositionBanner(entry: LeaderboardEntry) -> some View {
+        leaderboardTile(entry: entry, isUser: true)
+    }
 
-        switch entry.rank {
-        case 1:
-            ChampionCard(entry: entry, isCurrentUser: isCurrentUser)
-        case 2:
-            ContenderCard(
-                entry: entry,
-                medal: "🥈",
-                accentColor: Color(red: 0.75, green: 0.75, blue: 0.78),
-                progress: progress,
-                isCurrentUser: isCurrentUser
-            )
-        case 3:
-            ContenderCard(
-                entry: entry,
-                medal: "🥉",
-                accentColor: Color(red: 0.80, green: 0.50, blue: 0.20),
-                progress: progress,
-                isCurrentUser: isCurrentUser
-            )
-        default:
-            OtherCard(entry: entry, progress: progress, isCurrentUser: isCurrentUser)
+    // MARK: - Rank List (4+)
+
+    private func rankList(entries: [LeaderboardEntry]) -> some View {
+        VStack(spacing: 6) {
+            ForEach(entries) { entry in
+                let isUser = entry.userId == viewModel.currentUserId
+                leaderboardTile(entry: entry, isUser: isUser)
+                    .onTapGesture {
+                        selectedUser = entry
+                    }
+            }
         }
     }
 
-    // MARK: - Error & Empty
+    // Medal colours for top 3
+    private func medalGradient(rank: Int) -> LinearGradient? {
+        switch rank {
+        case 1: return LinearGradient(colors: [Color(red: 1.0, green: 0.84, blue: 0.0), Color(red: 0.85, green: 0.65, blue: 0.13)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case 2: return LinearGradient(colors: [Color(red: 0.85, green: 0.85, blue: 0.92), Color(red: 0.60, green: 0.60, blue: 0.70)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case 3: return LinearGradient(colors: [Color(red: 0.80, green: 0.50, blue: 0.20), Color(red: 0.55, green: 0.27, blue: 0.07)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        default: return nil
+        }
+    }
+
+    private func medalGlow(rank: Int) -> Color {
+        switch rank {
+        case 1: return Color(red: 1.0, green: 0.84, blue: 0.0)
+        case 2: return Color(red: 0.75, green: 0.75, blue: 0.85)
+        case 3: return Color(red: 0.80, green: 0.50, blue: 0.20)
+        default: return .clear
+        }
+    }
+
+    // Shared tile used for both "Your Position" banner and all rank rows
+    private func leaderboardTile(entry: LeaderboardEntry, isUser: Bool) -> some View {
+        let isMedal = entry.rank <= 3
+        return HStack(spacing: 10) {
+            // Rank badge
+            ZStack {
+                if isMedal, let grad = medalGradient(rank: entry.rank) {
+                    Circle()
+                        .fill(grad)
+                        .frame(width: 40, height: 40)
+                        .shadow(color: medalGlow(rank: entry.rank).opacity(0.8), radius: 8, x: 0, y: 0)
+                } else {
+                    Circle()
+                        .fill(isUser ? Theme.primaryBlue.opacity(0.2) : Color.white.opacity(0.07))
+                        .frame(width: 36, height: 36)
+                        .overlay(Circle().stroke(isUser ? Theme.primaryBlue.opacity(0.5) : Color.white.opacity(0.12), lineWidth: 1.5))
+                }
+                Text("\(entry.rank)")
+                    .font(.system(size: isMedal ? 14 : 11, weight: .black))
+                    .foregroundColor(isMedal ? .black.opacity(0.75) : (isUser ? Theme.primaryBlue : .white.opacity(0.6)))
+            }
+
+            // Name + label
+            VStack(alignment: .leading, spacing: 1) {
+                if isUser {
+                    Text("Your Position")
+                        .font(.system(size: 9))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                Text(entry.username)
+                    .font(.system(size: 13, weight: isUser ? .semibold : .medium))
+                    .foregroundColor(isUser ? Theme.primaryBlue : .white)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            // Full value + movement
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(entry.formattedValueFull)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                ChangePill(percent: entry.profitLossPercent, compact: true)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(
+            isMedal
+                ? LinearGradient(colors: [medalGlow(rank: entry.rank).opacity(0.15), medalGlow(rank: entry.rank).opacity(0.04)], startPoint: .leading, endPoint: .trailing)
+                : isUser
+                    ? LinearGradient(colors: [Theme.primaryBlue.opacity(0.18), Theme.primaryBlue.opacity(0.06)], startPoint: .leading, endPoint: .trailing)
+                    : LinearGradient(colors: [Color.white.opacity(0.06), Color.white.opacity(0.03)], startPoint: .leading, endPoint: .trailing)
+        )
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(
+            isMedal ? medalGlow(rank: entry.rank).opacity(0.35) : (isUser ? Theme.primaryBlue.opacity(0.4) : Color.white.opacity(0.08)),
+            lineWidth: isMedal ? 1.5 : 1
+        ))
+    }
+
+    // MARK: - Loading / Empty / Error
+
+    private var loadingView: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: Theme.accentYellow))
+                .scaleEffect(1.3)
+            Text("Loading leaderboard…")
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.55))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 
     private func errorView(error: String) -> some View {
         VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
-                .foregroundColor(.red)
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 40))
+                .foregroundColor(Theme.accentYellow)
             Text(error)
-                .foregroundColor(.red)
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
             Button("Retry") {
                 Task { await viewModel.selectType(viewModel.selectedType) }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(Color.red.opacity(0.15))
-            .foregroundColor(.red)
+            .padding(.horizontal, 24).padding(.vertical, 10)
+            .background(Theme.primaryBlue.opacity(0.2))
+            .foregroundColor(Theme.primaryBlue)
             .cornerRadius(12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var emptyView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             Image(systemName: "trophy.fill")
-                .font(.system(size: 64))
-                .foregroundColor(Theme.textMuted)
+                .font(.system(size: 52))
+                .foregroundColor(Theme.accentYellow.opacity(0.4))
             Text("No participants yet")
-                .font(.title3)
-                .fontWeight(.bold)
+                .font(.headline)
                 .foregroundColor(.white)
             Text("Be the first to join this competition!")
                 .font(.subheadline)
-                .foregroundColor(Theme.textSecondary)
-                .multilineTextAlignment(.center)
+                .foregroundColor(.white.opacity(0.5))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
-    }
-}
-
-// MARK: - Champion Card (Rank 1)
-
-struct ChampionCard: View {
-    let entry: LeaderboardEntry
-    let isCurrentUser: Bool
-
-    var body: some View {
-        HStack(spacing: 14) {
-            // Gold crown + avatar
-            ZStack(alignment: .topTrailing) {
-                Circle()
-                    .fill(Theme.accentYellow.opacity(0.25))
-                    .frame(width: 56, height: 56)
-                    .overlay(
-                        Text(entry.username.prefix(2).uppercased())
-                            .font(.headline)
-                            .fontWeight(.bold)
-                            .foregroundColor(Theme.accentYellow)
-                    )
-                Text("👑")
-                    .font(.caption)
-                    .offset(x: 4, y: -4)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(entry.username)
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(isCurrentUser ? Theme.primaryBlue : .white)
-                        .lineLimit(1)
-                    if isCurrentUser {
-                        Text("You")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Theme.primaryBlue.opacity(0.2))
-                            .foregroundColor(Theme.primaryBlue)
-                            .cornerRadius(4)
-                    }
-                }
-                if let level = entry.playerLevel {
-                    Text("Level \(level)")
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-                }
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(entry.formattedValue)
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                ChangePill(percent: entry.profitLossPercent)
-            }
-        }
-        .padding()
-        .background(
-            LinearGradient(
-                colors: [Theme.accentYellow.opacity(0.15), Theme.accentYellow.opacity(0.05)],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        )
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Theme.accentYellow.opacity(0.4), lineWidth: 1.5)
-        )
-    }
-}
-
-// MARK: - Contender Card (Ranks 2-3)
-
-struct ContenderCard: View {
-    let entry: LeaderboardEntry
-    let medal: String
-    let accentColor: Color
-    let progress: Double
-    let isCurrentUser: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Medal + avatar
-            ZStack(alignment: .topTrailing) {
-                Circle()
-                    .fill(accentColor.opacity(0.2))
-                    .frame(width: 48, height: 48)
-                    .overlay(
-                        Text(entry.username.prefix(2).uppercased())
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(accentColor)
-                    )
-                Text(medal)
-                    .font(.caption2)
-                    .offset(x: 4, y: -4)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(entry.username)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(isCurrentUser ? Theme.primaryBlue : .white)
-                        .lineLimit(1)
-                    if isCurrentUser {
-                        Text("You")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Theme.primaryBlue.opacity(0.2))
-                            .foregroundColor(Theme.primaryBlue)
-                            .cornerRadius(4)
-                    }
-                }
-                // Progress bar
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.white.opacity(0.08))
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(accentColor.opacity(0.7))
-                            .frame(width: geo.size.width * CGFloat(min(progress, 1.0)))
-                    }
-                }
-                .frame(height: 4)
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(entry.formattedValue)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                ChangePill(percent: entry.profitLossPercent)
-            }
-        }
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .background(.ultraThinMaterial)
-        .cornerRadius(14)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(accentColor.opacity(0.3), lineWidth: 1)
-        )
-    }
-}
-
-// MARK: - Other Card (Ranks 4+)
-
-struct OtherCard: View {
-    let entry: LeaderboardEntry
-    let progress: Double
-    let isCurrentUser: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Rank number
-            Text("\(entry.rank)")
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(Theme.textMuted)
-                .frame(width: 28, alignment: .center)
-
-            // Avatar circle
-            Circle()
-                .fill(Theme.primaryBlue.opacity(isCurrentUser ? 0.3 : 0.15))
-                .frame(width: 38, height: 38)
-                .overlay(
-                    Text(entry.username.prefix(2).uppercased())
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(isCurrentUser ? Theme.primaryBlue : Theme.textSecondary)
-                )
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(entry.username)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(isCurrentUser ? Theme.primaryBlue : .white)
-                        .lineLimit(1)
-                    if isCurrentUser {
-                        Text("You")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Theme.primaryBlue.opacity(0.2))
-                            .foregroundColor(Theme.primaryBlue)
-                            .cornerRadius(4)
-                    }
-                }
-                // Progress bar
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.white.opacity(0.08))
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Theme.primaryBlue.opacity(0.6))
-                            .frame(width: geo.size.width * CGFloat(min(progress, 1.0)))
-                    }
-                }
-                .frame(height: 4)
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(entry.formattedValue)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                ChangePill(percent: entry.profitLossPercent)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(isCurrentUser ? Theme.primaryBlue.opacity(0.1) : Color.white.opacity(0.04))
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isCurrentUser ? Theme.primaryBlue.opacity(0.35) : Color.white.opacity(0.08), lineWidth: 1)
-        )
     }
 }
 
@@ -628,94 +391,86 @@ struct OtherCard: View {
 struct UserPortfolioSheet: View {
     let entry: LeaderboardEntry
     let competitionType: LeaderboardType
-    @Binding var isPresented: Bool
+    @Environment(\.dismiss) private var dismiss
     @State private var portfolio: LeaderboardUserPortfolio? = nil
     @State private var isLoading = true
 
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    colors: [Color(red: 0.118, green: 0.176, blue: 0.243), Color(red: 0.059, green: 0.090, blue: 0.165)],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                Theme.backgroundPrimary.ignoresSafeArea()
 
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: Theme.primaryBlue))
-                        .scaleEffect(1.4)
-                } else {
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            // Stats row
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Stats available immediately from entry — no waiting
+                        HStack(spacing: 10) {
+                            statBox(label: "Rank", value: "\(entry.rank)")
+                            statBox(label: "Total Value", value: entry.formattedValue)
+                            statBox(label: "Return", value: entry.formattedReturn)
+                        }
+                        .padding(.horizontal)
+
+                        // Cash only available after load — show inline
+                        if let p = portfolio {
                             HStack(spacing: 10) {
-                                statBox(label: "Rank", value: "#\(entry.rank)")
-                                statBox(label: "Total Value", value: entry.formattedValue)
-                                statBox(label: "Cash", value: portfolio.map { formatPounds($0.cashBalance / 100) } ?? "--")
+                                statBox(label: "Cash", value: formatPounds(p.cashBalance / 100))
+                                statBox(label: "Holdings", value: "\(p.holdings.count)")
+                                Spacer().frame(maxWidth: .infinity)
                             }
                             .padding(.horizontal)
-
-                            // Holdings
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Holdings")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal)
-
-                                if let holdings = portfolio?.holdings, !holdings.isEmpty {
-                                    ForEach(holdings, id: \.symbol) { holding in
-                                        holdingRow(holding: holding)
-                                    }
-                                    .padding(.horizontal)
-                                } else {
-                                    Text("No holdings in this portfolio")
-                                        .foregroundColor(Theme.textSecondary)
-                                        .padding()
-                                }
-                            }
-
-                            Spacer(minLength: 40)
                         }
-                        .padding(.top)
+
+                        // Holdings section — spinner only here, not full screen
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Holdings")
+                                .font(.headline).foregroundColor(.white)
+                                .padding(.horizontal)
+
+                            if isLoading {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: Theme.primaryBlue))
+                                    Spacer()
+                                }
+                                .padding()
+                            } else if let holdings = portfolio?.holdings, !holdings.isEmpty {
+                                ForEach(holdings, id: \.symbol) { holding in
+                                    holdingRow(holding: holding).padding(.horizontal)
+                                }
+                            } else {
+                                Text("No holdings")
+                                    .foregroundColor(Theme.textSecondary).padding()
+                            }
+                        }
+                        Spacer(minLength: 40)
                     }
+                    .padding(.top)
                 }
             }
             .navigationTitle("\(entry.username)'s Portfolio")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { isPresented = false }
-                        .foregroundColor(Theme.primaryBlue)
+                    Button("Done") { dismiss() }.foregroundColor(Theme.primaryBlue)
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
-        .task {
-            await loadPortfolio()
-        }
+        .task { await loadPortfolio() }
     }
 
     private func formatPounds(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        formatter.groupingSeparator = ","
-        formatter.decimalSeparator = "."
-        return "£\(formatter.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value))"
+        if value >= 1_000 { return String(format: "£%.1fK", value / 1_000) }
+        return String(format: "£%.0f", value)
     }
 
     private func statBox(label: String, value: String) -> some View {
         VStack(spacing: 4) {
-            Text(label)
-                .font(.caption)
-                .foregroundColor(Theme.textSecondary)
-            Text(value)
-                .font(.subheadline)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
+            Text(label).font(.caption).foregroundColor(Theme.textSecondary)
+            Text(value).font(.subheadline).fontWeight(.bold).foregroundColor(.white)
+                .lineLimit(1).minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -728,24 +483,17 @@ struct UserPortfolioSheet: View {
         let cost = holding.quantity * holding.averagePrice
         let pl = value - cost
         let plPercent = cost > 0 ? (pl / cost) * 100 : 0
-
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(holding.symbol)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                Text("\(Int(holding.quantity)) @ \(String(format: "%.2f", holding.averagePrice))p")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                Text(holding.companyName ?? holding.symbol)
+                    .font(.subheadline).fontWeight(.semibold).foregroundColor(.white).lineLimit(1)
+                Text("\(holding.symbol) · \(Int(holding.quantity)) shares")
+                    .font(.caption).foregroundColor(Theme.textSecondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(formatPounds(value / 100))
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                ChangePill(percent: plPercent)
+                Text(formatPounds(value / 100)).font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                ChangePill(percent: plPercent, compact: true)
             }
         }
         .padding()
@@ -756,19 +504,15 @@ struct UserPortfolioSheet: View {
     private func loadPortfolio() async {
         defer { isLoading = false }
         do {
-            let result = try await APIService.shared.fetchLeaderboardUserPortfolio(
-                type: competitionType.rawValue,
-                userId: entry.userId
-            )
-            portfolio = result
+            portfolio = try await APIService.shared.fetchLeaderboardUserPortfolio(
+                type: competitionType.rawValue, userId: entry.userId)
         } catch {
-            // If endpoint fails just show empty holdings
             portfolio = LeaderboardUserPortfolio(rank: entry.rank, cashBalance: 0, holdings: [])
         }
     }
 }
 
-// MARK: - Leaderboard ViewModel
+// MARK: - ViewModel
 
 @MainActor
 class LeaderboardViewModel: ObservableObject {
@@ -781,7 +525,6 @@ class LeaderboardViewModel: ObservableObject {
     @Published var selectedType: LeaderboardType = .weekly
     var currentUserId: String = ""
 
-    // Cache all fetched results so tab switches don't re-fetch
     private var cache: [LeaderboardType: LeaderboardResponse] = [:]
 
     struct CompetitionInfo {
@@ -792,118 +535,77 @@ class LeaderboardViewModel: ObservableObject {
         let timeRemaining: String?
     }
 
-    /// Fetch all three types sequentially, pick the first with data.
     func loadAll() async {
         isLoading = true
         errorMessage = nil
         currentUserId = UserDefaults.standard.string(forKey: "user_id") ?? ""
         cache.removeAll()
 
-        let allTypes: [LeaderboardType] = [.weekly, .monthly, .annual]
         var active: [LeaderboardType] = []
-
-        for type in allTypes {
-            print("[Leaderboard] Fetching \(type.rawValue)...")
+        for type in LeaderboardType.allCases {
             do {
                 let response = try await APIService.shared.fetchLeaderboard(type: type.rawValue)
-                let count = response.leaderboard?.count ?? 0
-                print("[Leaderboard] \(type.rawValue): \(count) entries, success=\(response.success ?? false)")
                 cache[type] = response
-                if count > 0 {
-                    active.append(type)
-                }
-            } catch {
-                print("[Leaderboard] \(type.rawValue) FAILED: \(error)")
-            }
+                if (response.leaderboard?.count ?? 0) > 0 { active.append(type) }
+            } catch {}
         }
 
         availableTypes = active
-        print("[Leaderboard] Active tabs: \(active.map(\.rawValue))")
-
         if let first = active.first {
             selectedType = first
             applyCache(for: first)
         } else {
-            entries = []
-            competitionInfo = nil
-            currentUserEntry = nil
+            entries = []; competitionInfo = nil; currentUserEntry = nil
         }
-
         isLoading = false
     }
 
-    /// Switch to a tab - use cache if available, otherwise fetch.
     func selectType(_ type: LeaderboardType) async {
         selectedType = type
-        if let cached = cache[type] {
+        if cache[type] != nil {
             applyCache(for: type)
-            _ = cached // already applied
         } else {
             await fetchAndCache(type: type)
         }
     }
 
-    func refresh() async {
-        cache.removeAll()
-        await loadAll()
-    }
+    func refresh() async { cache.removeAll(); await loadAll() }
 
     private func fetchAndCache(type: LeaderboardType) async {
-        isLoading = true
-        errorMessage = nil
+        isLoading = true; errorMessage = nil
         do {
             let response = try await APIService.shared.fetchLeaderboard(type: type.rawValue)
-            cache[type] = response
-            applyCache(for: type)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+            cache[type] = response; applyCache(for: type)
+        } catch { errorMessage = error.localizedDescription }
         isLoading = false
     }
 
     private func applyCache(for type: LeaderboardType) {
-        guard let response = cache[type] else { return }
-        guard let leaderboardData = response.leaderboard, !leaderboardData.isEmpty else {
-            entries = []
-            currentUserEntry = nil
-            competitionInfo = nil
-            return
+        guard let response = cache[type], let data = response.leaderboard, !data.isEmpty else {
+            entries = []; currentUserEntry = nil; competitionInfo = nil; return
         }
-
-        entries = leaderboardData.map { data in
-            LeaderboardEntry(
-                id: data.id,
-                userId: data.user_id ?? "",
-                username: data.username ?? "User \(data.rank)",
-                totalAssets: data.displayValue,
-                profitLossPercent: data.profit_loss_percent ?? 0,
-                profitLoss: data.profit_loss ?? 0,
-                playerLevel: nil,
-                rank: data.rank
-            )
+        entries = data.map { d in
+            LeaderboardEntry(id: d.id, userId: d.user_id ?? "",
+                             username: d.username ?? "User \(d.rank)",
+                             totalAssets: d.displayValue,
+                             profitLossPercent: d.profit_loss_percent ?? 0,
+                             profitLoss: d.profit_loss ?? 0,
+                             playerLevel: nil, rank: d.rank)
         }
-
         currentUserId = UserDefaults.standard.string(forKey: "user_id") ?? ""
         currentUserEntry = entries.first { $0.userId == currentUserId }
-
         if let comp = response.competition {
             competitionInfo = CompetitionInfo(
-                status: comp.status,
-                prizePool: comp.prize_pool,
-                startDate: comp.start_date,
-                endDate: comp.end_date,
+                status: comp.status, prizePool: comp.prize_pool,
+                startDate: comp.start_date, endDate: comp.end_date,
                 timeRemaining: comp.time_remaining.map { formatTimeLeft($0) }
             )
-        } else {
-            competitionInfo = nil
-        }
+        } else { competitionInfo = nil }
     }
 
     private func formatTimeLeft(_ raw: String) -> String {
-        print("[Leaderboard] formatTimeLeft raw='\(raw)'")
-        // Try parsing as seconds (number); API may return milliseconds — detect by value > 1 year in seconds
         if var n = Double(raw), n > 0 {
-            if n > 31_536_000 { n /= 1000 } // convert ms → seconds
+            if n > 31_536_000 { n /= 1000 }
             let days = Int(n) / 86400
             let hours = (Int(n) % 86400) / 3600
             let minutes = (Int(n) % 3600) / 60
@@ -912,7 +614,6 @@ class LeaderboardViewModel: ObservableObject {
             if minutes > 0 { return "\(minutes)m" }
             return "<1m"
         }
-        // If the API returned a pre-formatted string, use it as-is
         let trimmed = raw.trimmingCharacters(in: .whitespaces)
         return trimmed.isEmpty ? "--" : trimmed
     }

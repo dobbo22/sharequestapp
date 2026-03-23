@@ -53,7 +53,7 @@ struct LeaguesView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Theme.primaryGradient.ignoresSafeArea()
+                Theme.backgroundPrimary.ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     tabSelector

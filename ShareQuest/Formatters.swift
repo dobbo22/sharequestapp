@@ -1,17 +1,16 @@
 import Foundation
 
-/// Format a numeric price as pence. The input may be either in pounds or already in pence.
-/// Heuristic: if the value is >= 1000, treat as pence; otherwise treat as pounds and multiply by 100.
-/// The output uses up to 6 decimal places, trimming any trailing zeros.
+/// Format a price already in pence (GBX) as a display string.
+/// API values are always in pence — no conversion applied.
+/// Trims trailing zeros after the decimal point.
 func formatPencePrice(_ rawValue: Double?) -> String {
-    guard let v = rawValue else { return "--" }
-    // Determine pence value
-    let pence: Double = (v >= 1000.0) ? v : (v * 100.0)
+    guard let v = rawValue, v > 0 else { return "--" }
 
-    // Format with up to 6 decimal places then trim trailing zeros
-    var s = String(format: "%.6f", pence)
-    while s.contains(".") && (s.hasSuffix("0") || s.hasSuffix(".")) {
-        s.removeLast()
+    // Format with up to 2 decimal places, trim trailing zeros
+    var s = String(format: "%.2f", v)
+    if s.contains(".") {
+        while s.hasSuffix("0") { s.removeLast() }
+        if s.hasSuffix(".") { s.removeLast() }
     }
     return "\(s)p"
 }

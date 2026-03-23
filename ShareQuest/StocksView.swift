@@ -42,6 +42,7 @@ final class WatchlistManager: ObservableObject {
             items.remove(at: idx)
         } else {
             items.append(WatchlistItem(symbol: stock.symbol, companyName: stock.companyName))
+            Task { await APIService.shared.postChallengeProgress(criteriaType: "watchlist") }
         }
         save()
     }
@@ -166,6 +167,30 @@ class StocksViewModel: ObservableObject {
     }
 }
 
+// MARK: - Stock Sort Order
+
+enum StockSortOrder: String, CaseIterable {
+    case defaultOrder = "Default"
+    case topGainers   = "Top Gainers"
+    case topLosers    = "Top Losers"
+
+    var icon: String {
+        switch self {
+        case .defaultOrder: return "line.3.horizontal.decrease"
+        case .topGainers:   return "arrow.up.right"
+        case .topLosers:    return "arrow.down.right"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .defaultOrder: return Theme.textSecondary
+        case .topGainers:   return Theme.accentGreen
+        case .topLosers:    return Color(red: 0.94, green: 0.27, blue: 0.27)
+        }
+    }
+}
+
 // MARK: - StocksView
 
 struct StocksView: View {
@@ -174,11 +199,20 @@ struct StocksView: View {
     @State private var selectedTab: StockTab? = nil
     @State private var searchText = ""
     @State private var searchTask: Task<Void, Never>? = nil
+    @State private var sortOrder: StockSortOrder = .defaultOrder
+
+    private var displayedStocks: [Stock] {
+        switch sortOrder {
+        case .defaultOrder: return viewModel.stocks
+        case .topGainers:   return viewModel.stocks.sorted { $0.changePercent > $1.changePercent }
+        case .topLosers:    return viewModel.stocks.sorted { $0.changePercent < $1.changePercent }
+        }
+    }
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Theme.primaryGradient
+                Theme.backgroundPrimary
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
@@ -206,6 +240,7 @@ struct StocksView: View {
                 }
             } else {
                 selectedTab = nil
+                sortOrder = .defaultOrder
                 searchTask = Task {
                     try? await Task.sleep(nanoseconds: 400_000_000)
                     guard !Task.isCancelled else { return }
@@ -224,23 +259,53 @@ struct StocksView: View {
     // MARK: - Search Bar
 
     private var searchBar: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(Theme.textMuted)
-            TextField("Search all stocks...", text: $searchText)
-                .foregroundColor(Theme.textPrimary)
-                .autocorrectionDisabled()
-            if !searchText.isEmpty {
-                Button { searchText = "" } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(Theme.textMuted)
+        HStack(spacing: 8) {
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(Theme.textMuted)
+                TextField("Search all stocks...", text: $searchText)
+                    .foregroundColor(Theme.textPrimary)
+                    .autocorrectionDisabled()
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(Theme.textMuted)
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Theme.glassBackground)
+            .cornerRadius(12)
+
+            // Sort / filter button — only shown when stock tiles are visible
+            if !viewModel.stocks.isEmpty || selectedTab != nil {
+                Menu {
+                    ForEach(StockSortOrder.allCases, id: \.self) { order in
+                        Button {
+                            sortOrder = order
+                        } label: {
+                            Label(order.rawValue, systemImage: order.icon)
+                        }
+                    }
+                } label: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(sortOrder == .defaultOrder ? Theme.glassBackground : sortOrder.color.opacity(0.2))
+                            .frame(width: 44, height: 44)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(sortOrder == .defaultOrder ? Theme.glassBorder : sortOrder.color.opacity(0.6), lineWidth: 1)
+                            )
+                        Image(systemName: sortOrder.icon)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(sortOrder.color)
+                    }
                 }
             }
         }
-        .padding()
-        .background(Theme.glassBackground)
-        .cornerRadius(12)
-        .padding()
+        .padding(.horizontal)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Tab Selector
@@ -251,6 +316,7 @@ struct StocksView: View {
                 ForEach(StockTab.allCases, id: \.self) { tab in
                     StockTabButton(tab: tab, isSelected: selectedTab == tab) {
                         searchText = ""
+                        sortOrder = .defaultOrder
                         searchTask?.cancel()
                         selectedTab = tab
                         if tab == .watchlist {
@@ -309,7 +375,7 @@ struct StocksView: View {
                     }
                     .padding(.top, 60)
                 } else {
-                    ForEach(viewModel.stocks) { stock in
+                    ForEach(displayedStocks) { stock in
                         StockRowView(stock: stock)
                     }
                 }
@@ -414,11 +480,31 @@ struct StockRowView: View {
 
 // MARK: - Stock Detail View
 
+// MARK: - Stock Hunt Claim State
+
+private enum HuntClaimState: Equatable {
+    case idle
+    case claiming
+    case matched(xp: Int)
+    case noMatch
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let stockHuntClaimed = Notification.Name("com.sharequest.stockHuntClaimed")
+}
+
+// MARK: - Stock Detail View
+
 struct StockDetailView: View {
     let stock: Stock
     @StateObject private var vm: StockDetailViewModel
     @ObservedObject private var watchlist = WatchlistManager.shared
     @State private var showTradeSheet = false
+    // Stock Hunt
+    @State private var activeHunts: [ChallengeData] = []
+    @State private var huntClaimState: HuntClaimState = .idle
 
     init(stock: Stock) {
         self.stock = stock
@@ -427,7 +513,7 @@ struct StockDetailView: View {
 
     var body: some View {
         ZStack {
-            Theme.primaryGradient
+            Theme.backgroundPrimary
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -440,7 +526,15 @@ struct StockDetailView: View {
                     industry: vm.subsectorDisplay,
                     onTrade: { showTradeSheet.toggle() }
                 )
-                Spacer().frame(height: 12)
+
+                // Stock Hunt claim banner — shown when active hunts exist
+                if !activeHunts.isEmpty {
+                    stockHuntClaimCard
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                }
+
+                Spacer().frame(height: 8)
                 StockDetailTabsView(vm: vm)
                     .background(Theme.backgroundPrimary)
                 Spacer()
@@ -457,8 +551,116 @@ struct StockDetailView: View {
                 }
             }
         }
+        .task {
+            await APIService.shared.postChallengeProgress(criteriaType: "stock_view")
+            // Load active stock hunt challenges
+            if let response = try? await APIService.shared.getDailyChallenges() {
+                activeHunts = response.allChallenges.filter {
+                    ($0.criteria_type ?? $0.type ?? "") == "stock_hunt" && !$0.isCompleted
+                }
+            }
+        }
         .sheet(isPresented: $showTradeSheet) {
             StockTradeSheet(stock: stock)
+        }
+    }
+
+    @ViewBuilder
+    private var stockHuntClaimCard: some View {
+        let huntColor = Color(red: 0.55, green: 0.36, blue: 0.96)
+        VStack(spacing: 0) {
+            switch huntClaimState {
+            case .idle:
+                HStack(spacing: 12) {
+                    Image(systemName: "scope")
+                        .font(.title3)
+                        .foregroundColor(huntColor)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Stock Hunt Active")
+                            .font(.subheadline).fontWeight(.bold).foregroundColor(.white)
+                        Text("\(activeHunts.count) challenge\(activeHunts.count == 1 ? "" : "s") — does this stock match?")
+                            .font(.caption).foregroundColor(Theme.textSecondary)
+                    }
+                    Spacer()
+                    Button {
+                        Task { await claimHunt() }
+                    } label: {
+                        Text("Claim")
+                            .font(.subheadline).fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16).padding(.vertical, 8)
+                            .background(huntColor)
+                            .cornerRadius(10)
+                    }
+                }
+
+            case .claiming:
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: huntColor))
+                        .scaleEffect(0.85)
+                    Text("Checking…")
+                        .font(.subheadline).foregroundColor(Theme.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+
+            case .matched(let xp):
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(Theme.accentGreen).font(.title3)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Challenge Complete!")
+                            .font(.subheadline).fontWeight(.bold).foregroundColor(Theme.accentGreen)
+                        Text("+\(xp) XP earned")
+                            .font(.caption).foregroundColor(Theme.accentYellow)
+                    }
+                    Spacer()
+                    Image(systemName: "star.fill")
+                        .foregroundColor(Theme.accentYellow)
+                }
+
+            case .noMatch:
+                HStack(spacing: 10) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.27)).font(.title3)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Doesn't match today's criteria")
+                            .font(.subheadline).fontWeight(.medium).foregroundColor(.white)
+                        Text("Keep researching — try another stock")
+                            .font(.caption).foregroundColor(Theme.textSecondary)
+                    }
+                    Spacer()
+                    Button {
+                        huntClaimState = .idle
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .foregroundColor(Theme.textMuted)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 14).fill(huntColor.opacity(0.1)))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(huntColor.opacity(0.3), lineWidth: 1))
+        .animation(.easeInOut(duration: 0.2), value: huntClaimState)
+    }
+
+    private func claimHunt() async {
+        huntClaimState = .claiming
+        do {
+            let result = try await APIService.shared.claimStockHunt(symbol: stock.symbol)
+            if result.matched {
+                let xp = result.xpReward ?? activeHunts.first?.reward ?? 0
+                huntClaimState = .matched(xp: xp)
+                // Remove the claimed hunt from active list
+                activeHunts = activeHunts.dropFirst().map { $0 }
+                // Notify dashboard to refresh challenge queue + progress bar
+                NotificationCenter.default.post(name: .stockHuntClaimed, object: nil)
+            } else {
+                huntClaimState = .noMatch
+            }
+        } catch {
+            huntClaimState = .noMatch
         }
     }
 }
@@ -654,6 +856,7 @@ class SectorsViewModel: ObservableObject {
         stockQuotes = [:]
         subsectors = []
         isLoading = true
+        await APIService.shared.postChallengeProgress(criteriaType: "sector")
         do { subsectors = try await APIService.shared.fetchSubsectors(sector: name) } catch {}
         isLoading = false
     }

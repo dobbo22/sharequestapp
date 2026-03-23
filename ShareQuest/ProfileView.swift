@@ -22,16 +22,8 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.059, green: 0.090, blue: 0.165),
-                        Color(red: 0.118, green: 0.227, blue: 0.373),
-                        Color(red: 0.345, green: 0.110, blue: 0.529)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                Theme.backgroundPrimary
+                    .ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 20) {
@@ -162,6 +154,8 @@ struct ProfileView: View {
                 Text(viewModel.displayName)
                     .font(.title3)
                     .fontWeight(.bold)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .foregroundColor(.white)
                 Text(viewModel.email)
                     .font(.caption)
@@ -216,8 +210,10 @@ struct ProfileView: View {
                 }
                 Spacer()
                 Text("\(viewModel.xp) / \(viewModel.xpForNextLevel) XP")
-                    .font(.subheadline)
+                    .font(.caption)
                     .fontWeight(.semibold)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .foregroundColor(Theme.accentYellow)
             }
 
@@ -296,8 +292,10 @@ struct ProfileView: View {
                 .font(.title3)
                 .foregroundColor(color)
             Text(value)
-                .font(.title2)
+                .font(.title3)
                 .fontWeight(.bold)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .foregroundColor(.white)
             Text(label)
                 .font(.caption2)

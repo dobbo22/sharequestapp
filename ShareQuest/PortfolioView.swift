@@ -33,6 +33,9 @@ struct PortfolioView: View {
                 }
             }
         }
+        .task {
+            await APIService.shared.postChallengeProgress(criteriaType: "portfolio_check")
+        }
         .task(id: selectedPortfolioType) {
             // Only reload when selectedPortfolioType changes
             await reloadPortfolios()
@@ -52,7 +55,7 @@ struct PortfolioView: View {
 
     private var portfolioContent: some View {
         ZStack {
-            Theme.primaryGradient
+            Theme.backgroundPrimary
                 .ignoresSafeArea()
 
             ScrollView {
@@ -95,7 +98,9 @@ struct PortfolioView: View {
                     .font(.subheadline)
                     .foregroundColor(Theme.textSecondary)
                 Text(viewModel.formattedTotalValue)
-                    .font(.system(size: 36, weight: .bold))
+                    .font(.system(size: 28, weight: .bold))
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
                     .foregroundColor(Theme.textPrimary)
             }
             
@@ -213,23 +218,44 @@ struct PortfolioTypeButton: View {
     let type: PortfolioType
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Text(type.emoji)
                 Text(type.displayName)
                     .font(.subheadline)
-                    .fontWeight(.medium)
+                    .fontWeight(.semibold)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(isSelected ? type.color.opacity(0.3) : Theme.glassBackground)
-            .foregroundColor(isSelected ? type.color : Theme.textSecondary)
-            .cornerRadius(20)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 11)
+            .background(
+                isSelected
+                    ? LinearGradient(
+                        colors: portfolioGradient(for: type.rawValue),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        colors: [Theme.glassBackground, Theme.glassBackground],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+            )
+            .foregroundColor(isSelected ? .white : Theme.textSecondary)
+            .cornerRadius(22)
             .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(isSelected ? type.color : Theme.glassBorder, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 22)
+                    .stroke(
+                        isSelected
+                            ? Color.clear
+                            : Theme.glassBorder,
+                        lineWidth: 1
+                    )
+            )
+            .shadow(
+                color: isSelected ? portfolioColor(for: type.rawValue).opacity(0.45) : .clear,
+                radius: 8, x: 0, y: 4
             )
         }
     }
@@ -246,7 +272,9 @@ struct HoldingRowView: View {
                 // Stock Info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(holding.companyName)
-                        .font(.headline)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
                         .foregroundColor(Theme.textPrimary)
                     HStack(spacing: 8) {
                         Text(holding.symbol)
@@ -265,8 +293,9 @@ struct HoldingRowView: View {
                 // Value & Change
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(holding.formattedValue)
-                        .font(.subheadline)
+                        .font(.caption)
                         .fontWeight(.semibold)
+                        .lineLimit(1)
                         .foregroundColor(Theme.textPrimary)
                     
                     ChangePill(percent: holding.changePercent)
