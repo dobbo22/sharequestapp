@@ -22,7 +22,7 @@ struct PrivacyPolicyView: View {
                     // Online Safety Act Notice
                     LegalNoticeBox(
                         title: "UK Online Safety Act 2023 Compliance",
-                        body: "This privacy policy has been updated to reflect our compliance with the UK Online Safety Act 2023, including age verification requirements, content moderation processes, and safety reporting mechanisms.",
+                        message: "This privacy policy has been updated to reflect our compliance with the UK Online Safety Act 2023, including age verification requirements, content moderation processes, and safety reporting mechanisms.",
                         color: .red
                     )
 

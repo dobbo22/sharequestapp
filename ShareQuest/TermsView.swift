@@ -22,7 +22,7 @@ struct TermsView: View {
                     // Online Safety Act Notice
                     LegalNoticeBox(
                         title: "UK Online Safety Act 2023 Compliance",
-                        body: "These terms have been updated to reflect our compliance with the UK Online Safety Act 2023, including mandatory age verification, community safety standards, and content moderation requirements.",
+                        message: "These terms have been updated to reflect our compliance with the UK Online Safety Act 2023, including mandatory age verification, community safety standards, and content moderation requirements.",
                         color: .red
                     )
 
@@ -200,13 +200,13 @@ struct LegalSection<Content: View>: View {
 
 struct LegalNoticeBox: View {
     let title: String
-    let body: String
+    let message: String
     let color: Color
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.subheadline).bold().foregroundStyle(color)
-            Text(body).font(.caption).foregroundStyle(color.opacity(0.85))
+            Text(message).font(.caption).foregroundStyle(color.opacity(0.85))
         }
         .padding()
         .background(color.opacity(0.1))
