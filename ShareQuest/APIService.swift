@@ -19,7 +19,7 @@ enum APIConfig {
 
     static var remoteBaseURL: String {
         get {
-            UserDefaults.standard.string(forKey: "api_remote_base_url") ?? "https://sharequest.co.uk/api"
+            UserDefaults.standard.string(forKey: "api_remote_base_url") ?? "https://www.sharequest.co.uk/api"
         }
         set {
             UserDefaults.standard.set(newValue, forKey: "api_remote_base_url")
