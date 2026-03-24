@@ -184,7 +184,8 @@ final class SubscriptionsViewModel: ObservableObject {
         let (status, publicList, userLeagues) = await (try? statusFetch, publicFetch, privateFetch)
         subStatus = status
         publicLeagues = publicList.filter { !($0.is_member ?? false) }
-        privateLeagues = userLeagues.filter { $0.is_private == true }
+        // myLeagues are all from private_leagues table — show all of them
+        privateLeagues = userLeagues
     }
 
     func joinLeague(_ league: League) {
