@@ -27,7 +27,7 @@ struct TermsView: View {
                     )
 
                     LegalSection(number: "1", title: "Introduction") {
-                        Text("Welcome to ShareQuest Trading App ("we," "our," or "us"). These Terms and Conditions govern your use of the ShareQuest Trading App, including all related websites, applications, and services (collectively, the "Service").")
+                        Text("Welcome to ShareQuest Trading App (\"we,\" \"our,\" or \"us\"). These Terms and Conditions govern your use of the ShareQuest Trading App, including all related websites, applications, and services (collectively, the \"Service\").")
                         Text("By accessing or using the Service, you agree to be bound by these Terms. If you disagree with any part of the Terms, you may not access the Service.")
                         Text("The ShareQuest Trading App is a platform designed for educational purposes that allows users to participate in share trading competitions using simulated currency in a skill-based environment. We comply with all applicable UK laws, including the Online Safety Act 2023.")
                     }

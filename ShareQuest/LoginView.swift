@@ -222,7 +222,7 @@ private final class WebAuthContext: NSObject, ASWebAuthenticationPresentationCon
             return UIWindow(windowScene: scene)
         }
         // No connected scene — return a detached window as last resort
-        return UIWindow()
+        return UIWindow(frame: UIScreen.main.bounds)
     }
 }
 

@@ -27,7 +27,7 @@ struct PrivacyPolicyView: View {
                     )
 
                     LegalSection(number: "1", title: "Introduction") {
-                        Text("ShareQuest Trading App ("we," "our," or "us") is committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Service.")
+                        Text("ShareQuest Trading App (\"we,\" \"our,\" or \"us\") is committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Service.")
                         Text("By using our Service, you acknowledge that you have read and understood this Privacy Policy. If you do not agree with our policies, please do not use the Service.")
                     }
 
