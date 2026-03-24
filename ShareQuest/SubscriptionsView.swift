@@ -356,13 +356,14 @@ struct SubscriptionsView: View {
                 if let plan = vm.selectedPlan {
                     if vm.isSubscribed(plan.id) {
                         Button {
+                            NotificationCenter.default.post(name: .selectPortfolioType, object: PortfolioType.annual)
                             selectedTab?.wrappedValue = 1  // Portfolio tab
                             dismiss()
                             onNavigateAway?()
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "briefcase.fill")
-                                Text("Go to Portfolio")
+                                Text("Go to Annual Portfolio")
                             }
                             .font(.headline)
                             .foregroundColor(.white)

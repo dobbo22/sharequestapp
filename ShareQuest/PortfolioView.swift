@@ -44,6 +44,11 @@ struct PortfolioView: View {
             // Only reload when selectedPortfolioType changes
             await reloadPortfolios()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .selectPortfolioType)) { note in
+            if let type = note.object as? PortfolioType {
+                selectedPortfolioType = type
+            }
+        }
         .onChange(of: selectedPortfolioType) { _, newType in
             Task { await viewModel.fetchPortfolio(type: newType) }
         }
@@ -493,6 +498,10 @@ class PortfolioViewModel: ObservableObject {
         // Refresh portfolio after trade
         await fetchPortfolio(type: portfolioType)
     }
+}
+
+extension Notification.Name {
+    static let selectPortfolioType = Notification.Name("selectPortfolioType")
 }
 
 #Preview {
