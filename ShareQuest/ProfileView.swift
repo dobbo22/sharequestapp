@@ -33,10 +33,6 @@ struct ProfileView: View {
                         userCard
                         levelCard
                         streakRow
-                        statsRow
-                        if !viewModel.achievements.isEmpty {
-                            achievementsSection
-                        }
                         settingsSection
                         versionFooter
                         Spacer(minLength: 100)
@@ -87,7 +83,8 @@ struct ProfileView: View {
         // Capture main-actor properties before entering PhotosPicker's nonisolated closure
         let capturedAvatar = avatarImage
         let capturedInitials = viewModel.initials
-        return HStack(spacing: 16) {
+        return VStack(spacing: 12) {
+          HStack(spacing: 16) {
             // Avatar with level badge + edit button
             ZStack(alignment: .bottomTrailing) {
                 // Avatar circle
@@ -171,6 +168,19 @@ struct ProfileView: View {
             }
 
             Spacer()
+          }
+
+          // Stats row inline under avatar
+          HStack(spacing: 0) {
+            inlineStatBox(icon: "arrow.left.arrow.right", color: Theme.primaryBlue,
+                          value: "\(viewModel.totalTrades)", label: "Trades")
+            Divider().frame(height: 30).background(Color.white.opacity(0.15))
+            inlineStatBox(icon: "briefcase.fill", color: Theme.accentGreen,
+                          value: "\(viewModel.portfoliosCount)", label: "Portfolios")
+            Divider().frame(height: 30).background(Color.white.opacity(0.15))
+            inlineStatBox(icon: "person.3.fill", color: Theme.accentPurple,
+                          value: "\(viewModel.leaguesCount)", label: "Leagues")
+          }
         }
         .padding()
         .background(
@@ -309,6 +319,24 @@ struct ProfileView: View {
         .background(Color.white.opacity(0.05))
         .cornerRadius(14)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 1))
+    }
+
+    private func inlineStatBox(icon: String, color: Color, value: String, label: String) -> some View {
+        VStack(spacing: 3) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.caption)
+                    .foregroundColor(color)
+                Text(value)
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+            }
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(Theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Achievements
