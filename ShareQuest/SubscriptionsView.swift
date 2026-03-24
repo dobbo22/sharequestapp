@@ -216,8 +216,10 @@ final class SubscriptionsViewModel: ObservableObject {
 // MARK: - Main View
 
 struct SubscriptionsView: View {
+    var selectedTab: Binding<Int>? = nil   // optional — passed in from caller to switch tabs
     @StateObject private var vm = SubscriptionsViewModel()
     @Environment(\.dismiss) private var dismiss
+    @State private var selectedLeague: League? = nil
 
     var body: some View {
         NavigationStack {
@@ -270,6 +272,9 @@ struct SubscriptionsView: View {
             }
             .sheet(isPresented: $vm.showManage) {
                 ManageSubscriptionsSheet(vm: vm)
+            }
+            .sheet(item: $selectedLeague) { league in
+                LeagueDetailSheet(league: league)
             }
         }
         .task { await vm.loadManageData() }
@@ -349,10 +354,13 @@ struct SubscriptionsView: View {
                 // CTA Button
                 if let plan = vm.selectedPlan {
                     if vm.isSubscribed(plan.id) {
-                        Button { vm.showManage = true } label: {
+                        Button {
+                            dismiss()
+                            selectedTab?.wrappedValue = 1  // Portfolio tab
+                        } label: {
                             HStack(spacing: 8) {
-                                Image(systemName: "gearshape.fill")
-                                Text("Manage \(plan.title) Subscription")
+                                Image(systemName: "briefcase.fill")
+                                Text("Go to Portfolio")
                             }
                             .font(.headline)
                             .foregroundColor(.white)
@@ -411,44 +419,42 @@ struct SubscriptionsView: View {
             VStack(spacing: 0) {
                 ForEach(Array(vm.privateLeagues.prefix(5).enumerated()), id: \.element.id) { idx, league in
                     if idx > 0 { Divider().background(Color.white.opacity(0.08)) }
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(Theme.accentPurple.opacity(0.2))
-                                .frame(width: 36, height: 36)
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 14))
-                                .foregroundColor(Theme.accentPurple)
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(league.name)
-                                .font(.subheadline).fontWeight(.semibold)
-                                .foregroundColor(.white)
-                                .lineLimit(1)
-                            HStack(spacing: 6) {
-                                Text("\(league.member_count ?? 0)/\(league.max_members ?? 50) members")
-                                    .font(.caption2)
-                                    .foregroundColor(Theme.textSecondary)
-                                if let status = league.status {
-                                    Text("•").font(.caption2).foregroundColor(Theme.textMuted)
-                                    Text(status.capitalized)
+                    Button { selectedLeague = league } label: {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(Theme.accentPurple.opacity(0.2))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Theme.accentPurple)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(league.name)
+                                    .font(.subheadline).fontWeight(.semibold)
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                HStack(spacing: 6) {
+                                    Text("\(league.member_count ?? 0)/\(league.max_members ?? 50) members")
                                         .font(.caption2)
-                                        .foregroundColor(status == "active" ? Theme.accentGreen : Theme.textSecondary)
+                                        .foregroundColor(Theme.textSecondary)
+                                    if let status = league.status {
+                                        Text("•").font(.caption2).foregroundColor(Theme.textMuted)
+                                        Text(status.capitalized)
+                                            .font(.caption2)
+                                            .foregroundColor(status == "active" ? Theme.accentGreen : Theme.textSecondary)
+                                    }
                                 }
                             }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(Theme.textMuted)
                         }
-                        Spacer()
-                        if league.is_member == true {
-                            Text("Member")
-                                .font(.caption2).fontWeight(.semibold)
-                                .foregroundColor(Theme.accentGreen)
-                                .padding(.horizontal, 8).padding(.vertical, 4)
-                                .background(Theme.accentGreen.opacity(0.15))
-                                .cornerRadius(6)
-                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .buttonStyle(PlainButtonStyle())
                 }
             }
             .background(Color.white.opacity(0.05))
@@ -481,7 +487,8 @@ struct SubscriptionsView: View {
                         PublicLeagueRow(
                             league: league,
                             isJoining: vm.joiningLeagueId == league.id,
-                            onJoin: { vm.joinLeague(league) }
+                            onJoin: { vm.joinLeague(league) },
+                            onTap: { selectedLeague = league }
                         )
                     }
                 }
@@ -1066,8 +1073,10 @@ private struct PublicLeagueRow: View {
     let league: League
     let isJoining: Bool
     let onJoin: () -> Void
+    let onTap: () -> Void
 
     var body: some View {
+        Button(action: onTap) {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
@@ -1114,6 +1123,8 @@ private struct PublicLeagueRow: View {
             .buttonStyle(PlainButtonStyle())
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

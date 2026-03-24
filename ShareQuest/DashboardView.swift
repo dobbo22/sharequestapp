@@ -623,7 +623,7 @@ struct DashboardView: View {
                 isAnnualSubscriber = subs?.annual ?? false
             }
         }) {
-            SubscriptionsView()
+            SubscriptionsView(selectedTab: $selectedTab)
         }
     }
 
