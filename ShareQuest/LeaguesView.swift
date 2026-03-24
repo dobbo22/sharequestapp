@@ -28,6 +28,16 @@ struct League: Identifiable, Codable {
     let prize_pool: Double?
     let created_at: String?
     let is_member: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, status
+        case creator_id, creator_username, member_count, max_members
+        case competition_type, start_date, end_date, created_at
+        case is_private = "isPrivate"
+        case join_code = "code"
+        case prize_pool = "prizePool"
+        case is_member = "isMember"
+    }
 }
 
 struct LeagueMember: Codable {
@@ -439,8 +449,8 @@ struct LeagueDetailSheet: View {
                                     .foregroundColor(.red)
                                     .multilineTextAlignment(.center)
                             }
-                            // Payment success banner
-                            if justPaid || isPaid == true {
+                            // Payment success banner — only shown briefly right after payment
+                            if justPaid {
                                 VStack(spacing: 8) {
                                     Image(systemName: "checkmark.circle.fill")
                                         .font(.system(size: 36))
@@ -454,6 +464,11 @@ struct LeagueDetailSheet: View {
                                         .multilineTextAlignment(.center)
                                 }
                                 .padding()
+                                .onAppear {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                        withAnimation { justPaid = false }
+                                    }
+                                }
                             }
                             // Payment button — only show while not paid
                             if isPaid == false && !justPaid {
@@ -506,6 +521,19 @@ struct LeagueDetailSheet: View {
                                         UIPasteboard.general.string = code
                                     } label: {
                                         Image(systemName: "doc.on.doc")
+                                            .foregroundColor(Theme.primaryBlue)
+                                    }
+                                    Button {
+                                        let message = "Join my ShareQuest league \"\(league.name)\"! Use code: \(code) 🏆"
+                                        let av = UIActivityViewController(activityItems: [message], applicationActivities: nil)
+                                        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                                           let root = scene.windows.first?.rootViewController {
+                                            var top = root
+                                            while let presented = top.presentedViewController { top = presented }
+                                            top.present(av, animated: true)
+                                        }
+                                    } label: {
+                                        Image(systemName: "square.and.arrow.up")
                                             .foregroundColor(Theme.primaryBlue)
                                     }
                                 }
@@ -637,37 +665,95 @@ struct LeagueDetailSheet: View {
     }
 
     private func memberRow(member: LeagueMember, rank: Int) -> some View {
-        HStack(spacing: 12) {
-            // Rank
+        let currentUserId = UserDefaults.standard.string(forKey: "user_id") ?? ""
+        let isUser = member.user_id == currentUserId
+        let isMedal = rank <= 3
+
+        func medalGradient(_ r: Int) -> LinearGradient? {
+            switch r {
+            case 1: return LinearGradient(colors: [Color(red:1.0,green:0.84,blue:0.0), Color(red:0.85,green:0.65,blue:0.13)], startPoint:.topLeading, endPoint:.bottomTrailing)
+            case 2: return LinearGradient(colors: [Color(red:0.85,green:0.85,blue:0.92), Color(red:0.60,green:0.60,blue:0.70)], startPoint:.topLeading, endPoint:.bottomTrailing)
+            case 3: return LinearGradient(colors: [Color(red:0.80,green:0.50,blue:0.20), Color(red:0.55,green:0.27,blue:0.07)], startPoint:.topLeading, endPoint:.bottomTrailing)
+            default: return nil
+            }
+        }
+        func medalGlow(_ r: Int) -> Color {
+            switch r {
+            case 1: return Color(red:1.0,green:0.84,blue:0.0)
+            case 2: return Color(red:0.75,green:0.75,blue:0.85)
+            case 3: return Color(red:0.80,green:0.50,blue:0.20)
+            default: return .clear
+            }
+        }
+
+        func formattedValue(_ pence: Double) -> String {
+            let pounds = pence / 100.0
+            let fmt = NumberFormatter()
+            fmt.numberStyle = .decimal
+            fmt.minimumFractionDigits = 2
+            fmt.maximumFractionDigits = 2
+            let s = fmt.string(from: NSNumber(value: pounds)) ?? String(format: "%.2f", pounds)
+            return "£\(s)"
+        }
+
+        return HStack(spacing: 10) {
+            // Rank badge
             ZStack {
-                Circle()
-                    .fill(Theme.primaryBlue.opacity(0.2))
-                    .frame(width: 32, height: 32)
+                if isMedal, let grad = medalGradient(rank) {
+                    Circle()
+                        .fill(grad)
+                        .frame(width: 40, height: 40)
+                        .shadow(color: medalGlow(rank).opacity(0.8), radius: 8, x: 0, y: 0)
+                } else {
+                    Circle()
+                        .fill(isUser ? Theme.primaryBlue.opacity(0.2) : Color.white.opacity(0.07))
+                        .frame(width: 36, height: 36)
+                        .overlay(Circle().stroke(isUser ? Theme.primaryBlue.opacity(0.5) : Color.white.opacity(0.12), lineWidth: 1.5))
+                }
                 Text("\(rank)")
-                    .font(.caption).fontWeight(.bold)
-                    .foregroundColor(Theme.primaryBlue)
+                    .font(.system(size: isMedal ? 14 : 11, weight: .black))
+                    .foregroundColor(isMedal ? .black.opacity(0.75) : (isUser ? Theme.primaryBlue : .white.opacity(0.6)))
             }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(member.username)
-                    .font(.subheadline).fontWeight(.semibold)
-                    .foregroundColor(.white)
-                if let plPercent = member.profit_loss_percent {
-                    ChangePill(percent: plPercent)
+            // Name
+            VStack(alignment: .leading, spacing: 1) {
+                if isUser {
+                    Text("Your Position")
+                        .font(.system(size: 9))
+                        .foregroundColor(.white.opacity(0.5))
                 }
+                Text(member.username)
+                    .font(.system(size: 13, weight: isUser ? .semibold : .medium))
+                    .foregroundColor(isUser ? Theme.primaryBlue : .white)
+                    .lineLimit(1)
             }
 
             Spacer()
 
-            if let value = member.total_value {
-                Text("£\(String(format: "%.2f", value / 100))")
-                    .font(.subheadline).fontWeight(.semibold)
+            // Value + return
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(formattedValue(member.total_value ?? 10_000_000))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                ChangePill(percent: member.profit_loss_percent ?? 0, compact: true)
             }
         }
-        .padding()
-        .background(Theme.glassBackground)
-        .cornerRadius(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(
+            isMedal
+                ? LinearGradient(colors: [medalGlow(rank).opacity(0.15), medalGlow(rank).opacity(0.04)], startPoint: .leading, endPoint: .trailing)
+                : isUser
+                    ? LinearGradient(colors: [Theme.primaryBlue.opacity(0.18), Theme.primaryBlue.opacity(0.06)], startPoint: .leading, endPoint: .trailing)
+                    : LinearGradient(colors: [Color.white.opacity(0.06), Color.white.opacity(0.03)], startPoint: .leading, endPoint: .trailing)
+        )
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(
+            isMedal ? medalGlow(rank).opacity(0.35) : (isUser ? Theme.primaryBlue.opacity(0.4) : Color.white.opacity(0.08)),
+            lineWidth: isMedal ? 1.5 : 1
+        ))
     }
 
     private func loadMembers() async {

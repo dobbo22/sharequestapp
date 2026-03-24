@@ -110,19 +110,6 @@ struct OverviewContent: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // Sector / Industry chips
-            if vm.sectorDisplay != "--" || vm.subsectorDisplay != "--" {
-                HStack(spacing: 8) {
-                    if vm.sectorDisplay != "--" {
-                        SectorChip(label: vm.sectorDisplay, icon: "building.2")
-                    }
-                    if vm.subsectorDisplay != "--" {
-                        SectorChip(label: vm.subsectorDisplay, icon: "tag")
-                    }
-                    Spacer()
-                }
-            }
-
             // Performance chips
             if vm.performanceSeries.contains(where: { $0.value != nil }) {
                 InfoCard(title: "PERFORMANCE", icon: "speedometer") {
@@ -817,7 +804,7 @@ struct PerfChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Text(label).font(.caption).fontWeight(.bold).foregroundColor(.white)
-            Text(value != nil ? String(format: "%+.1f%%", value!) : "--").font(.caption).fontWeight(.semibold).foregroundColor(.white)
+            Text(value.map { String(format: "%+.1f%%", $0) } ?? "--").font(.caption).fontWeight(.semibold).foregroundColor(.white)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 14).fill(bgColor))

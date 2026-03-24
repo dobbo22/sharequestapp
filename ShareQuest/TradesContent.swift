@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TradesContent: View {
     @ObservedObject var vm: StockDetailViewModel
+    @State private var showSubscriptions = false
 
     var body: some View {
         if vm.requiresSubscriptionForTrades {
@@ -22,7 +23,7 @@ struct TradesContent: View {
                 }
                 .padding()
 
-                Button(action: { /* open subscription */ }) {
+                Button(action: { showSubscriptions = true }) {
                     Text("Subscribe Now")
                         .fontWeight(.bold)
                         .padding(.horizontal, 20)
@@ -32,6 +33,9 @@ struct TradesContent: View {
                         .cornerRadius(10)
                 }
                 .padding(.top, 8)
+                .sheet(isPresented: $showSubscriptions) {
+                    SubscriptionsView()
+                }
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)

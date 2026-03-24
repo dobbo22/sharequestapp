@@ -170,11 +170,10 @@ struct OnboardingFlowView: View {
             showFloatingXP = true
             showConfetti = true
             // Dismiss floating XP after short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_600_000_000)
                 withAnimation { showFloatingXP = false }
-            }
-            // clear last gain after a short while so subsequent gains re-trigger
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                try? await Task.sleep(nanoseconds: 200_000_000)
                 viewModel.clearLastXPGain()
             }
         }
@@ -490,7 +489,7 @@ struct FirstTradeView: View {
                     .background(Color(red: 0.231, green: 0.510, blue: 0.965))
                     .cornerRadius(12)
                 }
-                .disabled(isTrading || Int(amount) == nil || Int(amount)! <= 0)
+                .disabled(isTrading || (Int(amount) ?? 0) <= 0)
                 .opacity(Int(amount) ?? 0 > 0 ? 1 : 0.5)
                 .padding(.horizontal)
                 // Extra bottom padding so the XPBar overlay won't cover the button in simulator/device

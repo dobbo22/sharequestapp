@@ -1679,6 +1679,28 @@ final class APIService: @unchecked Sendable {
     }
 
     /// Fetch league members/leaderboard
+    func fetchNotifications() async throws -> [AppNotification] {
+        let url = try buildURL(path: "/mobile/notifications", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let arr = (json["data"] as? [String: Any])?["notifications"] as? [[String: Any]] {
+            let arrData = try JSONSerialization.data(withJSONObject: arr)
+            return (try? decoder.decode([AppNotification].self, from: arrData)) ?? []
+        }
+        return []
+    }
+
+    func markNotificationsRead() async throws {
+        let url = try buildURL(path: "/mobile/notifications/read", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        addHeaders(to: &request)
+        _ = try? await performRequest(request)
+    }
+
     func fetchLeagueMembers(leagueId: String) async throws -> [LeagueMember] {
         let url = try buildURL(path: "/mobile/leagues/\(leagueId)/members", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)

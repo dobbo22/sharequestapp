@@ -221,8 +221,8 @@ private final class WebAuthContext: NSObject, ASWebAuthenticationPresentationCon
         if let scene = scenes.first {
             return UIWindow(windowScene: scene)
         }
-        // No connected scene — unreachable in a running app
-        fatalError("No UIWindowScene available for web authentication presentation")
+        // No connected scene — return a detached window as last resort
+        return UIWindow()
     }
 }
 
@@ -279,7 +279,7 @@ struct SocialLoginButton: View {
     }
 
     private func startOAuth() {
-        let baseURL = "https://sharequest.co.uk"
+        let baseURL = APIConfig.mainAppURL
         guard let url = URL(string: "\(baseURL)/api/mobile/auth/oauth-start?provider=\(provider)") else { return }
         authManager.isLoading = true
         authManager.errorMessage = nil

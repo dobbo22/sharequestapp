@@ -275,6 +275,7 @@ class AuthManager: ObservableObject {
         guard url.scheme == "sharequest", url.host == "auth",
               url.path == "/callback" else {
             print("[OAuth] Guard failed — scheme:\(url.scheme ?? "nil") host:\(url.host ?? "nil") path:\(url.path)")
+            DispatchQueue.main.async { self.errorMessage = "Authentication failed. Please try again." }
             return false
         }
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
