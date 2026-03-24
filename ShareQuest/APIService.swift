@@ -1792,6 +1792,21 @@ final class APIService: @unchecked Sendable {
         return checkoutUrl
     }
 
+    func getStockHistory(symbol: String, period: Int = 30) async throws -> [PricePoint] {
+        let url = try buildURL(path: "/mobile/stocks/\(symbol)/history?period=\(period)", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let dataObj = json["data"] as? [String: Any],
+           let quotes = dataObj["quotes"] as? [[String: Any]] {
+            let quotesData = try JSONSerialization.data(withJSONObject: quotes)
+            return (try? JSONDecoder().decode([PricePoint].self, from: quotesData)) ?? []
+        }
+        return []
+    }
+
     func checkLeaguePaymentStatus(leagueId: String) async throws -> Bool {
         let url = try buildURL(path: "/mobile/leagues/\(leagueId)/status", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
@@ -2931,6 +2946,46 @@ struct TradeTick: Decodable, Identifiable {
     }
 }
 
+struct BalanceSheetYear: Decodable {
+    let year: String
+    let totalAssets: Double?
+    let currentAssets: Double?
+    let nonCurrentAssets: Double?
+    let cash: Double?
+    let totalLiabilities: Double?
+    let currentLiabilities: Double?
+    let longTermDebt: Double?
+    let totalEquity: Double?
+    let retainedEarnings: Double?
+}
+
+struct IncomeStatementYear: Decodable {
+    let year: String
+    let revenue: Double?
+    let grossProfit: Double?
+    let ebit: Double?
+    let pretaxProfit: Double?
+    let netIncome: Double?
+
+    var grossMarginPct: Double? {
+        guard let r = revenue, let g = grossProfit, r != 0 else { return nil }
+        return (g / r) * 100
+    }
+    var netMarginPct: Double? {
+        guard let r = revenue, let n = netIncome, r != 0 else { return nil }
+        return (n / r) * 100
+    }
+}
+
+struct PricePoint: Decodable {
+    let date: String
+    let open: Double?
+    let high: Double?
+    let low: Double?
+    let close: Double?
+    let volume: Double?
+}
+
 struct StockFundamentals: Decodable {
     let peRatio: Double?
     let eps: Double?
@@ -2938,52 +2993,73 @@ struct StockFundamentals: Decodable {
     let marketCap: Double?
     let fiftyTwoWeekHigh: Double?
     let fiftyTwoWeekLow: Double?
+    // Extended financial metrics
+    let priceToBook: Double?
+    let returnOnEquity: Double?
+    let returnOnAssets: Double?
+    let profitMargin: Double?
+    let debtToEquity: Double?
+    let currentRatio: Double?
+    let revenue: Double?
+    let netIncome: Double?
+    // Structured historical data
+    let balanceSheet: [BalanceSheetYear]?
+    let incomeStatement: [IncomeStatementYear]?
     let taxonomies: [String: AnyDecodable]?
 
     enum CodingKeys: String, CodingKey {
-        case peRatio = "peRatio"
-        case pe = "pe"
-        case pe_ratio = "pe_ratio"
-        case eps = "eps"
-        case earningsPerShare = "earningsPerShare"
-        case earnings_per_share = "earnings_per_share"
-        case dividendYield = "dividendYield"
-        case dividend_yield = "dividend_yield"
-        case marketCap = "marketCap"
-        case market_cap = "market_cap"
-        case fiftyTwoWeekHigh = "fiftyTwoWeekHigh"
-        case fiftyTwoWeekLow = "fiftyTwoWeekLow"
-        case fiftyTwoWeekHighRaw = "fiftyTwoWeekHighRaw"
-        case fiftyTwoWeekLowRaw = "fiftyTwoWeekLowRaw"
-        case taxonomies = "taxonomies"
+        case peRatio, pe, pe_ratio
+        case eps, earningsPerShare, earnings_per_share
+        case dividendYield, dividend_yield
+        case marketCap, market_cap
+        case fiftyTwoWeekHigh, fiftyTwoWeekLow, fiftyTwoWeekHighRaw, fiftyTwoWeekLowRaw
+        case priceToBook, price_to_book
+        case returnOnEquity, roe
+        case returnOnAssets, roa
+        case profitMargin, profit_margin
+        case debtToEquity, debt_to_equity
+        case currentRatio, current_ratio
+        case revenue, netIncome, net_income
+        case balanceSheet, incomeStatement
+        case taxonomies
     }
 
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        func decodeDouble(keys: [CodingKeys]) -> Double? {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func dbl(_ keys: CodingKeys...) -> Double? {
             for k in keys {
-                if let v = try? container.decodeIfPresent(Double.self, forKey: k) { return v }
-                if let s = try? container.decodeIfPresent(String.self, forKey: k), let d = Double(s) { return d }
+                if let v = try? c.decodeIfPresent(Double.self, forKey: k) { return v }
+                if let s = try? c.decodeIfPresent(String.self, forKey: k), let d = Double(s) { return d }
             }
             return nil
         }
-        peRatio = decodeDouble(keys: [.peRatio, .pe, .pe_ratio])
-        eps = decodeDouble(keys: [.eps, .earningsPerShare, .earnings_per_share])
-        dividendYield = decodeDouble(keys: [.dividendYield, .dividend_yield])
-        marketCap = decodeDouble(keys: [.marketCap, .market_cap])
-        fiftyTwoWeekHigh = decodeDouble(keys: [.fiftyTwoWeekHigh, .fiftyTwoWeekHighRaw])
-        fiftyTwoWeekLow = decodeDouble(keys: [.fiftyTwoWeekLow, .fiftyTwoWeekLowRaw])
-        taxonomies = try? container.decodeIfPresent([String: AnyDecodable].self, forKey: .taxonomies)
+        peRatio = dbl(.peRatio, .pe, .pe_ratio)
+        eps = dbl(.eps, .earningsPerShare, .earnings_per_share)
+        dividendYield = dbl(.dividendYield, .dividend_yield)
+        marketCap = dbl(.marketCap, .market_cap)
+        fiftyTwoWeekHigh = dbl(.fiftyTwoWeekHigh, .fiftyTwoWeekHighRaw)
+        fiftyTwoWeekLow = dbl(.fiftyTwoWeekLow, .fiftyTwoWeekLowRaw)
+        priceToBook = dbl(.priceToBook, .price_to_book)
+        returnOnEquity = dbl(.returnOnEquity, .roe)
+        returnOnAssets = dbl(.returnOnAssets, .roa)
+        profitMargin = dbl(.profitMargin, .profit_margin)
+        debtToEquity = dbl(.debtToEquity, .debt_to_equity)
+        currentRatio = dbl(.currentRatio, .current_ratio)
+        revenue = dbl(.revenue)
+        netIncome = dbl(.netIncome, .net_income)
+        balanceSheet = try? c.decodeIfPresent([BalanceSheetYear].self, forKey: .balanceSheet)
+        incomeStatement = try? c.decodeIfPresent([IncomeStatementYear].self, forKey: .incomeStatement)
+        taxonomies = try? c.decodeIfPresent([String: AnyDecodable].self, forKey: .taxonomies)
     }
 
-    init(peRatio: Double?, eps: Double?, dividendYield: Double?, marketCap: Double?, fiftyTwoWeekHigh: Double?, fiftyTwoWeekLow: Double?, taxonomies: [String: AnyDecodable]?) {
-        self.peRatio = peRatio
-        self.eps = eps
-        self.dividendYield = dividendYield
-        self.marketCap = marketCap
-        self.fiftyTwoWeekHigh = fiftyTwoWeekHigh
-        self.fiftyTwoWeekLow = fiftyTwoWeekLow
-        self.taxonomies = taxonomies
+    init(peRatio: Double?, eps: Double?, dividendYield: Double?, marketCap: Double?,
+         fiftyTwoWeekHigh: Double?, fiftyTwoWeekLow: Double?, taxonomies: [String: AnyDecodable]?) {
+        self.peRatio = peRatio; self.eps = eps; self.dividendYield = dividendYield
+        self.marketCap = marketCap; self.fiftyTwoWeekHigh = fiftyTwoWeekHigh
+        self.fiftyTwoWeekLow = fiftyTwoWeekLow; self.taxonomies = taxonomies
+        priceToBook = nil; returnOnEquity = nil; returnOnAssets = nil
+        profitMargin = nil; debtToEquity = nil; currentRatio = nil
+        revenue = nil; netIncome = nil; balanceSheet = nil; incomeStatement = nil
     }
 }
 

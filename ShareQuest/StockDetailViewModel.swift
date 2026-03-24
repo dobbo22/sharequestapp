@@ -11,6 +11,10 @@ final class StockDetailViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
     @Published var requiresSubscriptionForTrades: Bool = false
+    @Published var priceHistory: [PricePoint] = []
+    @Published var isLoadingHistory: Bool = false
+    @Published var selectedHistoryPeriod: Int = 30
+    @Published var selectedBSYear: String? = nil
 
     private let api = APIService.shared
 
@@ -101,6 +105,19 @@ final class StockDetailViewModel: ObservableObject {
             print("[StockDetailViewModel] fetch error for \(symbol): \(error)")
         }
         isLoading = false
+        // Load price history in background (don't block the main fetch)
+        await loadHistory(period: selectedHistoryPeriod)
+    }
+
+    func loadHistory(period: Int) async {
+        isLoadingHistory = true
+        selectedHistoryPeriod = period
+        do {
+            priceHistory = try await api.getStockHistory(symbol: symbol, period: period)
+        } catch {
+            print("[StockDetailViewModel] history fetch failed: \(error)")
+        }
+        isLoadingHistory = false
     }
 
     // Basic fields
@@ -459,5 +476,73 @@ final class StockDetailViewModel: ObservableObject {
 
     func tradeVolumeString(_ volume: Double) -> String {
         NumberFormatter.localizedString(from: NSNumber(value: Int(volume)), number: .decimal)
+    }
+
+    // MARK: - Financials helpers
+    var priceToBookDisplay: String { fmt(fundamentalsData?.priceToBook) }
+    var roeDisplay: String {
+        if let v = fundamentalsData?.returnOnEquity { return String(format: "%.1f%%", v > 1 ? v : v * 100) }
+        return "--"
+    }
+    var roaDisplay: String {
+        if let v = fundamentalsData?.returnOnAssets { return String(format: "%.1f%%", v > 1 ? v : v * 100) }
+        return "--"
+    }
+    var profitMarginDisplay: String {
+        if let v = fundamentalsData?.profitMargin { return String(format: "%.1f%%", v > 1 ? v : v * 100) }
+        return "--"
+    }
+    var debtToEquityDisplay: String { fmt(fundamentalsData?.debtToEquity) }
+    var currentRatioDisplay: String { fmt(fundamentalsData?.currentRatio) }
+    var dividendYieldDisplay: String {
+        if let v = fundamentalsData?.dividendYield { return String(format: "%.2f%%", v > 1 ? v : v * 100) }
+        return "--"
+    }
+    var revenueDisplay: String {
+        if let r = fundamentalsData?.revenue, r > 0 { return formatLargeValuePublic(r) }
+        return "--"
+    }
+    var netIncomeDisplay: String {
+        if let n = fundamentalsData?.netIncome { return formatLargeValuePublic(n) }
+        return "--"
+    }
+
+    private func fmt(_ val: Double?) -> String {
+        guard let v = val else { return "--" }
+        return String(format: "%.2f", v)
+    }
+
+    func formatLargeValuePublic(_ value: Double) -> String {
+        let abs = Swift.abs(value)
+        let sign = value < 0 ? "-" : ""
+        if abs >= 1_000_000_000 { return "\(sign)£\(String(format: "%.1fB", abs / 1_000_000_000))" }
+        if abs >= 1_000_000    { return "\(sign)£\(String(format: "%.1fM", abs / 1_000_000))" }
+        if abs >= 1_000        { return "\(sign)£\(String(format: "%.1fK", abs / 1_000))" }
+        return "\(sign)£\(String(format: "%.0f", abs))"
+    }
+
+    // MARK: - Price history helpers
+    var chartMin: Double {
+        priceHistory.compactMap(\.close).min().map { $0 * 0.98 } ?? 0
+    }
+    var chartMax: Double {
+        priceHistory.compactMap(\.close).max().map { $0 * 1.02 } ?? 1
+    }
+    var chartPriceChange: Double? {
+        guard let first = priceHistory.first?.close, let last = priceHistory.last?.close, first > 0 else { return nil }
+        return ((last - first) / first) * 100
+    }
+
+    // MARK: - Balance Sheet helpers
+    var balanceSheetYears: [String] {
+        fundamentalsData?.balanceSheet?.map(\.year) ?? []
+    }
+    var selectedBalanceSheetRow: BalanceSheetYear? {
+        let rows = fundamentalsData?.balanceSheet ?? []
+        if let yr = selectedBSYear, let row = rows.first(where: { $0.year == yr }) { return row }
+        return rows.first
+    }
+    var incomeStatementRows: [IncomeStatementYear] {
+        fundamentalsData?.incomeStatement ?? []
     }
 }
