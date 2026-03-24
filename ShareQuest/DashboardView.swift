@@ -293,7 +293,7 @@ struct DashboardView: View {
             NotificationsView()
         }
         .sheet(isPresented: $showProfile) {
-            ProfileView()
+            ProfileView(selectedTab: $selectedTab)
                 .environmentObject(authManager)
         }
         .sheet(item: $selectedChallenge) { challenge in

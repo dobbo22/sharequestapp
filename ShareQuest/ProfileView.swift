@@ -11,6 +11,7 @@ import PhotosUI
 
 @MainActor
 struct ProfileView: View {
+    var selectedTab: Binding<Int>? = nil
     @EnvironmentObject var authManager: AuthManager
     @StateObject private var viewModel = ProfileViewModel()
     @State private var showSignOutConfirm = false
@@ -398,7 +399,7 @@ struct ProfileView: View {
                 ProfileSettingsRow(icon: "faceid", title: "Face ID / Touch ID", color: Theme.accentGreen, trailing: .toggle($viewModel.biometricsEnabled))
             }
             .sheet(isPresented: $showSubscriptions) {
-                SubscriptionsView()
+                SubscriptionsView(selectedTab: selectedTab, onNavigateAway: { dismiss() })
             }
             .sheet(isPresented: $showHelp) {
                 HelpCenterView()

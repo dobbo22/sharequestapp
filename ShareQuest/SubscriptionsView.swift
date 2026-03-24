@@ -216,7 +216,8 @@ final class SubscriptionsViewModel: ObservableObject {
 // MARK: - Main View
 
 struct SubscriptionsView: View {
-    var selectedTab: Binding<Int>? = nil   // optional — passed in from caller to switch tabs
+    var selectedTab: Binding<Int>? = nil
+    var onNavigateAway: (() -> Void)? = nil   // called to also dismiss parent sheet
     @StateObject private var vm = SubscriptionsViewModel()
     @Environment(\.dismiss) private var dismiss
     @State private var selectedLeague: League? = nil
@@ -355,8 +356,9 @@ struct SubscriptionsView: View {
                 if let plan = vm.selectedPlan {
                     if vm.isSubscribed(plan.id) {
                         Button {
-                            dismiss()
                             selectedTab?.wrappedValue = 1  // Portfolio tab
+                            dismiss()
+                            onNavigateAway?()
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "briefcase.fill")
