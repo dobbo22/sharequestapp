@@ -49,11 +49,24 @@ class NotificationsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: String? = nil
 
+    private let readKey = "read_notification_ids"
+
+    private var readIds: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: readKey) ?? []) }
+        set { UserDefaults.standard.set(Array(newValue), forKey: readKey) }
+    }
+
     func load() async {
         isLoading = true
         error = nil
         do {
-            notifications = try await APIService.shared.fetchNotifications()
+            let fetched = try await APIService.shared.fetchNotifications()
+            let ids = readIds
+            notifications = fetched.map { n in
+                var copy = n
+                copy.isRead = ids.contains(n.id)
+                return copy
+            }
         } catch {
             self.error = "Could not load notifications."
         }
@@ -61,6 +74,9 @@ class NotificationsViewModel: ObservableObject {
     }
 
     func markAllRead() async {
+        var ids = readIds
+        notifications.forEach { ids.insert($0.id) }
+        readIds = ids
         notifications = notifications.map { var n = $0; n.isRead = true; return n }
         try? await APIService.shared.markNotificationsRead()
     }
@@ -135,7 +151,10 @@ struct NotificationsView: View {
                 }
             }
         }
-        .task { await vm.load() }
+        .task {
+            await vm.load()
+            await vm.markAllRead()
+        }
     }
 
     private func notificationRow(_ notif: AppNotification) -> some View {
