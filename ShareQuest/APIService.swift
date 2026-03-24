@@ -1765,6 +1765,17 @@ final class APIService: @unchecked Sendable {
         )
     }
 
+    func checkSubscriptionStatus(plan: String) async throws -> Bool {
+        let url = try buildURL(path: "/mobile/subscriptions/status?plan=\(plan)", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataObj = json["data"] as? [String: Any] else { return false }
+        return dataObj["isPaid"] as? Bool ?? false
+    }
+
     func createSubscriptionOrder(plan: String) async throws -> String {
         let url = try buildURL(path: "/mobile/subscriptions/create-order", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)

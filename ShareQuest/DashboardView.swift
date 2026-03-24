@@ -194,6 +194,14 @@ struct DashboardView: View {
                 let subs = try? await APIService.shared.fetchUserSubscriptions()
                 isAnnualSubscriber = subs?.annual ?? false
             }
+            .onAppear {
+                // Refresh subscription status whenever dashboard becomes visible
+                // (e.g. returning from ShareQuests tab after subscribing)
+                Task {
+                    let subs = try? await APIService.shared.fetchUserSubscriptions()
+                    isAnnualSubscriber = subs?.annual ?? false
+                }
+            }
             .onChange(of: viewModel.xpDelta) { _, newValue in
                 if newValue > 0 {
                     xpGained = newValue
@@ -585,14 +593,13 @@ struct DashboardView: View {
                 }
             }
         }
-        .sheet(isPresented: $showSubscriptions) {
+        .sheet(isPresented: $showSubscriptions, onDismiss: {
+            Task {
+                let subs = try? await APIService.shared.fetchUserSubscriptions()
+                isAnnualSubscriber = subs?.annual ?? false
+            }
+        }) {
             SubscriptionsView()
-                .onDisappear {
-                    Task {
-                        let subs = try? await APIService.shared.fetchUserSubscriptions()
-                        isAnnualSubscriber = subs?.annual ?? false
-                    }
-                }
         }
     }
 

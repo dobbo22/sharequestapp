@@ -152,17 +152,12 @@ final class SubscriptionsViewModel: ObservableObject {
         verifyingPayment = true
         Task {
             defer { verifyingPayment = false }
-            // Poll up to 6 times (~12s) to allow webhook to activate subscription
+            // Poll up to 6 times (~12s); status endpoint does direct Revolut API
+            // verification and self-heals the DB if webhook didn't fire
             for attempt in 1...6 {
-                let updated = try? await APIService.shared.fetchUserSubscriptions()
-                let isNowActive: Bool
-                switch plan.id {
-                case "weekly":  isNowActive = updated?.weekly ?? false
-                case "monthly": isNowActive = updated?.monthly ?? false
-                case "annual":  isNowActive = updated?.annual ?? false
-                default:        isNowActive = false
-                }
-                if isNowActive {
+                let isPaid = (try? await APIService.shared.checkSubscriptionStatus(plan: plan.id)) ?? false
+                if isPaid {
+                    let updated = try? await APIService.shared.fetchUserSubscriptions()
                     subStatus = updated
                     await loadManageData()
                     step = .success
