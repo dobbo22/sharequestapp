@@ -75,6 +75,7 @@ struct DashboardView: View {
     @State private var showXPToast = false
     @State private var xpGained = 0
     @State private var showNotifications = false
+    @State private var unreadNotificationCount = 0
     @State private var showProfile = false
     @State private var selectedChallenge: ChallengeData? = nil
     @State private var showStockHuntHub = false
@@ -193,6 +194,7 @@ struct DashboardView: View {
                 await viewModel.loadData()
                 let subs = try? await APIService.shared.fetchUserSubscriptions()
                 isAnnualSubscriber = subs?.annual ?? false
+                await refreshUnreadCount()
             }
             .onAppear {
                 // Refresh subscription status whenever dashboard becomes visible
@@ -260,12 +262,28 @@ struct DashboardView: View {
                 if let sentiment = viewModel.marketSentiment {
                     marketSentimentPill(sentiment: sentiment)
                 }
-                Button(action: { showNotifications = true }) {
-                    Image(systemName: "bell")
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(Color(red: 0.067, green: 0.094, blue: 0.153))
-                        .clipShape(Circle())
+                Button(action: {
+                    showNotifications = true
+                    unreadNotificationCount = 0
+                }) {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "bell")
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(Color(red: 0.067, green: 0.094, blue: 0.153))
+                            .clipShape(Circle())
+                        if unreadNotificationCount > 0 {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 16, height: 16)
+                                Text(unreadNotificationCount > 9 ? "9+" : "\(unreadNotificationCount)")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                            .offset(x: 4, y: -4)
+                        }
+                    }
                 }
             }
         }
@@ -366,6 +384,12 @@ struct DashboardView: View {
     }
 
     // Extracted market pill for reuse
+    private func refreshUnreadCount() async {
+        let readIds = Set(UserDefaults.standard.stringArray(forKey: "read_notification_ids") ?? [])
+        let fetched = (try? await APIService.shared.fetchNotifications()) ?? []
+        unreadNotificationCount = fetched.filter { !readIds.contains($0.id) }.count
+    }
+
     private var marketPill: some View {
         HStack(spacing: 8) {
             Circle()
