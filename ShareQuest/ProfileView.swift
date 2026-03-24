@@ -15,6 +15,7 @@ struct ProfileView: View {
     @StateObject private var viewModel = ProfileViewModel()
     @State private var showSignOutConfirm = false
     @State private var showSubscriptions = false
+    @State private var showHelp = false
     @Environment(\.dismiss) private var dismiss
     @State private var avatarItem: PhotosPickerItem? = nil
     @State private var avatarImage: UIImage? = ProfileView.loadSavedAvatar()
@@ -369,15 +370,22 @@ struct ProfileView: View {
             .sheet(isPresented: $showSubscriptions) {
                 SubscriptionsView()
             }
+            .sheet(isPresented: $showHelp) {
+                HelpCenterView()
+            }
 
             profileSettingsGroup(title: "SUPPORT") {
                 ProfileSettingsRow(icon: "questionmark.circle.fill", title: "Help Center", color: Theme.accentPurple, trailing: .chevron) {
-                    openURL("https://sharequest.co.uk/help")
+                    showHelp = true
                 }
                 ProfileSettingsRow(icon: "envelope.fill", title: "Send Feedback", color: Theme.primaryBlue, trailing: .chevron) {
-                    openURL("mailto:support@sharequest.co.uk")
+                    showHelp = true
                 }
-                ProfileSettingsRow(icon: "star.fill", title: "Rate the App", color: Theme.accentYellow, trailing: .chevron) {}
+                ProfileSettingsRow(icon: "star.fill", title: "Rate the App", color: Theme.accentYellow, trailing: .chevron) {
+                    if let url = URL(string: "itms-apps://itunes.apple.com/app/id") {
+                        UIApplication.shared.open(url)
+                    }
+                }
             }
 
             profileSettingsGroup(title: "LEGAL") {

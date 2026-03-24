@@ -1701,6 +1701,17 @@ final class APIService: @unchecked Sendable {
         _ = try? await performRequest(request)
     }
 
+    func sendFeedback(category: String, subject: String, message: String) async throws {
+        let url = try buildURL(path: "/mobile/feedback", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addHeaders(to: &request)
+        let body: [String: Any] = ["category": category, "subject": subject, "message": message]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        _ = try await performRequest(request)
+    }
+
     func fetchLeagueMembers(leagueId: String) async throws -> [LeagueMember] {
         let url = try buildURL(path: "/mobile/leagues/\(leagueId)/members", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
