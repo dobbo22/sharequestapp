@@ -16,6 +16,8 @@ struct ProfileView: View {
     @State private var showSignOutConfirm = false
     @State private var showSubscriptions = false
     @State private var showHelp = false
+    @State private var showTerms = false
+    @State private var showPrivacy = false
     @Environment(\.dismiss) private var dismiss
     @State private var avatarItem: PhotosPickerItem? = nil
     @State private var avatarImage: UIImage? = ProfileView.loadSavedAvatar()
@@ -373,6 +375,12 @@ struct ProfileView: View {
             .sheet(isPresented: $showHelp) {
                 HelpCenterView()
             }
+            .sheet(isPresented: $showTerms) {
+                TermsView()
+            }
+            .sheet(isPresented: $showPrivacy) {
+                PrivacyPolicyView()
+            }
 
             profileSettingsGroup(title: "SUPPORT") {
                 ProfileSettingsRow(icon: "questionmark.circle.fill", title: "Help Center", color: Theme.accentPurple, trailing: .chevron) {
@@ -390,10 +398,10 @@ struct ProfileView: View {
 
             profileSettingsGroup(title: "LEGAL") {
                 ProfileSettingsRow(icon: "doc.text.fill", title: "Terms of Service", color: Theme.textSecondary, trailing: .chevron) {
-                    openURL("https://sharequest.co.uk/terms")
+                    showTerms = true
                 }
                 ProfileSettingsRow(icon: "shield.fill", title: "Privacy Policy", color: Theme.textSecondary, trailing: .chevron) {
-                    openURL("https://sharequest.co.uk/privacy")
+                    showPrivacy = true
                 }
             }
 
