@@ -65,9 +65,10 @@ func sqLevelColor(_ level: Int) -> Color {
 
 /// Dashboard/Home screen - matches React Native index.tsx
 struct DashboardView: View {
-        // Level up animation state
-        @State private var showLevelUp = false
-        @State private var levelUpInfo: (level: Int, name: String, icon: String)? = nil
+    @Binding var selectedTab: Int
+    // Level up animation state
+    @State private var showLevelUp = false
+    @State private var levelUpInfo: (level: Int, name: String, icon: String)? = nil
     @EnvironmentObject var authManager: AuthManager
     @Environment(\.horizontalSizeClass) private var hSizeClass
     @StateObject private var viewModel = DashboardViewModel()
@@ -77,6 +78,10 @@ struct DashboardView: View {
     @State private var showProfile = false
     @State private var selectedChallenge: ChallengeData? = nil
     @State private var showStockHuntHub = false
+    @State private var taskSectionTab = 0
+    @State private var isAnnualSubscriber: Bool? = nil
+    @State private var showSubscriptions = false
+    @State private var promoCardIndex = 0
     // Global challenge completion popup
     @State private var pendingCompletions: [ChallengeCompletion] = []
     @State private var showCompletionPopup = false
@@ -186,6 +191,8 @@ struct DashboardView: View {
                 // Ensure we have the latest user profile (firstName) before loading dashboard data
                 await authManager.loadUserProfile()
                 await viewModel.loadData()
+                let subs = try? await APIService.shared.fetchUserSubscriptions()
+                isAnnualSubscriber = subs?.annual ?? false
             }
             .onChange(of: viewModel.xpDelta) { _, newValue in
                 if newValue > 0 {
@@ -491,9 +498,185 @@ struct DashboardView: View {
         }
     }
     
-    // MARK: - Daily Tasks Section
+    // MARK: - Tasks + Leagues Tabbed Section
     private var challengesSection: some View {
-        let xpEarned = viewModel.dailyChallenges.filter { $0.isCompleted }.reduce(0) { $0 + $1.reward }
+        VStack(alignment: .leading, spacing: 12) {
+            // Tab picker
+            HStack(spacing: 0) {
+                ForEach(["Daily Tasks", "ShareQuests"], id: \.self) { label in
+                    let idx = label == "Daily Tasks" ? 0 : 1
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { taskSectionTab = idx }
+                    } label: {
+                        Text(label)
+                            .font(.subheadline).fontWeight(.semibold)
+                            .foregroundColor(taskSectionTab == idx ? .white : Theme.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(
+                                taskSectionTab == idx
+                                    ? AnyShapeStyle(LinearGradient(colors: [Theme.primaryBlue, Theme.accentPurple], startPoint: .leading, endPoint: .trailing))
+                                    : AnyShapeStyle(Color.clear)
+                            )
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+            .padding(3)
+            .background(Color.white.opacity(0.06))
+            .clipShape(Capsule())
+
+            if taskSectionTab == 0 {
+                dailyTasksContent
+            } else {
+                leaguesPromotionContent
+            }
+        }
+    }
+
+    private var leaguesPromotionContent: some View {
+        let subscribed = isAnnualSubscriber == true
+        let cards: [Int] = subscribed ? [1] : [0, 1]  // 0 = annual, 1 = leagues
+
+        return VStack(spacing: 8) {
+            TabView(selection: $promoCardIndex) {
+                ForEach(cards, id: \.self) { idx in
+                    if idx == 0 {
+                        annualShareQuestPromoCard
+                            .tag(0)
+                            .padding(.horizontal, 2)
+                    } else {
+                        leaguesPromoCard
+                            .tag(1)
+                            .padding(.horizontal, 2)
+                    }
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 170)
+
+            // Page dots — only when both cards visible
+            if !subscribed {
+                HStack(spacing: 6) {
+                    ForEach(cards, id: \.self) { idx in
+                        Circle()
+                            .fill(promoCardIndex == idx ? Color.white : Color.white.opacity(0.3))
+                            .frame(width: promoCardIndex == idx ? 7 : 5,
+                                   height: promoCardIndex == idx ? 7 : 5)
+                            .animation(.easeInOut(duration: 0.2), value: promoCardIndex)
+                    }
+                }
+            }
+
+            // Feature pills
+            HStack(spacing: 8) {
+                ForEach([
+                    ("person.3.fill", "Private Leagues"),
+                    ("chart.line.uptrend.xyaxis", "Live Rankings"),
+                    ("banknote.fill", "Prize Pools"),
+                ], id: \.1) { icon, label in
+                    HStack(spacing: 5) {
+                        Image(systemName: icon).font(.caption).foregroundColor(Theme.primaryBlue)
+                        Text(label).font(.caption).foregroundColor(Theme.textSecondary)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(Color.white.opacity(0.05))
+                    .cornerRadius(20)
+                }
+            }
+        }
+        .sheet(isPresented: $showSubscriptions) {
+            SubscriptionsView()
+                .onDisappear {
+                    Task {
+                        let subs = try? await APIService.shared.fetchUserSubscriptions()
+                        isAnnualSubscriber = subs?.annual ?? false
+                    }
+                }
+        }
+    }
+
+    private var annualShareQuestPromoCard: some View {
+        let gold = Color(red: 0.95, green: 0.65, blue: 0.15)
+        return Button { showSubscriptions = true } label: {
+            ZStack {
+                LinearGradient(
+                    colors: [Color(red: 0.18, green: 0.12, blue: 0.04), Color(red: 0.38, green: 0.25, blue: 0.04)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                )
+                .overlay(LinearGradient(colors: [gold.opacity(0.15), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .cornerRadius(16)
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(gold.opacity(0.4), lineWidth: 1))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "trophy.circle.fill").font(.title2).foregroundColor(gold)
+                        Text("Annual ShareQuest").font(.title3).fontWeight(.bold).foregroundColor(.white)
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 3) {
+                            Text("£50/yr").font(.caption).fontWeight(.bold).foregroundColor(gold)
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(gold.opacity(0.15)).cornerRadius(6)
+                            Text("+500 XP Bonus").font(.caption2).fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(Color.purple.opacity(0.5)).cornerRadius(6)
+                        }
+                    }
+                    Text("Compete in the year-long trading competition and win from the prize pool.")
+                        .font(.subheadline).foregroundColor(.white.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        Text("Subscribe to compete")
+                            .font(.subheadline).fontWeight(.semibold).foregroundColor(gold)
+                        Image(systemName: "chevron.right").font(.caption).foregroundColor(gold)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(gold.opacity(0.12)).cornerRadius(10)
+                }
+                .padding(16)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private var leaguesPromoCard: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color(red: 0.27, green: 0.12, blue: 0.55), Color(red: 0.13, green: 0.38, blue: 0.72)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+            .cornerRadius(16)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "trophy.fill").font(.title2).foregroundColor(.yellow)
+                    Text("Compete & Win").font(.title3).fontWeight(.bold).foregroundColor(.white)
+                    Spacer()
+                    Text("From £5").font(.caption).fontWeight(.bold).foregroundColor(.yellow)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(Color.yellow.opacity(0.15)).cornerRadius(8)
+                }
+                Text("Join a private league, trade against friends or the community, and split the prize pool.")
+                    .font(.subheadline).foregroundColor(.white.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+                Button { selectedTab = 4 } label: {
+                    HStack {
+                        Text("View Leagues").fontWeight(.semibold)
+                        Image(systemName: "arrow.right")
+                    }
+                    .font(.subheadline).foregroundColor(.white)
+                    .padding(.horizontal, 20).padding(.vertical, 10)
+                    .background(Color.white.opacity(0.2)).cornerRadius(10)
+                }
+            }
+            .padding(16)
+        }
+    }
+
+    // MARK: - Daily Tasks Content (extracted from challengesSection)
+    private var dailyTasksContent: some View {
+        let xpEarned = viewModel.xpEarnedToday
         let completed = viewModel.dailyCompletedCount
         let limit = viewModel.dailyLimit
         let progress = limit > 0 ? Double(completed) / Double(limit) : 0.0
@@ -1530,6 +1713,7 @@ class DashboardViewModel: ObservableObject {
     @Published var dailyCompletedCount: Int = 0
     @Published var dailyLimit: Int = 10
     @Published var allChallengesDone: Bool = false
+    @Published var xpEarnedToday: Int = 0
     @Published var portfolioCards: [PortfolioSummary] = []
     @Published var recentXP: [XPActivity] = []
     @Published var tickerStocks: [TickerStock] = []
@@ -1609,7 +1793,8 @@ class DashboardViewModel: ObservableObject {
             dailyCompletedCount = challengesResponse.dailyCompletedCount
             dailyLimit = challengesResponse.dailyLimit
             allChallengesDone = challengesResponse.allDone
-            print("[Dashboard] Loaded \(dailyChallenges.count) challenges, \(dailyCompletedCount)/\(dailyLimit) done")
+            xpEarnedToday = challengesResponse.xpEarnedToday
+            print("[Dashboard] Loaded \(dailyChallenges.count) challenges, \(dailyCompletedCount)/\(dailyLimit) done, \(xpEarnedToday) XP earned today")
         } catch {
             print("[Dashboard] Failed to load challenges: \(error)")
         }
@@ -1622,6 +1807,7 @@ class DashboardViewModel: ObservableObject {
             dailyCompletedCount = resp.dailyCompletedCount
             dailyLimit = resp.dailyLimit
             allChallengesDone = resp.allDone
+            xpEarnedToday = resp.xpEarnedToday
         } catch {}
     }
 
@@ -1813,7 +1999,7 @@ struct PortfolioCardView: View {
 }
 
 #Preview {
-    DashboardView()
+    DashboardView(selectedTab: .constant(0))
         .environmentObject(AuthManager.shared)
 }
 

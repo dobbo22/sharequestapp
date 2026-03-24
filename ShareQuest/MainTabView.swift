@@ -14,7 +14,7 @@ struct MainTabView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            DashboardView()
+            DashboardView(selectedTab: $selectedTab)
                 .environmentObject(authManager)
                 .tabItem {
                     Label("Home", systemImage: selectedTab == 0 ? "square.grid.2x2.fill" : "square.grid.2x2")
@@ -41,7 +41,7 @@ struct MainTabView: View {
 
             LeaguesView()
                 .tabItem {
-                    Label("Leagues", systemImage: selectedTab == 4 ? "person.3.fill" : "person.3")
+                    Label("ShareQuests", systemImage: selectedTab == 4 ? "trophy.circle.fill" : "trophy.circle")
                 }
                 .tag(4)
         }

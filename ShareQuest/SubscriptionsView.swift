@@ -130,43 +130,49 @@ final class SubscriptionsViewModel: ObservableObject {
 
     func startPayment() async {
         guard let plan = selectedPlan else { return }
-        // Build the web subscription URL — payment is completed via the web app
-        // which handles session auth and Revolut checkout natively.
-        let baseURL = APIConfig.remoteBaseURL
-            .replacingOccurrences(of: "/api", with: "")
-        let urlString = "\(baseURL)/m/subscription?plan=\(plan.id)&choice=\(selectedChoice)&source=ios"
-        guard let url = URL(string: urlString) else {
-            paymentError = "Could not build checkout URL."
-            return
+        isLoadingPayment = true
+        paymentError = nil
+        defer { isLoadingPayment = false }
+        do {
+            let checkoutUrlString = try await APIService.shared.createSubscriptionOrder(plan: plan.id)
+            guard let url = URL(string: checkoutUrlString) else {
+                paymentError = "Invalid checkout URL returned."
+                return
+            }
+            checkoutURL = url
+            showSafari = true
+        } catch {
+            paymentError = "Could not start payment: \(error.localizedDescription)"
         }
-        checkoutURL = url
-        showSafari = true
     }
 
     func handleSafariDismiss() {
         showSafari = false
         guard let plan = selectedPlan else { return }
-        // Verify whether the subscription is now active
         verifyingPayment = true
         Task {
             defer { verifyingPayment = false }
-            // Reload subscription status from the mobile API
-            let updated = try? await APIService.shared.fetchUserSubscriptions()
-            let isNowActive: Bool
-            switch plan.id {
-            case "weekly":  isNowActive = updated?.weekly ?? false
-            case "monthly": isNowActive = updated?.monthly ?? false
-            case "annual":  isNowActive = updated?.annual ?? false
-            default:        isNowActive = false
+            // Poll up to 6 times (~12s) to allow webhook to activate subscription
+            for attempt in 1...6 {
+                let updated = try? await APIService.shared.fetchUserSubscriptions()
+                let isNowActive: Bool
+                switch plan.id {
+                case "weekly":  isNowActive = updated?.weekly ?? false
+                case "monthly": isNowActive = updated?.monthly ?? false
+                case "annual":  isNowActive = updated?.annual ?? false
+                default:        isNowActive = false
+                }
+                if isNowActive {
+                    subStatus = updated
+                    await loadManageData()
+                    step = .success
+                    return
+                }
+                if attempt < 6 {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                }
             }
-            if isNowActive {
-                subStatus = updated
-                await loadManageData()
-                step = .success
-            } else {
-                // Not yet active — let user know they can check back
-                paymentError = "Subscription not confirmed yet. If you completed payment, it may take a moment to activate. You can close this and refresh."
-            }
+            paymentError = "Subscription not confirmed yet. If you completed payment, it may take a moment to activate. You can close this and refresh."
         }
     }
 

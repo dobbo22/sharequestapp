@@ -1231,16 +1231,17 @@ final class APIService: @unchecked Sendable {
     }
     
     /// Register new user
-    func register(email: String, username: String, password: String, firstName: String? = nil, lastName: String? = nil, dateOfBirth: String? = nil) async throws -> AuthResponse {
+    func register(email: String, username: String, password: String, firstName: String? = nil, lastName: String? = nil, dateOfBirth: String? = nil, ageConfirmed: Bool = false) async throws -> AuthResponse {
         let url = try buildURL(path: "/mobile/auth/register", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        var body: [String: String] = [
+        var body: [String: Any] = [
             "email": email,
             "username": username,
-            "password": password
+            "password": password,
+            "age_confirmed": ageConfirmed
         ]
         
         if let firstName = firstName, !firstName.isEmpty {
@@ -1762,6 +1763,22 @@ final class APIService: @unchecked Sendable {
             amountFormatted: dataObj["amountFormatted"] as? String ?? "",
             leagueName: dataObj["leagueName"] as? String ?? ""
         )
+    }
+
+    func createSubscriptionOrder(plan: String) async throws -> String {
+        let url = try buildURL(path: "/mobile/subscriptions/create-order", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addHeaders(to: &request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["plan": plan])
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataObj = json["data"] as? [String: Any],
+              let checkoutUrl = dataObj["checkoutUrl"] as? String else {
+            throw APIError.decodingError("Failed to decode subscription order response")
+        }
+        return checkoutUrl
     }
 
     func checkLeaguePaymentStatus(leagueId: String) async throws -> Bool {
@@ -2706,6 +2723,7 @@ struct ChallengesResponse: Codable {
     var dailyCompletedCount: Int { data?.daily_completed_count ?? 0 }
     var dailyLimit: Int { data?.daily_limit ?? 10 }
     var allDone: Bool { data?.all_done ?? false }
+    var xpEarnedToday: Int { data?.xp_earned_today ?? 0 }
 }
 
 struct ChallengesData: Codable {
@@ -2713,6 +2731,7 @@ struct ChallengesData: Codable {
     let daily_completed_count: Int?
     let daily_limit: Int?
     let all_done: Bool?
+    let xp_earned_today: Int?
 }
 
 struct ChallengeData: Identifiable {

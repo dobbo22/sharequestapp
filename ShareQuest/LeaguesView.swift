@@ -47,6 +47,9 @@ struct LeaguesView: View {
     @State private var showCreateSheet = false
     @State private var showJoinSheet = false
     @State private var selectedLeague: League? = nil
+    @State private var showSubscriptions = false
+    @State private var isAnnualSubscriber: Bool = false
+    @State private var isLoadingSubscription = true
 
     enum LeagueTab { case myLeagues, discover }
 
@@ -55,31 +58,59 @@ struct LeaguesView: View {
             ZStack {
                 Theme.backgroundPrimary.ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    tabSelector
-                    leagueList
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        if isLoadingSubscription {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: Theme.primaryBlue))
+                                .scaleEffect(1.4)
+                                .padding(.top, 60)
+                        } else if isAnnualSubscriber {
+                            // Subscribed: show leagues only
+                            VStack(spacing: 0) {
+                                tabSelector
+                                leagueListContent
+                            }
+                        } else {
+                            // Not subscribed: show Annual ShareQuest card
+                            annualShareQuestCard
+                                .padding(.horizontal)
+                                .padding(.top, 8)
+                        }
+
+                        Spacer(minLength: 100)
+                    }
+                }
+                .refreshable {
+                    await loadData()
                 }
             }
-            .navigationTitle("Leagues")
+            .navigationTitle("ShareQuests")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 12) {
-                        Button { showJoinSheet = true } label: {
-                            Image(systemName: "arrow.right.square")
-                                .foregroundColor(Theme.primaryBlue)
-                        }
-                        Button { showCreateSheet = true } label: {
-                            Image(systemName: "plus.circle")
-                                .foregroundColor(Theme.accentGreen)
+                if isAnnualSubscriber {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        HStack(spacing: 12) {
+                            Button { showJoinSheet = true } label: {
+                                Image(systemName: "arrow.right.square")
+                                    .foregroundColor(Theme.primaryBlue)
+                            }
+                            Button { showCreateSheet = true } label: {
+                                Image(systemName: "plus.circle")
+                                    .foregroundColor(Theme.accentGreen)
+                            }
                         }
                     }
                 }
             }
         }
-        .task { await viewModel.fetchLeagues() }
+        .task { await loadData() }
+        .sheet(isPresented: $showSubscriptions) {
+            SubscriptionsView()
+                .onDisappear { Task { await refreshSubscription() } }
+        }
         .sheet(isPresented: $showCreateSheet) {
             CreateLeagueSheet(viewModel: viewModel)
         }
@@ -89,6 +120,79 @@ struct LeaguesView: View {
         .sheet(item: $selectedLeague) { league in
             LeagueDetailSheet(league: league)
         }
+    }
+
+    // MARK: Annual ShareQuest Card
+
+    private var annualShareQuestCard: some View {
+        let goldColor = Color(red: 0.95, green: 0.65, blue: 0.15)
+
+        return Button {
+            if !isAnnualSubscriber { showSubscriptions = true }
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                // Background gradient
+                LinearGradient(
+                    colors: [Color(red: 0.18, green: 0.12, blue: 0.04), Color(red: 0.38, green: 0.25, blue: 0.04)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                )
+                .overlay(
+                    LinearGradient(
+                        colors: [goldColor.opacity(0.15), Color.clear],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                )
+                .cornerRadius(18)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(goldColor.opacity(0.4), lineWidth: 1)
+                )
+
+                VStack(alignment: .leading, spacing: 12) {
+                    // Icon + title
+                    HStack(spacing: 10) {
+                        Image(systemName: "trophy.circle.fill")
+                            .font(.system(size: 32))
+                            .foregroundColor(goldColor)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Annual ShareQuest")
+                                .font(.title3).fontWeight(.bold)
+                                .foregroundColor(.white)
+                            Text("2026 Competition")
+                                .font(.caption)
+                                .foregroundColor(goldColor.opacity(0.8))
+                        }
+                        Spacer()
+                    }
+
+                    Text("Compete in the year-long trading competition. Best portfolio wins the prize pool.")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.8))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    // Subscribe CTA
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("£50 / year")
+                                .font(.subheadline).fontWeight(.bold)
+                                .foregroundColor(.white)
+                            Text("Tap to subscribe and compete")
+                                .font(.caption)
+                                .foregroundColor(Theme.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(goldColor)
+                    }
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(goldColor.opacity(0.12))
+                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(goldColor.opacity(0.3), lineWidth: 1))
+                }
+                .padding(18)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: Tab Selector
@@ -105,111 +209,101 @@ struct LeaguesView: View {
     private func tabButton(tab: LeagueTab, icon: String, label: String) -> some View {
         Button { selectedTab = tab } label: {
             HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.caption)
-                Text(label)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                Image(systemName: icon).font(.caption)
+                Text(label).font(.subheadline).fontWeight(.semibold)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(selectedTab == tab ? Theme.primaryBlue : Theme.glassBackground)
             .foregroundColor(selectedTab == tab ? .white : Theme.textSecondary)
             .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(selectedTab == tab ? Theme.primaryBlue : Theme.glassBorder, lineWidth: 1)
-            )
+            .overlay(RoundedRectangle(cornerRadius: 12)
+                .stroke(selectedTab == tab ? Theme.primaryBlue : Theme.glassBorder, lineWidth: 1))
         }
     }
 
     // MARK: League List
 
     @ViewBuilder
-    private var leagueList: some View {
+    private var leagueListContent: some View {
         let leagues = selectedTab == .myLeagues ? viewModel.myLeagues : viewModel.publicLeagues
 
         if viewModel.isLoading {
-            Spacer()
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: Theme.primaryBlue))
                 .scaleEffect(1.4)
-            Spacer()
+                .padding(.top, 40)
         } else if let error = viewModel.errorMessage {
             errorView(error)
         } else if leagues.isEmpty {
             emptyView
         } else {
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(leagues) { league in
-                        LeagueCard(league: league) {
-                            selectedLeague = league
-                        }
-                    }
+            LazyVStack(spacing: 12) {
+                ForEach(leagues) { league in
+                    LeagueCard(league: league) { selectedLeague = league }
                 }
-                .padding()
-                .padding(.bottom, 80)
             }
-            .refreshable { await viewModel.fetchLeagues() }
+            .padding(.horizontal)
         }
     }
 
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 16) {
-            Spacer()
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
-                .foregroundColor(.red)
-            Text(message)
-                .foregroundColor(.red)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .font(.system(size: 48)).foregroundColor(.red)
+            Text(message).foregroundColor(.red).multilineTextAlignment(.center).padding(.horizontal)
             Button("Retry") { Task { await viewModel.fetchLeagues() } }
                 .padding(.horizontal, 24).padding(.vertical, 12)
-                .background(Color.red.opacity(0.15))
-                .foregroundColor(.red)
-                .cornerRadius(12)
-            Spacer()
+                .background(Color.red.opacity(0.15)).foregroundColor(.red).cornerRadius(12)
         }
+        .padding(.top, 40)
     }
 
     private var emptyView: some View {
         VStack(spacing: 16) {
-            Spacer()
             Image(systemName: "person.3")
-                .font(.system(size: 64))
-                .foregroundColor(Theme.textMuted)
+                .font(.system(size: 64)).foregroundColor(Theme.textMuted)
             Text(selectedTab == .myLeagues ? "No leagues yet" : "No public leagues")
                 .font(.title3).fontWeight(.bold).foregroundColor(.white)
             Text(selectedTab == .myLeagues
-                ? "Create a league or join one to compete with friends!"
-                : "Check back later for public leagues to join")
+                 ? "Create a league or join one to compete with friends!"
+                 : "Check back later for public leagues to join")
                 .font(.subheadline).foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center).padding(.horizontal, 32)
             if selectedTab == .myLeagues {
                 HStack(spacing: 12) {
                     Button { showCreateSheet = true } label: {
                         Label("Create", systemImage: "plus")
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundColor(.white)
+                            .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
                             .padding(.horizontal, 20).padding(.vertical, 14)
-                            .background(Theme.accentGreen)
-                            .cornerRadius(12)
+                            .background(Theme.accentGreen).cornerRadius(12)
                     }
                     Button { showJoinSheet = true } label: {
                         Label("Join", systemImage: "arrow.right.square")
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundColor(.white)
+                            .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
                             .padding(.horizontal, 20).padding(.vertical, 14)
-                            .background(Theme.primaryBlue)
-                            .cornerRadius(12)
+                            .background(Theme.primaryBlue).cornerRadius(12)
                     }
                 }
-                .padding(.top, 8)
             }
-            Spacer()
         }
+        .padding(.top, 40)
+    }
+
+    // MARK: Data Loading
+
+    private func loadData() async {
+        async let leagues: () = viewModel.fetchLeagues()
+        async let sub: () = refreshSubscription()
+        _ = await (leagues, sub)
+    }
+
+    @MainActor
+    private func refreshSubscription() async {
+        isLoadingSubscription = true
+        let subs = try? await APIService.shared.fetchUserSubscriptions()
+        isAnnualSubscriber = subs?.annual ?? false
+        isLoadingSubscription = false
     }
 }
 
@@ -317,6 +411,12 @@ struct LeagueDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var members: [LeagueMember] = []
     @State private var isLoading = true
+    @State private var isPaying = false
+    @State private var paymentURL: URL? = nil
+    @State private var errorMessage: String? = nil
+    @State private var isPaid: Bool? = nil
+    @State private var justPaid: Bool = false
+    @State private var paymentPollingTask: Task<Void, Never>? = nil
 
     var body: some View {
         NavigationStack {
@@ -334,6 +434,42 @@ struct LeagueDetailSheet: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 16) {
+                            if let errorMessage = errorMessage {
+                                Text(errorMessage)
+                                    .foregroundColor(.red)
+                                    .multilineTextAlignment(.center)
+                            }
+                            // Payment success banner
+                            if justPaid || isPaid == true {
+                                VStack(spacing: 8) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 36))
+                                        .foregroundColor(.green)
+                                    Text("Payment Successful!")
+                                        .font(.headline).fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                    Text("You're in! Share the invite code below.")
+                                        .font(.subheadline)
+                                        .foregroundColor(Theme.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .padding()
+                            }
+                            // Payment button — only show while not paid
+                            if isPaid == false && !justPaid {
+                                Button(action: onPayButtonTapped) {
+                                    HStack {
+                                        Image(systemName: "creditcard")
+                                        Text(isPaying ? "Opening Payment..." : "Complete Payment")
+                                    }
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 24).padding(.vertical, 14)
+                                    .background(Theme.primaryBlue)
+                                    .cornerRadius(12)
+                                }
+                                .disabled(isPaying)
+                            }
                             // Stats
                             HStack(spacing: 10) {
                                 statBox(label: "Members", value: "\(league.member_count ?? 0)")
@@ -402,6 +538,19 @@ struct LeagueDetailSheet: View {
                         }
                         .padding(.top)
                     }
+                    // Payment SafariView
+                    .sheet(isPresented: Binding(
+                        get: { paymentURL != nil },
+                        set: { if !$0 { paymentURL = nil } }
+                    )) {
+                        if let url = paymentURL {
+                            SafariView(url: url, onDismiss: {
+                                paymentURL = nil
+                                justPaid = true
+                            })
+                            .ignoresSafeArea()
+                        }
+                    }
                 }
             }
             .navigationTitle(league.name)
@@ -415,7 +564,65 @@ struct LeagueDetailSheet: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
-        .task { await loadMembers() }
+        .task {
+            await loadMembers()
+            await refreshPaymentStatus()
+        }
+        .onChange(of: paymentURL) { _, newURL in
+            if newURL != nil {
+                startPaymentPolling()
+            } else {
+                paymentPollingTask?.cancel()
+            }
+        }
+    }
+
+    func startPaymentPolling() {
+        paymentPollingTask?.cancel()
+        paymentPollingTask = Task {
+            // Poll every 2s while Safari is open; auto-close after payment confirmed
+            for _ in 0..<15 {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                guard !Task.isCancelled else { return }
+                await refreshPaymentStatus()
+                if isPaid == true {
+                    justPaid = true
+                    paymentURL = nil  // dismisses the sheet
+                    return
+                }
+            }
+        }
+    }
+
+    func onPayButtonTapped() {
+        isPaying = true
+        errorMessage = nil
+        Task { await startPayment() }
+    }
+
+    func startPayment() async {
+        isPaying = true
+        errorMessage = nil
+        do {
+            let result = try await APIService.shared.createLeaguePayment(leagueId: league.id)
+            if let url = URL(string: result.checkoutUrl) {
+                paymentURL = url
+            } else {
+                errorMessage = "Could not open payment page."
+            }
+        } catch {
+            errorMessage = "Failed to start payment: \(error.localizedDescription)"
+        }
+        isPaying = false
+    }
+
+    func refreshPaymentStatus() async {
+        do {
+            let paid = try await APIService.shared.checkLeaguePaymentStatus(leagueId: league.id)
+            isPaid = paid
+        } catch {
+            // Ignore error, keep previous state
+        }
     }
 
     private func statBox(label: String, value: String) -> some View {

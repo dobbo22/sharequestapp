@@ -141,7 +141,7 @@ class AuthManager: ObservableObject {
     }
     
     /// Register a new user. If `onboardingXP` is provided, persist it locally and attempt to sync to the server after successful registration (best-effort).
-    func register(email: String, username: String, password: String, firstName: String? = nil, lastName: String? = nil, dateOfBirth: String? = nil, onboardingXP: Int? = nil) async -> Bool {
+    func register(email: String, username: String, password: String, firstName: String? = nil, lastName: String? = nil, dateOfBirth: String? = nil, onboardingXP: Int? = nil, ageConfirmed: Bool = false) async -> Bool {
         isLoading = true
         errorMessage = nil
 
@@ -152,7 +152,8 @@ class AuthManager: ObservableObject {
                 password: password,
                 firstName: firstName,
                 lastName: lastName,
-                dateOfBirth: dateOfBirth
+                dateOfBirth: dateOfBirth,
+                ageConfirmed: ageConfirmed
             )
 
             if let user = response.user {

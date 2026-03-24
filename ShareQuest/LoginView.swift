@@ -498,6 +498,8 @@ struct ManualSignInView: View {
 // MARK: - Register View
 
 struct RegisterView: View {
+        // Age confirmation
+        @State private var ageConfirmed = false
     @EnvironmentObject var authManager: AuthManager
     @Environment(\.dismiss) private var dismiss
     // XP earned during onboarding, passed in from Onboarding flow
@@ -584,7 +586,8 @@ struct RegisterView: View {
         !password.isEmpty &&
         password.count >= 8 &&
         passwordStrength.score >= 3 &&
-        passwordsMatch
+        passwordsMatch &&
+        ageConfirmed
     }
     
     var body: some View {
@@ -844,12 +847,12 @@ struct RegisterView: View {
                                     }
                                 }
                                 
-                                // Terms Agreement
-                                Text("By creating an account, you confirm you are 18+ and agree to our Terms of Service and Privacy Policy.")
-                                    .font(.caption)
-                                    .foregroundColor(Theme.textMuted)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.vertical, 8)
+                                // Age Confirmation Checkbox
+                                Toggle(isOn: $ageConfirmed) {
+                                    Text("I am 18 or older and agree to the Terms of Service and Privacy Policy.")
+                                        .font(.footnote)
+                                }
+                                .padding(.vertical, 8)
                                 
                                 // Register Button
                                 Button(action: register) {
@@ -916,7 +919,8 @@ struct RegisterView: View {
                 firstName: firstName,
                 lastName: lastName,
                 dateOfBirth: dateOfBirth,
-                onboardingXP: onboardingXP
+                onboardingXP: onboardingXP,
+                ageConfirmed: ageConfirmed
             )
             if success {
                 // AuthManager now persisted and attempted to sync onboarding XP. Trigger confetti/toast then dismiss.
