@@ -735,20 +735,93 @@ class ProfileViewModel: ObservableObject {
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var authManager: AuthManager
+    @State private var showChangePassword = false
+    @State private var showDeleteConfirm = false
+    @AppStorage("push_notifications_enabled") private var pushNotifications = true
+    @AppStorage("price_alerts_enabled") private var priceAlerts = true
+    @AppStorage("league_alerts_enabled") private var leagueAlerts = true
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+    }
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+    }
 
     var body: some View {
         ZStack {
             Theme.backgroundPrimary.ignoresSafeArea()
             List {
                 Section("Account") {
-                    Text("Change Password").foregroundColor(.white)
-                    Text("Two-Factor Authentication").foregroundColor(.white)
+                    Button {
+                        if let url = URL(string: "https://sharequest.co.uk/auth/forgot-password") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Label("Change Password", systemImage: "lock.rotation")
+                            .foregroundColor(.white)
+                    }
+                    Button {
+                        if let url = URL(string: "mailto:support@sharequest.co.uk?subject=Delete%20My%20Account") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Label("Delete Account", systemImage: "person.crop.circle.badge.minus")
+                            .foregroundColor(.red)
+                    }
                 }
+
+                Section("Notifications") {
+                    Toggle(isOn: $pushNotifications) {
+                        Label("Push Notifications", systemImage: "bell.fill")
+                            .foregroundColor(.white)
+                    }
+                    .tint(Theme.primaryBlue)
+                    Toggle(isOn: $priceAlerts) {
+                        Label("Price Alerts", systemImage: "chart.line.uptrend.xyaxis")
+                            .foregroundColor(.white)
+                    }
+                    .tint(Theme.primaryBlue)
+                    Toggle(isOn: $leagueAlerts) {
+                        Label("League Activity", systemImage: "person.3.fill")
+                            .foregroundColor(.white)
+                    }
+                    .tint(Theme.accentPurple)
+                }
+
                 Section("About") {
-                    Text("Terms of Service").foregroundColor(.white)
-                    Text("Privacy Policy").foregroundColor(.white)
-                    Text("Version 1.0.0").foregroundColor(Theme.textSecondary)
+                    Button {
+                        if let url = URL(string: "https://apps.apple.com/app/id6743736783?action=write-review") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Label("Rate ShareQuest", systemImage: "star.fill")
+                            .foregroundColor(.white)
+                    }
+                    Button {
+                        let text = "Check out ShareQuest – the stock trading competition app! https://sharequest.co.uk"
+                        let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+                        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                           let vc = scene.windows.first?.rootViewController {
+                            var top = vc
+                            while let presented = top.presentedViewController { top = presented }
+                            av.popoverPresentationController?.sourceView = top.view
+                            top.present(av, animated: true)
+                        }
+                    } label: {
+                        Label("Share ShareQuest", systemImage: "square.and.arrow.up")
+                            .foregroundColor(.white)
+                    }
+                    HStack {
+                        Label("Version", systemImage: "info.circle")
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text("\(appVersion) (\(buildNumber))")
+                            .foregroundColor(Theme.textSecondary)
+                            .font(.subheadline)
+                    }
                 }
+
                 Section {
                     Button(role: .destructive) {
                         authManager.signOut()
@@ -757,6 +830,7 @@ struct SettingsView: View {
                         Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 }
+
                 Section("Developer") {
                     Button {
                         authManager.resetAllState()
