@@ -84,6 +84,7 @@ final class SubscriptionsViewModel: ObservableObject {
 
     // Public leagues for the join section
     @Published var publicLeagues: [League] = []
+    @Published var privateLeagues: [League] = []
     @Published var joiningLeagueId: String? = nil
     @Published var joinLeagueError: String? = nil
 
@@ -178,10 +179,12 @@ final class SubscriptionsViewModel: ObservableObject {
         // /api/subscriptions/auto-renew) require NextAuth session cookies and
         // always return 401 from a Bearer-token mobile client.
         async let statusFetch = APIService.shared.fetchUserSubscriptions()
-        async let leaguesFetch = (try? APIService.shared.fetchPublicLeagues()) ?? []
-        let (status, leagues) = await (try? statusFetch, leaguesFetch)
+        async let publicFetch = (try? APIService.shared.fetchPublicLeagues()) ?? []
+        async let privateFetch = (try? APIService.shared.fetchUserLeagues()) ?? []
+        let (status, publicList, userLeagues) = await (try? statusFetch, publicFetch, privateFetch)
         subStatus = status
-        publicLeagues = leagues.filter { !($0.is_member ?? false) }
+        publicLeagues = publicList.filter { !($0.is_member ?? false) }
+        privateLeagues = userLeagues.filter { $0.is_private == true }
     }
 
     func joinLeague(_ league: League) {
@@ -372,6 +375,12 @@ struct SubscriptionsView: View {
                     }
                 }
 
+                // Private Leagues
+                if !vm.privateLeagues.isEmpty {
+                    privateLeaguesSection
+                        .padding(.horizontal)
+                }
+
                 // Public Leagues
                 if !vm.publicLeagues.isEmpty || vm.loadingActive {
                     publicLeaguesSection
@@ -381,6 +390,69 @@ struct SubscriptionsView: View {
                 Spacer(minLength: 40)
             }
             .padding(.top, 8)
+        }
+    }
+
+    private var privateLeaguesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("PRIVATE LEAGUES")
+                    .font(.caption).fontWeight(.semibold)
+                    .foregroundColor(Theme.textMuted)
+                Spacer()
+                NavigationLink(destination: LeaguesView()) {
+                    Text("See All")
+                        .font(.caption).foregroundColor(Theme.primaryBlue)
+                }
+            }
+            .padding(.leading, 4)
+
+            VStack(spacing: 0) {
+                ForEach(Array(vm.privateLeagues.prefix(5).enumerated()), id: \.element.id) { idx, league in
+                    if idx > 0 { Divider().background(Color.white.opacity(0.08)) }
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Theme.accentPurple.opacity(0.2))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(Theme.accentPurple)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(league.name)
+                                .font(.subheadline).fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                            HStack(spacing: 6) {
+                                Text("\(league.member_count ?? 0)/\(league.max_members ?? 50) members")
+                                    .font(.caption2)
+                                    .foregroundColor(Theme.textSecondary)
+                                if let status = league.status {
+                                    Text("•").font(.caption2).foregroundColor(Theme.textMuted)
+                                    Text(status.capitalized)
+                                        .font(.caption2)
+                                        .foregroundColor(status == "active" ? Theme.accentGreen : Theme.textSecondary)
+                                }
+                            }
+                        }
+                        Spacer()
+                        if league.is_member == true {
+                            Text("Member")
+                                .font(.caption2).fontWeight(.semibold)
+                                .foregroundColor(Theme.accentGreen)
+                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                .background(Theme.accentGreen.opacity(0.15))
+                                .cornerRadius(6)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                }
+            }
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(14)
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 1))
         }
     }
 
