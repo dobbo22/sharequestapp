@@ -556,9 +556,12 @@ struct DashboardView: View {
                     } label: {
                         Text(label)
                             .font(.system(size: scaled(13), weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                             .foregroundColor(taskSectionTab == idx ? .white : Theme.textSecondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, vscaled(7))
+                            .padding(.horizontal, 4)
                             .background(
                                 taskSectionTab == idx
                                     ? AnyShapeStyle(LinearGradient(colors: [Theme.primaryBlue, Theme.accentPurple], startPoint: .leading, endPoint: .trailing))
