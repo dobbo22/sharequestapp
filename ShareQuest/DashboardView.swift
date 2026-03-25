@@ -240,12 +240,11 @@ struct DashboardView: View {
             // Greeting
             VStack(alignment: .leading, spacing: 4) {
                 Text(viewModel.greeting)
-                    .font(.subheadline)
+                    .font(.system(size: scaled(15)))
                     .foregroundColor(Theme.textSecondary)
                 HStack(spacing: 8) {
                     Text(displayFirstName)
-                        .font(.title2)
-                        .fontWeight(.bold)
+                        .font(.system(size: scaled(22), weight: .bold))
                         .foregroundColor(.white)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
@@ -411,11 +410,10 @@ struct DashboardView: View {
                 .frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 2) {
                 Text(viewModel.isMarketOpen ? "Open" : "Closed")
-                    .font(.caption)
-                    .fontWeight(.semibold)
+                    .font(.system(size: scaled(12), weight: .semibold))
                     .foregroundColor(.white)
                 Text(viewModel.ukTime)
-                    .font(.caption2)
+                    .font(.system(size: scaled(11)))
                     .foregroundColor(Theme.textSecondary)
             }
         }
@@ -435,19 +433,18 @@ struct DashboardView: View {
     private func marketSentimentPill(sentiment: MarketSentimentData) -> some View {
         HStack(spacing: 8) {
             Image(systemName: sentiment.overall?.sentiment == "bullish" ? "arrow.up.right" : (sentiment.overall?.sentiment == "bearish" ? "arrow.down.right" : "minus"))
-                .font(.caption2)
+                .font(.system(size: scaled(11)))
                 .foregroundColor(.white)
             VStack(alignment: .leading, spacing: 0) {
                 Text(sentiment.overall?.sentiment?.capitalized ?? "Neutral")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
+                    .font(.system(size: scaled(11), weight: .semibold))
                     .foregroundColor(.white)
                 HStack(spacing: 6) {
                     Text("G:\(sentiment.metrics?.gainerCount ?? 0)")
-                        .font(.caption2)
+                        .font(.system(size: scaled(11)))
                         .foregroundColor(Theme.accentGreen)
                     Text("L:\(sentiment.metrics?.loserCount ?? 0)")
-                        .font(.caption2)
+                        .font(.system(size: scaled(11)))
                         .foregroundColor(Theme.accentRed)
                 }
             }
@@ -493,16 +490,16 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center) {
                 Text("Your Portfolios")
-                    .font(.headline)
+                    .font(.system(size: scaled(17), weight: .semibold))
                     .foregroundColor(.white)
                 Spacer()
                 if viewModel.portfolioCards.count > 1 {
                     HStack(spacing: 4) {
                         Image(systemName: "hand.draw")
-                            .font(.caption2)
+                            .font(.system(size: scaled(11)))
                             .foregroundColor(Theme.textSecondary)
                         Text("Swipe")
-                            .font(.caption2)
+                            .font(.system(size: scaled(11)))
                             .foregroundColor(Theme.textSecondary)
                     }
                 }
@@ -516,7 +513,7 @@ struct DashboardView: View {
                     .overlay(
                         Text("No portfolios available")
                             .foregroundColor(Theme.textSecondary)
-                            .font(.subheadline)
+                            .font(.system(size: scaled(15)))
                     )
             } else {
                 TabView(selection: $portfolioPageIndex) {
@@ -625,8 +622,8 @@ struct DashboardView: View {
                     ("banknote.fill", "Prize Pools"),
                 ], id: \.1) { icon, label in
                     HStack(spacing: 5) {
-                        Image(systemName: icon).font(.caption).foregroundColor(Theme.primaryBlue)
-                        Text(label).font(.caption).foregroundColor(Theme.textSecondary)
+                        Image(systemName: icon).font(.system(size: scaled(12))).foregroundColor(Theme.primaryBlue)
+                        Text(label).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                     }
                     .padding(.horizontal, 10).padding(.vertical, 6)
                     .background(Color.white.opacity(0.05))
@@ -742,10 +739,10 @@ struct DashboardView: View {
             // Header
             HStack {
                 Text("Daily Tasks")
-                    .font(.headline).foregroundColor(.white)
+                    .font(.system(size: scaled(17), weight: .semibold)).foregroundColor(.white)
                 Spacer()
                 Text("\(completed)/\(limit)")
-                    .font(.caption).fontWeight(.bold)
+                    .font(.system(size: scaled(12), weight: .bold))
                     .foregroundColor(viewModel.allChallengesDone ? Theme.accentGreen : Theme.textSecondary)
             }
 
@@ -775,13 +772,13 @@ struct DashboardView: View {
             if viewModel.allChallengesDone {
                 HStack(spacing: 12) {
                     Text("🎉")
-                        .font(.title2)
+                        .font(.system(size: scaled(22)))
                     VStack(alignment: .leading, spacing: 2) {
                         Text("All done for today!")
-                            .font(.subheadline).fontWeight(.bold)
+                            .font(.system(size: scaled(15), weight: .bold))
                             .foregroundColor(.white)
                         Text("You've completed all \(limit) challenges. Come back tomorrow!")
-                            .font(.caption).foregroundColor(Theme.textSecondary)
+                            .font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                     }
                     Spacer()
                 }
@@ -810,7 +807,7 @@ struct DashboardView: View {
     private var marketSentimentSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Market Sentiment")
-                .font(.headline)
+                .font(.system(size: scaled(17), weight: .semibold))
                 .foregroundColor(.white)
             
             if let sentiment = viewModel.marketSentiment {
@@ -818,11 +815,10 @@ struct DashboardView: View {
                     // Sentiment Indicator
                     VStack(spacing: 4) {
                         Image(systemName: sentimentIcon(for: sentiment.overall?.sentiment))
-                            .font(.title)
+                            .font(.system(size: scaled(28)))
                             .foregroundColor(sentimentColor(for: sentiment.overall?.sentiment))
                         Text(sentiment.overall?.sentiment?.capitalized ?? "Neutral")
-                            .font(.caption)
-                            .fontWeight(.semibold)
+                            .font(.system(size: scaled(12), weight: .semibold))
                             .foregroundColor(sentimentColor(for: sentiment.overall?.sentiment))
                     }
                     .frame(maxWidth: .infinity)
@@ -836,7 +832,7 @@ struct DashboardView: View {
                                 .foregroundColor(Theme.accentGreen)
                         }
                         Text("Gainers")
-                            .font(.caption2)
+                            .font(.system(size: scaled(11)))
                             .foregroundColor(Theme.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -849,7 +845,7 @@ struct DashboardView: View {
                                 .foregroundColor(Theme.accentRed)
                         }
                         Text("Losers")
-                            .font(.caption2)
+                            .font(.system(size: scaled(11)))
                             .foregroundColor(Theme.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -891,7 +887,7 @@ struct StreakBadge: View {
                 .fontWeight(.bold)
                 .foregroundColor(.orange)
         }
-        .font(.subheadline)
+        .font(.system(size: scaled(15)))
     }
 }
 
@@ -913,12 +909,11 @@ struct TickerStockView: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(stock.shortName)
-                        .font(.caption)
-                        .fontWeight(.semibold)
+                        .font(.system(size: scaled(12), weight: .semibold))
                         .foregroundColor(.white)
                         .lineLimit(1)
                     Text(stock.symbol)
-                        .font(.caption2)
+                        .font(.system(size: scaled(11)))
                         .foregroundColor(Theme.textSecondary)
                 }
 
@@ -965,15 +960,14 @@ struct DailyTaskStatView: View {
         VStack(spacing: 4) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.caption)
+                    .font(.system(size: scaled(12)))
                     .foregroundColor(iconColor)
                 Text(value)
-                    .font(.subheadline)
-                    .fontWeight(.bold)
+                    .font(.system(size: scaled(15), weight: .bold))
                     .foregroundColor(.white)
             }
             Text(label)
-                .font(.caption2)
+                .font(.system(size: scaled(11)))
                 .foregroundColor(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -1027,13 +1021,12 @@ struct DailyTaskRowView: View {
             // Title + progress
             VStack(alignment: .leading, spacing: 3) {
                 Text(challenge.displayTitle)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(.system(size: scaled(15), weight: .semibold))
                     .foregroundColor(.white)
 
                 if let desc = challenge.description {
                     Text(desc)
-                        .font(.caption)
+                        .font(.system(size: scaled(12)))
                         .foregroundColor(Theme.textSecondary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1059,21 +1052,20 @@ struct DailyTaskRowView: View {
             VStack(alignment: .trailing, spacing: 4) {
                 if challenge.isCompleted {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
+                        .font(.system(size: scaled(20)))
                         .foregroundColor(Theme.accentGreen)
                 } else {
                     Text("+\(challenge.reward)")
-                        .font(.caption)
-                        .fontWeight(.bold)
+                        .font(.system(size: scaled(12), weight: .bold))
                         .foregroundColor(Theme.accentYellow)
                     Text("XP")
-                        .font(.caption2)
+                        .font(.system(size: scaled(11)))
                         .foregroundColor(Theme.accentYellow.opacity(0.7))
                 }
                 // Progress fraction
                 if !challenge.isCompleted && challenge.targetProgress > 1 {
                     Text("\(challenge.currentProgress)/\(challenge.targetProgress)")
-                        .font(.caption2)
+                        .font(.system(size: scaled(11)))
                         .foregroundColor(Theme.textSecondary)
                 }
             }
@@ -1131,10 +1123,10 @@ struct StockHuntHubSheet: View {
                             }
 
                             Text("Stock Hunt")
-                                .font(.title2).fontWeight(.bold).foregroundColor(.white)
+                                .font(.system(size: scaled(22), weight: .bold)).foregroundColor(.white)
 
                             Text("\(completedCount) of \(total) completed today")
-                                .font(.subheadline).foregroundColor(Theme.textSecondary)
+                                .font(.system(size: scaled(15))).foregroundColor(Theme.textSecondary)
 
                             // Progress bar
                             GeometryReader { geo in
@@ -1176,7 +1168,7 @@ struct StockHuntHubSheet: View {
                         if huntChallenges.contains(where: { !$0.isCompleted }) {
                             Button { dismiss() } label: {
                                 Label("Browse Stocks to Find a Match", systemImage: "chart.bar.fill")
-                                    .font(.subheadline).fontWeight(.semibold)
+                                    .font(.system(size: scaled(15), weight: .semibold))
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
@@ -1186,7 +1178,7 @@ struct StockHuntHubSheet: View {
                             .padding(.horizontal)
 
                             Text("Open any stock's detail page and tap **Claim for Stock Hunt** when you find a match.")
-                                .font(.caption)
+                                .font(.system(size: scaled(12)))
                                 .foregroundColor(Theme.textSecondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 24)
@@ -1218,13 +1210,13 @@ struct StockHuntHubSheet: View {
     private func criteriaCard(_ hunt: StockHuntChallengeResponse.StockHuntData) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "target").foregroundColor(huntColor).font(.subheadline)
+                Image(systemName: "target").foregroundColor(huntColor).font(.system(size: scaled(15)))
                 Text("Today's Criteria")
-                    .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                    .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white)
                 Spacer()
                 if let diff = hunt.template?.difficulty {
                     Text(diff.capitalized)
-                        .font(.caption).fontWeight(.bold)
+                        .font(.system(size: scaled(12), weight: .bold))
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(difficultyColor(diff).opacity(0.2))
                         .foregroundColor(difficultyColor(diff))
@@ -1232,22 +1224,22 @@ struct StockHuntHubSheet: View {
                 }
             }
             if let name = hunt.template?.name {
-                Text(name).font(.headline).fontWeight(.bold).foregroundColor(.white)
+                Text(name).font(.system(size: scaled(17), weight: .bold)).foregroundColor(.white)
             }
             if let desc = hunt.template?.description ?? hunt.template?.hint {
-                Text(desc).font(.caption).foregroundColor(Theme.textSecondary)
+                Text(desc).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
             }
             if let hint = hunt.template?.hint, hunt.template?.description != nil {
                 HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: "lightbulb.fill").foregroundColor(Theme.accentYellow).font(.caption)
-                    Text(hint).font(.caption).foregroundColor(Theme.textSecondary)
+                    Image(systemName: "lightbulb.fill").foregroundColor(Theme.accentYellow).font(.system(size: scaled(12)))
+                    Text(hint).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                 }
             }
             if let count = hunt.matchingStockCount {
                 HStack(spacing: 6) {
-                    Image(systemName: "chart.bar.fill").foregroundColor(Theme.accentGreen).font(.caption)
+                    Image(systemName: "chart.bar.fill").foregroundColor(Theme.accentGreen).font(.system(size: scaled(12)))
                     Text("\(count) matching stock\(count == 1 ? "" : "s") available today")
-                        .font(.caption).foregroundColor(Theme.accentGreen)
+                        .font(.system(size: scaled(12))).foregroundColor(Theme.accentGreen)
                 }
             }
         }
@@ -1271,11 +1263,11 @@ struct StockHuntHubSheet: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(challenge.displayTitle)
-                    .font(.subheadline).fontWeight(.semibold)
+                    .font(.system(size: scaled(15), weight: .semibold))
                     .foregroundColor(challenge.isCompleted ? Theme.accentGreen : .white)
                 if let desc = challenge.description, !desc.isEmpty {
                     Text(desc)
-                        .font(.caption).foregroundColor(Theme.textSecondary).lineLimit(2)
+                        .font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary).lineLimit(2)
                 }
             }
 
@@ -1283,10 +1275,10 @@ struct StockHuntHubSheet: View {
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text("+\(challenge.reward) XP")
-                    .font(.caption).fontWeight(.bold)
+                    .font(.system(size: scaled(12), weight: .bold))
                     .foregroundColor(challenge.isCompleted ? Theme.accentGreen : Theme.accentYellow)
                 if challenge.isCompleted {
-                    Text("Earned").font(.caption2).foregroundColor(Theme.accentGreen)
+                    Text("Earned").font(.system(size: scaled(11))).foregroundColor(Theme.accentGreen)
                 }
             }
         }
@@ -1438,24 +1430,24 @@ struct DailyTaskDetailSheet: View {
                             .padding(.top, 8)
 
                             Text(challenge.displayTitle)
-                                .font(.title3).fontWeight(.bold)
+                                .font(.system(size: scaled(20), weight: .bold))
                                 .foregroundColor(.white)
                                 .multilineTextAlignment(.center)
 
                             if isCompleted {
                                 Label("Challenge Complete!", systemImage: "checkmark.circle.fill")
-                                    .font(.subheadline).fontWeight(.semibold)
+                                    .font(.system(size: scaled(15), weight: .semibold))
                                     .foregroundColor(Theme.accentGreen)
                             } else {
                                 Text("In Progress")
-                                    .font(.subheadline)
+                                    .font(.system(size: scaled(15)))
                                     .foregroundColor(Theme.textSecondary)
                             }
                         }
 
                         // Description
                         Text(challengeDescription)
-                            .font(.body)
+                            .font(.system(size: scaled(17)))
                             .foregroundColor(Color(red: 0.75, green: 0.78, blue: 0.84))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
@@ -1466,12 +1458,12 @@ struct DailyTaskDetailSheet: View {
                                 HStack(spacing: 12) {
                                     Image(systemName: "lightbulb.fill")
                                         .foregroundColor(Color(red: 0.96, green: 0.85, blue: 0.3))
-                                        .font(.subheadline)
+                                        .font(.system(size: scaled(15)))
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("How to complete")
-                                            .font(.caption).foregroundColor(Theme.textSecondary)
+                                            .font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                                         Text(howToComplete)
-                                            .font(.subheadline).fontWeight(.medium)
+                                            .font(.system(size: scaled(15), weight: .medium))
                                             .foregroundColor(.white)
                                     }
                                     Spacer()
@@ -1480,7 +1472,7 @@ struct DailyTaskDetailSheet: View {
                                 if let (label, icon) = actionButton {
                                     Button { dismiss() } label: {
                                         Label(label, systemImage: icon)
-                                            .font(.subheadline).fontWeight(.semibold)
+                                            .font(.system(size: scaled(15), weight: .semibold))
                                             .foregroundColor(.white)
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 11)
@@ -1507,13 +1499,13 @@ struct DailyTaskDetailSheet: View {
                                     // Criteria header
                                     HStack(spacing: 8) {
                                         Image(systemName: "target")
-                                            .foregroundColor(iconColor).font(.subheadline)
+                                            .foregroundColor(iconColor).font(.system(size: scaled(15)))
                                         Text("Today's Criteria")
-                                            .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                                            .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white)
                                         Spacer()
                                         if let diff = hunt.template?.difficulty {
                                             Text(diff.capitalized)
-                                                .font(.caption).fontWeight(.bold)
+                                                .font(.system(size: scaled(12), weight: .bold))
                                                 .padding(.horizontal, 8).padding(.vertical, 3)
                                                 .background(difficultyColor(diff).opacity(0.2))
                                                 .foregroundColor(difficultyColor(diff))
@@ -1522,21 +1514,21 @@ struct DailyTaskDetailSheet: View {
                                     }
                                     if let name = hunt.template?.name {
                                         Text(name)
-                                            .font(.headline).fontWeight(.bold).foregroundColor(.white)
+                                            .font(.system(size: scaled(17), weight: .bold)).foregroundColor(.white)
                                     }
                                     if let hint = hunt.template?.hint {
                                         HStack(alignment: .top, spacing: 8) {
                                             Image(systemName: "info.circle")
-                                                .foregroundColor(Theme.primaryBlue).font(.caption)
-                                            Text(hint).font(.caption).foregroundColor(Theme.textSecondary)
+                                                .foregroundColor(Theme.primaryBlue).font(.system(size: scaled(12)))
+                                            Text(hint).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                                         }
                                     }
                                     if let count = hunt.matchingStockCount {
                                         HStack(spacing: 6) {
                                             Image(systemName: "chart.bar.fill")
-                                                .foregroundColor(Theme.accentGreen).font(.caption)
+                                                .foregroundColor(Theme.accentGreen).font(.system(size: scaled(12)))
                                             Text("\(count) matching stock\(count == 1 ? "" : "s") available today")
-                                                .font(.caption).foregroundColor(Theme.accentGreen)
+                                                .font(.system(size: scaled(12))).foregroundColor(Theme.accentGreen)
                                         }
                                     }
 
@@ -1549,11 +1541,11 @@ struct DailyTaskDetailSheet: View {
                                                 Image(systemName: "arrow.right.circle.fill")
                                                     .foregroundColor(iconColor)
                                                 Text("How to complete")
-                                                    .font(.caption).fontWeight(.semibold)
+                                                    .font(.system(size: scaled(12), weight: .semibold))
                                                     .foregroundColor(Theme.textSecondary)
                                             }
                                             Text("Browse the Stocks tab to research and find a matching stock. Open the stock's detail page, then tap **Claim for Stock Hunt** to earn your XP.")
-                                                .font(.caption)
+                                                .font(.system(size: scaled(12)))
                                                 .foregroundColor(Theme.textSecondary)
                                                 .multilineTextAlignment(.leading)
 
@@ -1561,7 +1553,7 @@ struct DailyTaskDetailSheet: View {
                                                 dismiss()
                                             } label: {
                                                 Label("Go to Stocks", systemImage: "chart.bar.fill")
-                                                    .font(.subheadline).fontWeight(.semibold)
+                                                    .font(.system(size: scaled(15), weight: .semibold))
                                                     .foregroundColor(.white)
                                                     .frame(maxWidth: .infinity)
                                                     .padding(.vertical, 11)
@@ -1583,11 +1575,11 @@ struct DailyTaskDetailSheet: View {
                         VStack(spacing: 14) {
                             HStack {
                                 Text("Today's Progress")
-                                    .font(.subheadline).fontWeight(.semibold)
+                                    .font(.system(size: scaled(15), weight: .semibold))
                                     .foregroundColor(Theme.textSecondary)
                                 Spacer()
                                 Text("\(currentProgress) / \(target)")
-                                    .font(.subheadline).fontWeight(.bold)
+                                    .font(.system(size: scaled(15), weight: .bold))
                                     .foregroundColor(.white)
                             }
                             GeometryReader { geo in
@@ -1608,18 +1600,18 @@ struct DailyTaskDetailSheet: View {
                         // XP reward
                         HStack(spacing: 14) {
                             Image(systemName: "star.fill")
-                                .foregroundColor(Theme.accentYellow).font(.title3)
+                                .foregroundColor(Theme.accentYellow).font(.system(size: scaled(20)))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("XP Reward")
-                                    .font(.caption).foregroundColor(Theme.textSecondary)
+                                    .font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                                 Text("+\(challenge.reward) XP")
-                                    .font(.headline).fontWeight(.bold)
+                                    .font(.system(size: scaled(17), weight: .bold))
                                     .foregroundColor(Theme.accentYellow)
                             }
                             Spacer()
                             if isCompleted {
                                 Label("Earned", systemImage: "checkmark.seal.fill")
-                                    .font(.caption).fontWeight(.semibold)
+                                    .font(.system(size: scaled(12), weight: .semibold))
                                     .foregroundColor(Theme.accentGreen)
                             }
                         }
@@ -1678,14 +1670,14 @@ struct XPActivityRow: View {
                 .foregroundColor(Theme.accentYellow)
             VStack(alignment: .leading, spacing: 2) {
                 Text(activity.source)
-                    .font(.caption).fontWeight(.medium).foregroundColor(.white)
+                    .font(.system(size: scaled(12), weight: .medium)).foregroundColor(.white)
                 if let description = activity.description {
-                    Text(description).font(.caption2).foregroundColor(Theme.textSecondary)
+                    Text(description).font(.system(size: scaled(11))).foregroundColor(Theme.textSecondary)
                 }
             }
             Spacer()
             Text("+\(activity.amount) XP")
-                .font(.caption).fontWeight(.bold).foregroundColor(Theme.accentYellow)
+                .font(.system(size: scaled(12), weight: .bold)).foregroundColor(Theme.accentYellow)
         }
         .padding(.horizontal).padding(.vertical, 8)
         .glassCard()
@@ -2022,10 +2014,9 @@ struct PortfolioCardView: View {
             VStack(alignment: .leading, spacing: vscaled(8)) {
                 HStack {
                     Text(portfolio.emoji)
-                        .font(.title3)
+                        .font(.system(size: scaled(20)))
                     Text(portfolio.name)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                        .font(.system(size: scaled(15), weight: .semibold))
                         .foregroundColor(.white)
                     Spacer()
                     Image(systemName: "chevron.right")

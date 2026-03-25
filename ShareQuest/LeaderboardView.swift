@@ -142,8 +142,7 @@ struct LeaderboardView: View {
                         Image(systemName: type.icon)
                             .font(.system(size: scaled(11), weight: .bold))
                         Text(type.displayName)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .font(.system(size: scaled(15), weight: .semibold))
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
@@ -195,15 +194,13 @@ struct LeaderboardView: View {
                 .foregroundColor(viewModel.selectedType.color)
 
             Text(viewModel.selectedType.title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
+                .font(.system(size: scaled(15), weight: .semibold))
                 .foregroundColor(.white)
                 .lineLimit(1)
 
             if let status = info.status {
                 Text(status.capitalized)
-                    .font(.caption2)
-                    .fontWeight(.bold)
+                    .font(.system(size: scaled(11), weight: .bold))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .background(viewModel.selectedType.color.opacity(0.25))
@@ -216,11 +213,10 @@ struct LeaderboardView: View {
             if let timeLeft = info.timeRemaining {
                 HStack(spacing: 4) {
                     Image(systemName: "clock")
-                        .font(.caption2)
+                        .font(.system(size: scaled(11)))
                         .foregroundColor(.white.opacity(0.55))
                     Text(timeLeft)
-                        .font(.caption)
-                        .fontWeight(.bold)
+                        .font(.system(size: scaled(12), weight: .bold))
                         .foregroundColor(.white)
                 }
             }
@@ -343,7 +339,7 @@ struct LeaderboardView: View {
                 .progressViewStyle(CircularProgressViewStyle(tint: Theme.accentYellow))
                 .scaleEffect(1.3)
             Text("Loading leaderboard…")
-                .font(.subheadline)
+                .font(.system(size: scaled(15)))
                 .foregroundColor(.white.opacity(0.55))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -355,7 +351,7 @@ struct LeaderboardView: View {
                 .font(.system(size: scaled(40)))
                 .foregroundColor(Theme.accentYellow)
             Text(error)
-                .font(.subheadline)
+                .font(.system(size: scaled(15)))
                 .foregroundColor(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
@@ -376,10 +372,10 @@ struct LeaderboardView: View {
                 .font(.system(size: scaled(52)))
                 .foregroundColor(Theme.accentYellow.opacity(0.4))
             Text("No participants yet")
-                .font(.headline)
+                .font(.system(size: scaled(17), weight: .semibold))
                 .foregroundColor(.white)
             Text("Be the first to join this competition!")
-                .font(.subheadline)
+                .font(.system(size: scaled(15)))
                 .foregroundColor(.white.opacity(0.5))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -425,7 +421,7 @@ struct UserPortfolioSheet: View {
                         // Holdings section — spinner only here, not full screen
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Holdings")
-                                .font(.headline).foregroundColor(.white)
+                                .font(.system(size: scaled(17), weight: .semibold)).foregroundColor(.white)
                                 .padding(.horizontal)
 
                             if isLoading {
@@ -486,8 +482,8 @@ struct UserPortfolioSheet: View {
 
     private func statBox(label: String, value: String) -> some View {
         VStack(spacing: 4) {
-            Text(label).font(.caption).foregroundColor(Theme.textSecondary)
-            Text(value).font(.subheadline).fontWeight(.bold).foregroundColor(.white)
+            Text(label).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
+            Text(value).font(.system(size: scaled(15), weight: .bold)).foregroundColor(.white)
                 .lineLimit(1).minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
@@ -504,13 +500,13 @@ struct UserPortfolioSheet: View {
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(holding.companyName ?? holding.symbol)
-                    .font(.subheadline).fontWeight(.semibold).foregroundColor(.white).lineLimit(1)
+                    .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white).lineLimit(1)
                 Text("\(holding.symbol) · \(Int(holding.quantity)) shares")
-                    .font(.caption).foregroundColor(Theme.textSecondary)
+                    .font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(formatPounds(value / 100)).font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                Text(formatPounds(value / 100)).font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white)
                 ChangePill(percent: plPercent, compact: true)
             }
         }

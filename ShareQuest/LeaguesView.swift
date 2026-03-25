@@ -168,17 +168,17 @@ struct LeaguesView: View {
                             .foregroundColor(goldColor)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Annual ShareQuest")
-                                .font(.title3).fontWeight(.bold)
+                                .font(.system(size: scaled(20), weight: .bold))
                                 .foregroundColor(.white)
                             Text("2026 Competition")
-                                .font(.caption)
+                                .font(.system(size: scaled(12)))
                                 .foregroundColor(goldColor.opacity(0.8))
                         }
                         Spacer()
                     }
 
                     Text("Compete in the year-long trading competition. Best portfolio wins the prize pool.")
-                        .font(.subheadline)
+                        .font(.system(size: scaled(15)))
                         .foregroundColor(.white.opacity(0.8))
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -186,10 +186,10 @@ struct LeaguesView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("£50 / year")
-                                .font(.subheadline).fontWeight(.bold)
+                                .font(.system(size: scaled(15), weight: .bold))
                                 .foregroundColor(.white)
                             Text("Tap to subscribe and compete")
-                                .font(.caption)
+                                .font(.system(size: scaled(12)))
                                 .foregroundColor(Theme.textSecondary)
                         }
                         Spacer()
@@ -221,8 +221,8 @@ struct LeaguesView: View {
     private func tabButton(tab: LeagueTab, icon: String, label: String) -> some View {
         Button { selectedTab = tab } label: {
             HStack(spacing: 6) {
-                Image(systemName: icon).font(.caption)
-                Text(label).font(.subheadline).fontWeight(.semibold)
+                Image(systemName: icon).font(.system(size: scaled(12)))
+                Text(label).font(.system(size: scaled(15), weight: .semibold))
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
@@ -276,23 +276,23 @@ struct LeaguesView: View {
             Image(systemName: "person.3")
                 .font(.system(size: scaled(64))).foregroundColor(Theme.textMuted)
             Text(selectedTab == .myLeagues ? "No leagues yet" : "No public leagues")
-                .font(.title3).fontWeight(.bold).foregroundColor(.white)
+                .font(.system(size: scaled(20), weight: .bold)).foregroundColor(.white)
             Text(selectedTab == .myLeagues
                  ? "Create a league or join one to compete with friends!"
                  : "Check back later for public leagues to join")
-                .font(.subheadline).foregroundColor(Theme.textSecondary)
+                .font(.system(size: scaled(15))).foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center).padding(.horizontal, 32)
             if selectedTab == .myLeagues {
                 HStack(spacing: 12) {
                     Button { showCreateSheet = true } label: {
                         Label("Create", systemImage: "plus")
-                            .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                            .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white)
                             .padding(.horizontal, 20).padding(.vertical, 14)
                             .background(Theme.accentGreen).cornerRadius(12)
                     }
                     Button { showJoinSheet = true } label: {
                         Label("Join", systemImage: "arrow.right.square")
-                            .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                            .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white)
                             .padding(.horizontal, 20).padding(.vertical, 14)
                             .background(Theme.primaryBlue).cornerRadius(12)
                     }
@@ -354,11 +354,11 @@ struct LeagueCard: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(league.name)
-                            .font(.headline).fontWeight(.bold)
+                            .font(.system(size: scaled(17), weight: .bold))
                             .foregroundColor(Theme.textPrimary)
                             .lineLimit(1)
                         Text(memberText)
-                            .font(.caption)
+                            .font(.system(size: scaled(12)))
                             .foregroundColor(Theme.textSecondary)
                     }
 
@@ -366,7 +366,7 @@ struct LeagueCard: View {
 
                     if let status = league.status {
                         Text(status.capitalized)
-                            .font(.caption).fontWeight(.semibold)
+                            .font(.system(size: scaled(12), weight: .semibold))
                             .padding(.horizontal, 10).padding(.vertical, 4)
                             .background(statusColor.opacity(0.2))
                             .foregroundColor(statusColor)
@@ -376,7 +376,7 @@ struct LeagueCard: View {
 
                 if let desc = league.description, !desc.isEmpty {
                     Text(desc)
-                        .font(.subheadline)
+                        .font(.system(size: scaled(15)))
                         .foregroundColor(Theme.textSecondary)
                         .lineLimit(2)
                 }
@@ -384,18 +384,18 @@ struct LeagueCard: View {
                 HStack {
                     if let creator = league.creator_username {
                         Text("By \(creator)")
-                            .font(.caption)
+                            .font(.system(size: scaled(12)))
                             .foregroundColor(Theme.textMuted)
                     }
                     Spacer()
                     if let type = league.competition_type {
                         Text(type.capitalized)
-                            .font(.caption).fontWeight(.semibold)
+                            .font(.system(size: scaled(12), weight: .semibold))
                             .foregroundColor(Theme.accentYellow)
                     }
                     if let code = league.join_code {
                         Text("Code: \(code)")
-                            .font(.caption).fontWeight(.semibold)
+                            .font(.system(size: scaled(12), weight: .semibold))
                             .foregroundColor(Theme.textMuted)
                     }
                 }
@@ -459,10 +459,10 @@ struct LeagueDetailSheet: View {
                                         .font(.system(size: scaled(36)))
                                         .foregroundColor(.green)
                                     Text("Payment Successful!")
-                                        .font(.headline).fontWeight(.bold)
+                                        .font(.system(size: scaled(17), weight: .bold))
                                         .foregroundColor(.white)
                                     Text("You're in! Share the invite code below.")
-                                        .font(.subheadline)
+                                        .font(.system(size: scaled(15)))
                                         .foregroundColor(Theme.textSecondary)
                                         .multilineTextAlignment(.center)
                                 }
@@ -480,7 +480,7 @@ struct LeagueDetailSheet: View {
                                         Image(systemName: "creditcard")
                                         Text(isPaying ? "Opening Payment..." : "Complete Payment")
                                     }
-                                    .font(.headline)
+                                    .font(.system(size: scaled(17), weight: .semibold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 24).padding(.vertical, 14)
                                     .background(Theme.primaryBlue)
@@ -502,7 +502,7 @@ struct LeagueDetailSheet: View {
 
                             if let desc = league.description, !desc.isEmpty {
                                 Text(desc)
-                                    .font(.subheadline)
+                                    .font(.system(size: scaled(15)))
                                     .foregroundColor(Theme.textSecondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.horizontal)
@@ -514,10 +514,10 @@ struct LeagueDetailSheet: View {
                                     Image(systemName: "link")
                                         .foregroundColor(Theme.primaryBlue)
                                     Text("Join Code: ")
-                                        .font(.subheadline)
+                                        .font(.system(size: scaled(15)))
                                         .foregroundColor(Theme.textSecondary)
                                     Text(code)
-                                        .font(.subheadline).fontWeight(.bold)
+                                        .font(.system(size: scaled(15), weight: .bold))
                                         .foregroundColor(.white)
                                     Spacer()
                                     Button {
@@ -548,7 +548,7 @@ struct LeagueDetailSheet: View {
                             // Leaderboard
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Leaderboard")
-                                    .font(.headline).fontWeight(.bold)
+                                    .font(.system(size: scaled(17), weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal)
 
@@ -662,8 +662,8 @@ struct LeagueDetailSheet: View {
 
     private func statBox(label: String, value: String) -> some View {
         VStack(spacing: 4) {
-            Text(label).font(.caption).foregroundColor(Theme.textSecondary)
-            Text(value).font(.subheadline).fontWeight(.bold).foregroundColor(.white)
+            Text(label).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
+            Text(value).font(.system(size: scaled(15), weight: .bold)).foregroundColor(.white)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -808,7 +808,7 @@ struct LeagueMemberPortfolioSheet: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Holdings")
-                                .font(.headline).foregroundColor(.white)
+                                .font(.system(size: scaled(17), weight: .semibold)).foregroundColor(.white)
                                 .padding(.horizontal)
 
                             if isLoading {
@@ -863,8 +863,8 @@ struct LeagueMemberPortfolioSheet: View {
 
     private func statBox(label: String, value: String) -> some View {
         VStack(spacing: 4) {
-            Text(label).font(.caption).foregroundColor(Theme.textSecondary)
-            Text(value).font(.subheadline).fontWeight(.bold).foregroundColor(.white)
+            Text(label).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
+            Text(value).font(.system(size: scaled(15), weight: .bold)).foregroundColor(.white)
                 .lineLimit(1).minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
@@ -880,14 +880,14 @@ struct LeagueMemberPortfolioSheet: View {
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(holding.companyName ?? holding.symbol)
-                    .font(.subheadline).fontWeight(.semibold).foregroundColor(.white).lineLimit(1)
+                    .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white).lineLimit(1)
                 Text("\(holding.symbol) · \(Int(holding.quantity)) shares")
-                    .font(.caption).foregroundColor(Theme.textSecondary)
+                    .font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text(formattedPounds(value / 100))
-                    .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                    .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white)
                 ChangePill(percent: plPercent, compact: true)
             }
         }
@@ -973,7 +973,7 @@ struct CreateLeagueSheet: View {
                                                     .foregroundColor(color)
                                             }
                                             Text(label)
-                                                .font(.subheadline).foregroundColor(.white)
+                                                .font(.system(size: scaled(15))).foregroundColor(.white)
                                             Spacer()
                                             ZStack {
                                                 Circle().stroke(competitionType == id ? color : Color.white.opacity(0.3), lineWidth: 2)
@@ -1029,10 +1029,10 @@ struct CreateLeagueSheet: View {
                                 }
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(isPrivate ? "Private League" : "Public League")
-                                        .font(.subheadline).fontWeight(.semibold)
+                                        .font(.system(size: scaled(15), weight: .semibold))
                                         .foregroundColor(.white)
                                     Text(isPrivate ? "Only people with the code can join" : "Anyone can discover and join")
-                                        .font(.caption)
+                                        .font(.system(size: scaled(12)))
                                         .foregroundColor(Theme.textSecondary)
                                 }
                                 Spacer()
@@ -1053,7 +1053,7 @@ struct CreateLeagueSheet: View {
 
                         if let error = errorMessage {
                             Text(error)
-                                .font(.subheadline)
+                                .font(.system(size: scaled(15)))
                                 .foregroundColor(.red)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -1070,7 +1070,7 @@ struct CreateLeagueSheet: View {
                                     Text("Create League")
                                 }
                             }
-                            .font(.headline)
+                            .font(.system(size: scaled(17), weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding()
@@ -1139,7 +1139,7 @@ struct CreateLeagueSheet: View {
     private func fieldSection<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
-                .font(.caption).fontWeight(.semibold)
+                .font(.system(size: scaled(12), weight: .semibold))
                 .foregroundColor(Theme.textSecondary)
             content()
         }
@@ -1216,7 +1216,7 @@ struct JoinLeagueSheet: View {
                 VStack(spacing: 20) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("League Code")
-                            .font(.caption).fontWeight(.semibold)
+                            .font(.system(size: scaled(12), weight: .semibold))
                             .foregroundColor(Theme.textSecondary)
                         TextField("Enter join code", text: $code)
                             .textInputAutocapitalization(.characters)
@@ -1228,7 +1228,7 @@ struct JoinLeagueSheet: View {
 
                     if let error = errorMessage {
                         Text(error)
-                            .font(.subheadline)
+                            .font(.system(size: scaled(15)))
                             .foregroundColor(.red)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -1244,7 +1244,7 @@ struct JoinLeagueSheet: View {
                                 Text("Join League")
                             }
                         }
-                        .font(.headline)
+                        .font(.system(size: scaled(17), weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()

@@ -153,17 +153,16 @@ struct ProfileView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(viewModel.displayName)
-                    .font(.title3)
-                    .fontWeight(.bold)
+                    .font(.system(size: scaled(20), weight: .bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .foregroundColor(.white)
                 Text(viewModel.email)
-                    .font(.caption)
+                    .font(.system(size: scaled(12)))
                     .foregroundColor(Theme.textSecondary)
                 if !viewModel.memberSince.isEmpty {
                     Text("Member since \(viewModel.memberSince)")
-                        .font(.caption2)
+                        .font(.system(size: scaled(11)))
                         .foregroundColor(Theme.textMuted)
                 }
             }
@@ -215,17 +214,15 @@ struct ProfileView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Level \(viewModel.level)")
-                        .font(.headline)
-                        .fontWeight(.bold)
+                        .font(.system(size: scaled(17), weight: .bold))
                         .foregroundColor(.white)
                     Text(viewModel.levelName)
-                        .font(.caption)
+                        .font(.system(size: scaled(12)))
                         .foregroundColor(Theme.primaryBlue)
                 }
                 Spacer()
                 Text("\(viewModel.xp) / \(viewModel.xpForNextLevel) XP")
-                    .font(.caption)
-                    .fontWeight(.semibold)
+                    .font(.system(size: scaled(12), weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .foregroundColor(Theme.accentYellow)
@@ -268,14 +265,13 @@ struct ProfileView: View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .foregroundColor(color)
-                .font(.headline)
+                .font(.system(size: scaled(17), weight: .semibold))
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(value)")
-                    .font(.title3)
-                    .fontWeight(.bold)
+                    .font(.system(size: scaled(20), weight: .bold))
                     .foregroundColor(.white)
                 Text(label)
-                    .font(.caption2)
+                    .font(.system(size: scaled(11)))
                     .foregroundColor(Theme.textSecondary)
             }
             Spacer()
@@ -303,16 +299,15 @@ struct ProfileView: View {
     private func statBox(icon: String, color: Color, value: String, label: String) -> some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.title3)
+                .font(.system(size: scaled(20)))
                 .foregroundColor(color)
             Text(value)
-                .font(.title3)
-                .fontWeight(.bold)
+                .font(.system(size: scaled(20), weight: .bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .foregroundColor(.white)
             Text(label)
-                .font(.caption2)
+                .font(.system(size: scaled(11)))
                 .foregroundColor(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -326,15 +321,14 @@ struct ProfileView: View {
         VStack(spacing: 3) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.caption)
+                    .font(.system(size: scaled(12)))
                     .foregroundColor(color)
                 Text(value)
-                    .font(.subheadline)
-                    .fontWeight(.bold)
+                    .font(.system(size: scaled(15), weight: .bold))
                     .foregroundColor(.white)
             }
             Text(label)
-                .font(.caption2)
+                .font(.system(size: scaled(11)))
                 .foregroundColor(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -346,12 +340,12 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Achievements")
-                    .font(.headline)
+                    .font(.system(size: scaled(17), weight: .semibold))
                     .foregroundColor(.white)
                 Spacer()
                 let unlocked = viewModel.achievements.filter { $0.isUnlocked }.count
                 Text("\(unlocked)/\(viewModel.achievements.count)")
-                    .font(.caption)
+                    .font(.system(size: scaled(12)))
                     .foregroundColor(Theme.textSecondary)
             }
 
@@ -384,11 +378,11 @@ struct ProfileView: View {
                                 .foregroundColor(Theme.accentYellow)
                         }
                         Text("Subscriptions")
-                            .font(.subheadline)
+                            .font(.system(size: scaled(15)))
                             .foregroundColor(.white)
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.caption)
+                            .font(.system(size: scaled(12)))
                             .foregroundColor(Theme.textMuted)
                     }
                     .padding(.horizontal, 16)
@@ -448,11 +442,11 @@ struct ProfileView: View {
                                 .foregroundColor(Theme.textMuted)
                         }
                         Text("API Backend")
-                            .font(.subheadline)
+                            .font(.system(size: scaled(15)))
                             .foregroundColor(.white)
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.caption)
+                            .font(.system(size: scaled(12)))
                             .foregroundColor(Theme.textMuted)
                     }
                     .padding(.horizontal, 16)
@@ -473,7 +467,7 @@ struct ProfileView: View {
                                 .foregroundColor(.orange)
                         }
                         Text("Reset Onboarding")
-                            .font(.subheadline)
+                            .font(.system(size: scaled(15)))
                             .foregroundColor(.orange)
                         Spacer()
                     }
@@ -497,8 +491,7 @@ struct ProfileView: View {
                             .foregroundColor(Theme.accentRed)
                     }
                     Text("Sign Out")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(.system(size: scaled(15), weight: .medium))
                         .foregroundColor(Theme.accentRed)
                     Spacer()
                 }
@@ -514,8 +507,7 @@ struct ProfileView: View {
     private func profileSettingsGroup<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.caption)
-                .fontWeight(.semibold)
+                .font(.system(size: scaled(12), weight: .semibold))
                 .foregroundColor(Theme.textMuted)
                 .padding(.leading, 4)
 
@@ -533,10 +525,10 @@ struct ProfileView: View {
     private var versionFooter: some View {
         VStack(spacing: 4) {
             Text("ShareQuest")
-                .font(.caption)
+                .font(.system(size: scaled(12)))
                 .foregroundColor(Theme.textMuted)
             Text("Version 1.0.0")
-                .font(.caption2)
+                .font(.system(size: scaled(11)))
                 .foregroundColor(Theme.textMuted.opacity(0.6))
         }
         .padding(.top, 8)
@@ -585,7 +577,7 @@ struct ProfileSettingsRow: View {
                 }
 
                 Text(title)
-                    .font(.subheadline)
+                    .font(.system(size: scaled(15)))
                     .foregroundColor(.white)
 
                 Spacer()
@@ -593,7 +585,7 @@ struct ProfileSettingsRow: View {
                 switch trailing {
                 case .chevron:
                     Image(systemName: "chevron.right")
-                        .font(.caption)
+                        .font(.system(size: scaled(12)))
                         .foregroundColor(Theme.textMuted)
                 case .toggle(let binding):
                     Toggle("", isOn: binding)
@@ -623,11 +615,11 @@ struct ProfileAchievementBadge: View {
                     .fill(achievement.isUnlocked ? Theme.accentYellow.opacity(0.25) : Color.white.opacity(0.05))
                     .frame(width: 56, height: 56)
                 Text(achievement.displayIcon)
-                    .font(.title2)
+                    .font(.system(size: scaled(22)))
                     .opacity(achievement.isUnlocked ? 1 : 0.3)
             }
             Text(achievement.displayName)
-                .font(.caption2)
+                .font(.system(size: scaled(11)))
                 .foregroundColor(achievement.isUnlocked ? .white : Theme.textMuted)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
@@ -775,7 +767,7 @@ struct SettingsView: View {
                         }
                     }
                     if let err = deleteError {
-                        Text(err).font(.caption).foregroundColor(Theme.accentRed)
+                        Text(err).font(.system(size: scaled(12))).foregroundColor(Theme.accentRed)
                     }
                 }
                 .confirmationDialog(
@@ -848,7 +840,7 @@ struct SettingsView: View {
                         Spacer()
                         Text("\(appVersion) (\(buildNumber))")
                             .foregroundColor(Theme.textSecondary)
-                            .font(.subheadline)
+                            .font(.system(size: scaled(15)))
                     }
                 }
 
@@ -908,13 +900,13 @@ struct DebugAPISettingsView: View {
                 }
                 .pickerStyle(.segmented)
                 Text("Current base URL: \(APIConfig.mainAppURL)")
-                    .font(.caption).foregroundColor(.secondary)
+                    .font(.system(size: scaled(12))).foregroundColor(.secondary)
             }
             Section("Local Host") {
                 TextField("localhost:3000", text: $localHost)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                 Text("Simulator: localhost:3000. Device: your Mac LAN IP:3000.")
-                    .font(.caption).foregroundColor(.secondary)
+                    .font(.system(size: scaled(12))).foregroundColor(.secondary)
             }
             Section("Remote Base URL") {
                 TextField("https://sharequest.co.uk/api", text: $remoteBaseURL)
@@ -944,7 +936,7 @@ struct DebugAPISettingsView: View {
             }
             if !statusMessage.isEmpty {
                 Section("Status") {
-                    Text(statusMessage).font(.footnote)
+                    Text(statusMessage).font(.system(size: scaled(13)))
                 }
             }
         }

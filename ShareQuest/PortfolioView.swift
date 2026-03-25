@@ -144,8 +144,7 @@ struct PortfolioView: View {
                 Image(systemName: icon)
                     .font(.system(size: scaled(13), weight: .semibold))
                 Text(label)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(.system(size: scaled(15), weight: .semibold))
             }
             .foregroundColor(isActive ? .white : Theme.textSecondary)
             .frame(maxWidth: .infinity)
@@ -192,7 +191,7 @@ struct PortfolioView: View {
         VStack(spacing: 16) {
             VStack(spacing: 4) {
                 Text("Total Value")
-                    .font(.subheadline)
+                    .font(.system(size: scaled(15)))
                     .foregroundColor(Theme.textSecondary)
                 Text(viewModel.formattedTotalValue)
                     .font(.system(size: scaled(28), weight: .bold))
@@ -204,15 +203,15 @@ struct PortfolioView: View {
             Divider().background(Theme.glassBorder)
             HStack {
                 VStack(spacing: 4) {
-                    Text("Cash").font(.caption).foregroundColor(Theme.textSecondary)
+                    Text("Cash").font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                     Text(viewModel.formattedCash)
-                        .font(.subheadline).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                        .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(Theme.textPrimary)
                 }
                 Spacer()
                 VStack(spacing: 4) {
-                    Text("Holdings").font(.caption).foregroundColor(Theme.textSecondary)
+                    Text("Holdings").font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                     Text(viewModel.formattedHoldingsValue)
-                        .font(.subheadline).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                        .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(Theme.textPrimary)
                 }
             }
         }
@@ -223,9 +222,9 @@ struct PortfolioView: View {
     private var holdingsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Holdings").font(.headline).foregroundColor(Theme.textPrimary)
+                Text("Holdings").font(.system(size: scaled(17), weight: .semibold)).foregroundColor(Theme.textPrimary)
                 Spacer()
-                Text("\(viewModel.holdings.count) stocks").font(.caption).foregroundColor(Theme.textSecondary)
+                Text("\(viewModel.holdings.count) stocks").font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
             }
             if viewModel.isLoading {
                 ProgressView()
@@ -244,8 +243,8 @@ struct PortfolioView: View {
     private var emptyHoldingsView: some View {
         VStack(spacing: 12) {
             Image(systemName: "briefcase").font(.system(size: scaled(40))).foregroundColor(Theme.textMuted)
-            Text("No holdings yet").font(.subheadline).foregroundColor(Theme.textSecondary)
-            Text("Start trading to build your portfolio").font(.caption).foregroundColor(Theme.textMuted)
+            Text("No holdings yet").font(.system(size: scaled(15))).foregroundColor(Theme.textSecondary)
+            Text("Start trading to build your portfolio").font(.system(size: scaled(12))).foregroundColor(Theme.textMuted)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
@@ -275,9 +274,9 @@ struct PortfolioView: View {
     private var emptyLeaguesView: some View {
         VStack(spacing: 12) {
             Image(systemName: "trophy").font(.system(size: scaled(40))).foregroundColor(Theme.textMuted)
-            Text("No leagues yet").font(.subheadline).foregroundColor(Theme.textSecondary)
+            Text("No leagues yet").font(.system(size: scaled(15))).foregroundColor(Theme.textSecondary)
             Text("Create or join a league to compete with friends")
-                .font(.caption).foregroundColor(Theme.textMuted).multilineTextAlignment(.center)
+                .font(.system(size: scaled(12))).foregroundColor(Theme.textMuted).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
@@ -373,7 +372,7 @@ struct LeaguePortfolioCard: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(state.league.name)
-                        .font(.subheadline).fontWeight(.semibold)
+                        .font(.system(size: scaled(15), weight: .semibold))
                         .foregroundColor(Theme.textPrimary).lineLimit(1)
                     HStack(spacing: 6) {
                         let typeLabel = (state.league.competition_type ?? "annual").capitalized
@@ -395,7 +394,7 @@ struct LeaguePortfolioCard: View {
 
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(String(format: "£%.2f", state.totalValue / 100))
-                        .font(.subheadline).fontWeight(.bold).foregroundColor(Theme.textPrimary)
+                        .font(.system(size: scaled(15), weight: .bold)).foregroundColor(Theme.textPrimary)
                     ChangePill(percent: state.returnPercent, compact: true)
                 }
 
@@ -482,7 +481,7 @@ struct LeaguePortfolioView: View {
                 Image(systemName: league.competition_type == "monthly" ? "calendar.badge.clock" : "star.circle.fill")
                     .foregroundColor(accentColor)
                 Text((league.competition_type ?? "annual").capitalized + " League")
-                    .font(.caption).fontWeight(.semibold).foregroundColor(accentColor)
+                    .font(.system(size: scaled(12), weight: .semibold)).foregroundColor(accentColor)
                 Spacer()
                 let (sLabel, sColor) = statusInfo
                 Text(sLabel)
@@ -494,7 +493,7 @@ struct LeaguePortfolioView: View {
             Divider().background(Theme.glassBorder)
 
             VStack(spacing: 4) {
-                Text("Total Value").font(.subheadline).foregroundColor(Theme.textSecondary)
+                Text("Total Value").font(.system(size: scaled(15))).foregroundColor(Theme.textSecondary)
                 Text(String(format: "£%.2f", totalValue / 100))
                     .font(.system(size: scaled(28), weight: .bold)).foregroundColor(Theme.textPrimary)
                     .minimumScaleFactor(0.7).lineLimit(1)
@@ -506,21 +505,21 @@ struct LeaguePortfolioView: View {
 
             HStack {
                 VStack(spacing: 4) {
-                    Text("Cash").font(.caption).foregroundColor(Theme.textSecondary)
+                    Text("Cash").font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                     Text(String(format: "£%.2f", cashBalance / 100))
-                        .font(.subheadline).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                        .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(Theme.textPrimary)
                 }
                 Spacer()
                 VStack(spacing: 4) {
-                    Text("Holdings").font(.caption).foregroundColor(Theme.textSecondary)
+                    Text("Holdings").font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                     Text(String(format: "£%.2f", (totalValue - cashBalance) / 100))
-                        .font(.subheadline).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                        .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(Theme.textPrimary)
                 }
                 Spacer()
                 VStack(spacing: 4) {
-                    Text("Members").font(.caption).foregroundColor(Theme.textSecondary)
+                    Text("Members").font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                     Text("\(league.member_count ?? 0)")
-                        .font(.subheadline).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                        .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(Theme.textPrimary)
                 }
             }
         }
@@ -533,9 +532,9 @@ struct LeaguePortfolioView: View {
     private var holdingsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Holdings").font(.headline).foregroundColor(Theme.textPrimary)
+                Text("Holdings").font(.system(size: scaled(17), weight: .semibold)).foregroundColor(Theme.textPrimary)
                 Spacer()
-                Text("\(holdings.count) stocks").font(.caption).foregroundColor(Theme.textSecondary)
+                Text("\(holdings.count) stocks").font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
             }
 
             if isLoading {
@@ -543,13 +542,13 @@ struct LeaguePortfolioView: View {
             } else if holdings.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "briefcase").font(.system(size: scaled(36))).foregroundColor(Theme.textMuted)
-                    Text("No holdings yet").font(.subheadline).foregroundColor(Theme.textSecondary)
+                    Text("No holdings yet").font(.system(size: scaled(15))).foregroundColor(Theme.textSecondary)
                     if isActive {
                         Text("Go to Stocks to make your first league trade")
-                            .font(.caption).foregroundColor(Theme.textMuted).multilineTextAlignment(.center)
+                            .font(.system(size: scaled(12))).foregroundColor(Theme.textMuted).multilineTextAlignment(.center)
                     } else {
                         Text("Trading opens once the league is active")
-                            .font(.caption).foregroundColor(Theme.textMuted).multilineTextAlignment(.center)
+                            .font(.system(size: scaled(12))).foregroundColor(Theme.textMuted).multilineTextAlignment(.center)
                     }
                 }
                 .frame(maxWidth: .infinity).padding(.vertical, 40).glassCard()
@@ -571,17 +570,17 @@ struct LeaguePortfolioView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(holding.companyName ?? holding.symbol)
-                        .font(.subheadline).fontWeight(.semibold)
+                        .font(.system(size: scaled(15), weight: .semibold))
                         .foregroundColor(Theme.textPrimary).lineLimit(1)
                     HStack(spacing: 8) {
-                        Text(holding.symbol).font(.caption).foregroundColor(Theme.textSecondary)
-                        Text("\(Int(holding.quantity)) shares").font(.caption).fontWeight(.bold).foregroundColor(.white)
+                        Text(holding.symbol).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
+                        Text("\(Int(holding.quantity)) shares").font(.system(size: scaled(12), weight: .bold)).foregroundColor(.white)
                     }
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(String(format: "£%.2f", value / 100))
-                        .font(.caption).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                        .font(.system(size: scaled(12), weight: .semibold)).foregroundColor(Theme.textPrimary)
                     ChangePill(percent: plPct)
                 }
             }
@@ -626,8 +625,7 @@ struct PortfolioTypeButton: View {
             HStack(spacing: 6) {
                 Text(type.emoji)
                 Text(type.displayName)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(.system(size: scaled(15), weight: .semibold))
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 11)
@@ -661,17 +659,17 @@ struct HoldingRowView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(holding.companyName)
-                        .font(.subheadline).fontWeight(.semibold).lineLimit(1)
+                        .font(.system(size: scaled(15), weight: .semibold)).lineLimit(1)
                         .foregroundColor(Theme.textPrimary)
                     HStack(spacing: 8) {
-                        Text(holding.symbol).font(.caption).foregroundColor(Theme.textSecondary).lineLimit(1)
-                        Text("\(holding.quantity) shares").font(.caption).fontWeight(.bold).foregroundColor(.white)
+                        Text(holding.symbol).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary).lineLimit(1)
+                        Text("\(holding.quantity) shares").font(.system(size: scaled(12), weight: .bold)).foregroundColor(.white)
                     }
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(holding.formattedValue)
-                        .font(.caption).fontWeight(.semibold).lineLimit(1).foregroundColor(Theme.textPrimary)
+                        .font(.system(size: scaled(12), weight: .semibold)).lineLimit(1).foregroundColor(Theme.textPrimary)
                     ChangePill(percent: holding.changePercent)
                 }
             }

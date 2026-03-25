@@ -365,10 +365,10 @@ struct StocksView: View {
                                 .font(.system(size: scaled(48)))
                                 .foregroundColor(Theme.textMuted)
                             Text("No stocks in watchlist")
-                                .font(.headline)
+                                .font(.system(size: scaled(17), weight: .semibold))
                                 .foregroundColor(Theme.textSecondary)
                             Text("Tap the ★ on any stock to add it here")
-                                .font(.caption)
+                                .font(.system(size: scaled(12)))
                                 .foregroundColor(Theme.textMuted)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 40)
@@ -377,11 +377,11 @@ struct StocksView: View {
                                 .font(.system(size: scaled(48)))
                                 .foregroundColor(Theme.textMuted)
                             Text(searchText.isEmpty ? "Search for a stock" : "No results for \"\(searchText)\"")
-                                .font(.headline)
+                                .font(.system(size: scaled(17), weight: .semibold))
                                 .foregroundColor(Theme.textSecondary)
                             if searchText.isEmpty {
                                 Text("Type a company name or ticker, or tap a category above")
-                                    .font(.caption)
+                                    .font(.system(size: scaled(12)))
                                     .foregroundColor(Theme.textMuted)
                                     .multilineTextAlignment(.center)
                                     .padding(.horizontal, 40)
@@ -417,8 +417,7 @@ struct StockTabButton: View {
     var body: some View {
         Button(action: action) {
             Text(tab.displayName)
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.system(size: scaled(15), weight: .medium))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(isSelected ? Theme.primaryBlue.opacity(0.3) : Theme.glassBackground)
@@ -458,11 +457,11 @@ struct StockRowView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(stock.companyName)
-                        .font(.headline)
+                        .font(.system(size: scaled(17), weight: .semibold))
                         .foregroundColor(Theme.textPrimary)
                         .lineLimit(1)
                     Text(stock.symbol)
-                        .font(.caption)
+                        .font(.system(size: scaled(12)))
                         .foregroundColor(Theme.textSecondary)
                 }
 
@@ -470,8 +469,7 @@ struct StockRowView: View {
 
                 VStack(alignment: .trailing, spacing: 6) {
                     Text(pencePriceDisplay)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                        .font(.system(size: scaled(15), weight: .semibold))
                         .foregroundColor(Theme.textPrimary)
                     ChangePill(percent: stock.changePercent)
                 }
@@ -590,20 +588,20 @@ struct StockDetailView: View {
             case .idle:
                 HStack(spacing: 12) {
                     Image(systemName: "scope")
-                        .font(.title3)
+                        .font(.system(size: scaled(20)))
                         .foregroundColor(huntColor)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Stock Hunt Active")
-                            .font(.subheadline).fontWeight(.bold).foregroundColor(.white)
+                            .font(.system(size: scaled(15), weight: .bold)).foregroundColor(.white)
                         Text("\(activeHunts.count) challenge\(activeHunts.count == 1 ? "" : "s") — does this stock match?")
-                            .font(.caption).foregroundColor(Theme.textSecondary)
+                            .font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                     }
                     Spacer()
                     Button {
                         Task { await claimHunt() }
                     } label: {
                         Text("Claim")
-                            .font(.subheadline).fontWeight(.semibold)
+                            .font(.system(size: scaled(15), weight: .semibold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 16).padding(.vertical, 8)
                             .background(huntColor)
@@ -617,19 +615,19 @@ struct StockDetailView: View {
                         .progressViewStyle(CircularProgressViewStyle(tint: huntColor))
                         .scaleEffect(0.85)
                     Text("Checking…")
-                        .font(.subheadline).foregroundColor(Theme.textSecondary)
+                        .font(.system(size: scaled(15))).foregroundColor(Theme.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
 
             case .matched(let xp):
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(Theme.accentGreen).font(.title3)
+                        .foregroundColor(Theme.accentGreen).font(.system(size: scaled(20)))
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Challenge Complete!")
-                            .font(.subheadline).fontWeight(.bold).foregroundColor(Theme.accentGreen)
+                            .font(.system(size: scaled(15), weight: .bold)).foregroundColor(Theme.accentGreen)
                         Text("+\(xp) XP earned")
-                            .font(.caption).foregroundColor(Theme.accentYellow)
+                            .font(.system(size: scaled(12))).foregroundColor(Theme.accentYellow)
                     }
                     Spacer()
                     Image(systemName: "star.fill")
@@ -639,12 +637,12 @@ struct StockDetailView: View {
             case .noMatch:
                 HStack(spacing: 10) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.27)).font(.title3)
+                        .foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.27)).font(.system(size: scaled(20)))
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Doesn't match today's criteria")
-                            .font(.subheadline).fontWeight(.medium).foregroundColor(.white)
+                            .font(.system(size: scaled(15), weight: .medium)).foregroundColor(.white)
                         Text("Keep researching — try another stock")
-                            .font(.caption).foregroundColor(Theme.textSecondary)
+                            .font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                     }
                     Spacer()
                     Button {
@@ -703,8 +701,7 @@ struct StockDetailHeader: View {
         VStack(spacing: 8) {
             HStack(alignment: .top) {
                 Text(companyName.uppercased())
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(.system(size: scaled(22), weight: .bold))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
@@ -713,8 +710,7 @@ struct StockDetailHeader: View {
                 if let onTrade = onTrade {
                     Button(action: onTrade) {
                         Text("Trade")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .font(.system(size: scaled(15), weight: .semibold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -726,18 +722,17 @@ struct StockDetailHeader: View {
             }
 
             Text(symbol)
-                .font(.caption)
+                .font(.system(size: scaled(12)))
                 .foregroundColor(Theme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(alignment: .center, spacing: 10) {
                 Text(price)
-                    .font(.title3)
-                    .fontWeight(.bold)
+                    .font(.system(size: scaled(20), weight: .bold))
                     .foregroundColor(.white)
                 ChangePill(percent: changePercent)
                 Text("today")
-                    .font(.caption)
+                    .font(.system(size: scaled(12)))
                     .foregroundColor(.white.opacity(0.5))
             }
 
@@ -802,8 +797,7 @@ struct SectorPill: View {
     var body: some View {
         Button(action: { onTap?() }) {
             Text(text)
-                .font(.caption)
-                .fontWeight(.semibold)
+                .font(.system(size: scaled(12), weight: .semibold))
                 .foregroundColor(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -960,7 +954,7 @@ struct SectorsView: View {
                 Text(vm.selectedSubsector != nil ? (vm.selectedSector ?? "") : "All Sectors")
                     .fontWeight(.semibold)
             }
-            .font(.subheadline)
+            .font(.system(size: scaled(15)))
             .foregroundColor(Theme.primaryBlue)
         }
         .buttonStyle(PlainButtonStyle())
@@ -982,7 +976,7 @@ struct SectorsView: View {
     private var subsectorGrid: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(vm.selectedSector ?? "")
-                .font(.title2).fontWeight(.bold).foregroundColor(.white).padding(.bottom, 4)
+                .font(.system(size: scaled(22), weight: .bold)).foregroundColor(.white).padding(.bottom, 4)
             if vm.subsectors.isEmpty && !vm.isLoading {
                 Text("No subsectors found").foregroundColor(Theme.textMuted)
                     .padding(.top, 20).frame(maxWidth: .infinity, alignment: .center)
@@ -1003,9 +997,9 @@ struct SectorsView: View {
     private var stocksGrid: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(vm.selectedSector ?? "").font(.caption).foregroundColor(Theme.textMuted)
+                Text(vm.selectedSector ?? "").font(.system(size: scaled(12))).foregroundColor(Theme.textMuted)
                 Text(vm.selectedSubsector?.subsector ?? "")
-                    .font(.title2).fontWeight(.bold).foregroundColor(.white)
+                    .font(.system(size: scaled(22), weight: .bold)).foregroundColor(.white)
             }
             .padding(.bottom, 4)
             if vm.subsectorStocks.isEmpty && !vm.isLoading {
@@ -1041,8 +1035,8 @@ struct SectorTile: View {
                 Image(systemName: icon).font(.system(size: scaled(18))).foregroundColor(.white)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.subheadline).fontWeight(.semibold).foregroundColor(.white).lineLimit(1)
-                Text(subtitle).font(.caption).foregroundColor(Theme.textSecondary)
+                Text(title).font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                Text(subtitle).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
             }
             Spacer()
             Image(systemName: "chevron.right").font(.system(size: scaled(13), weight: .semibold)).foregroundColor(Theme.textMuted)

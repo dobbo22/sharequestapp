@@ -474,13 +474,13 @@ struct StockTradeSheet: View {
                                     .foregroundColor(Theme.primaryBlue)
                                     .fontWeight(.bold)
                             }
-                            .font(.caption)
+                            .font(.system(size: scaled(12)))
                         }
 
                         executeButton
 
                         Text("This is a simulated trading platform for educational purposes only. No real money is involved.")
-                            .font(.caption)
+                            .font(.system(size: scaled(12)))
                             .foregroundColor(Color(red: 0.42, green: 0.45, blue: 0.52))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
@@ -524,7 +524,7 @@ struct StockTradeSheet: View {
             Image(systemName: window.isAfterHours ? "moon.fill" : "clock")
                 .foregroundColor(window.isAfterHours ? Color(red: 0.96, green: 0.62, blue: 0.04) : Theme.primaryBlue)
             Text(window.message ?? "")
-                .font(.caption)
+                .font(.system(size: scaled(12)))
                 .foregroundColor(window.isAfterHours ? Color(red: 0.96, green: 0.62, blue: 0.04) : Theme.primaryBlue)
                 .multilineTextAlignment(.leading)
             Spacer()
@@ -543,7 +543,7 @@ struct StockTradeSheet: View {
             Image(systemName: info.isPendingOrder ? "clock.fill" : "checkmark.circle.fill")
                 .foregroundColor(info.isPendingOrder ? Theme.primaryBlue : Color(red: 0.06, green: 0.73, blue: 0.51))
             Text(info.message)
-                .font(.subheadline).fontWeight(.medium)
+                .font(.system(size: scaled(15), weight: .medium))
                 .foregroundColor(info.isPendingOrder ? Theme.primaryBlue : Color(red: 0.06, green: 0.73, blue: 0.51))
             Spacer()
         }
@@ -565,7 +565,7 @@ struct StockTradeSheet: View {
                     Image(systemName: "plus.circle")
                     Text("Buy").fontWeight(.semibold)
                 }
-                .font(.subheadline)
+                .font(.system(size: scaled(15)))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(vm.tradeAction == "buy" ? buyColor : Color.clear)
@@ -582,7 +582,7 @@ struct StockTradeSheet: View {
                         Image(systemName: "minus.circle")
                         Text("Sell").fontWeight(.semibold)
                     }
-                    .font(.subheadline)
+                    .font(.system(size: scaled(15)))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(vm.tradeAction == "sell" ? sellColor : Color.clear)
@@ -602,7 +602,7 @@ struct StockTradeSheet: View {
     private var portfolioSelector: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("SELECT PORTFOLIO")
-                .font(.caption).fontWeight(.semibold)
+                .font(.system(size: scaled(12), weight: .semibold))
                 .foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -615,7 +615,7 @@ struct StockTradeSheet: View {
                                 .font(.system(size: scaled(16)))
                                 .foregroundColor(isSelected ? .white : color)
                             Text(option.label)
-                                .font(.subheadline).fontWeight(.semibold)
+                                .font(.system(size: scaled(15), weight: .semibold))
                                 .foregroundColor(isSelected ? .white : color)
                             Spacer()
                         }
@@ -643,7 +643,7 @@ struct StockTradeSheet: View {
                     Text("League").foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
                     Spacer()
                 }
-                .font(.subheadline)
+                .font(.system(size: scaled(15)))
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 10).fill(color.opacity(0.12)))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(color.opacity(0.4), lineWidth: 1))
@@ -655,7 +655,7 @@ struct StockTradeSheet: View {
                     Text("Portfolio").foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
                     Spacer()
                 }
-                .font(.subheadline)
+                .font(.system(size: scaled(15)))
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 10).fill(portfolio.color.opacity(0.12)))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(portfolio.color.opacity(0.4), lineWidth: 1))
@@ -668,21 +668,21 @@ struct StockTradeSheet: View {
     private var quantitySection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("QUANTITY (SHARES)")
-                .font(.caption).fontWeight(.semibold)
+                .font(.system(size: scaled(12), weight: .semibold))
                 .foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
 
             // Display — tap to open numpad
             Button { showNumpad = true } label: {
                 HStack {
                     Text(vm.quantity.isEmpty ? "0" : vm.quantity)
-                        .font(.title2).fontWeight(.bold)
+                        .font(.system(size: scaled(22), weight: .bold))
                         .foregroundColor(vm.quantity.isEmpty ? Color(red: 0.42, green: 0.45, blue: 0.52) : .white)
                     Spacer()
                     Text("shares")
-                        .font(.subheadline)
+                        .font(.system(size: scaled(15)))
                         .foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
                     Image(systemName: showNumpad ? "chevron.up" : "chevron.down")
-                        .font(.caption)
+                        .font(.system(size: scaled(12)))
                         .foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
                 }
                 .padding(16)
@@ -763,12 +763,12 @@ struct StockTradeSheet: View {
             Divider().background(Color(red: 0.29, green: 0.34, blue: 0.39).opacity(0.35)).padding(.vertical, 8)
             HStack {
                 Text("Estimated Total")
-                    .font(.subheadline).fontWeight(.semibold)
+                    .font(.system(size: scaled(15), weight: .semibold))
                     .foregroundColor(.white)
                 Spacer()
                 // Show estimated total in pounds, rounded to 2 decimals
                 Text("£\(String(format: "%.2f", vm.estimatedTotalPounds))")
-                    .font(.title3).fontWeight(.bold)
+                    .font(.system(size: scaled(20), weight: .bold))
                     .foregroundColor(Theme.primaryBlue)
             }
         }
@@ -781,9 +781,9 @@ struct StockTradeSheet: View {
 
     private func summaryRow(label: String, value: String) -> some View {
         HStack {
-            Text(label).font(.subheadline).foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
+            Text(label).font(.system(size: scaled(15))).foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
             Spacer()
-            Text(value).font(.subheadline).fontWeight(.medium).foregroundColor(.white)
+            Text(value).font(.system(size: scaled(15), weight: .medium)).foregroundColor(.white)
         }
     }
 
@@ -792,7 +792,7 @@ struct StockTradeSheet: View {
     private func alertRow(text: String, color: Color, icon: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: icon).foregroundColor(color).font(.system(size: scaled(16)))
-            Text(text).font(.caption).foregroundColor(color).multilineTextAlignment(.leading)
+            Text(text).font(.system(size: scaled(12))).foregroundColor(color).multilineTextAlignment(.leading)
             Spacer()
         }
         .padding(12)
@@ -809,7 +809,7 @@ struct StockTradeSheet: View {
                     ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
                 } else {
                     Image(systemName: vm.executeButtonIcon).font(.system(size: scaled(20)))
-                    Text(vm.executeButtonLabel).font(.headline)
+                    Text(vm.executeButtonLabel).font(.system(size: scaled(17), weight: .semibold))
                 }
             }
             .foregroundColor(.white)
