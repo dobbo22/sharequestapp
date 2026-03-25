@@ -40,7 +40,8 @@ struct League: Identifiable, Codable {
     }
 }
 
-struct LeagueMember: Codable {
+struct LeagueMember: Codable, Identifiable {
+    var id: String { user_id }
     let user_id: String
     let username: String
     let rank: Int?
@@ -427,6 +428,7 @@ struct LeagueDetailSheet: View {
     @State private var isPaid: Bool? = nil
     @State private var justPaid: Bool = false
     @State private var paymentPollingTask: Task<Void, Never>? = nil
+    @State private var selectedMember: LeagueMember? = nil
 
     var body: some View {
         NavigationStack {
@@ -557,6 +559,7 @@ struct LeagueDetailSheet: View {
                                 } else {
                                     ForEach(Array(members.enumerated()), id: \.element.user_id) { index, member in
                                         memberRow(member: member, rank: member.rank ?? (index + 1))
+                                            .onTapGesture { selectedMember = member }
                                     }
                                     .padding(.horizontal)
                                 }
@@ -591,6 +594,9 @@ struct LeagueDetailSheet: View {
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .sheet(item: $selectedMember) { member in
+                LeagueMemberPortfolioSheet(member: member, league: league)
+            }
         }
         .task {
             await loadMembers()
@@ -762,6 +768,125 @@ struct LeagueDetailSheet: View {
             members = try await APIService.shared.fetchLeagueMembers(leagueId: league.id)
         } catch {
             members = []
+        }
+    }
+}
+
+// MARK: - League Member Portfolio Sheet
+
+struct LeagueMemberPortfolioSheet: View {
+    let member: LeagueMember
+    let league: League
+    @Environment(\.dismiss) private var dismiss
+    @State private var portfolio: LeaderboardUserPortfolio? = nil
+    @State private var isLoading = true
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.backgroundPrimary.ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Summary stats
+                        HStack(spacing: 10) {
+                            statBox(label: "Rank", value: member.rank.map { "#\($0)" } ?? "—")
+                            statBox(label: "Total Value", value: formattedPounds(member.total_value ?? 0))
+                            statBox(label: "Return", value: member.profit_loss_percent.map { String(format: "%+.2f%%", $0) } ?? "—")
+                        }
+                        .padding(.horizontal)
+
+                        if let p = portfolio {
+                            HStack(spacing: 10) {
+                                statBox(label: "Cash", value: formattedPounds(p.cashBalance / 100))
+                                statBox(label: "Holdings", value: "\(p.holdings.count)")
+                                Spacer().frame(maxWidth: .infinity)
+                            }
+                            .padding(.horizontal)
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Holdings")
+                                .font(.headline).foregroundColor(.white)
+                                .padding(.horizontal)
+
+                            if isLoading {
+                                HStack { Spacer(); ProgressView().tint(Theme.primaryBlue); Spacer() }.padding()
+                            } else if let holdings = portfolio?.holdings, !holdings.isEmpty {
+                                ForEach(holdings, id: \.symbol) { holding in
+                                    holdingRow(holding: holding).padding(.horizontal)
+                                }
+                            } else {
+                                Text("No holdings").foregroundColor(Theme.textSecondary).padding()
+                            }
+                        }
+                        Spacer(minLength: 40)
+                    }
+                    .padding(.top)
+                }
+            }
+            .navigationTitle("\(member.username)'s Portfolio")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }.foregroundColor(Theme.primaryBlue)
+                }
+            }
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+        }
+        .task { await loadPortfolio() }
+    }
+
+    private func formattedPounds(_ pence: Double) -> String {
+        let pounds = pence / 100.0
+        if pounds >= 1_000 { return String(format: "£%.1fK", pounds / 1_000) }
+        return String(format: "£%.2f", pounds)
+    }
+
+    private func statBox(label: String, value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(label).font(.caption).foregroundColor(Theme.textSecondary)
+            Text(value).font(.subheadline).fontWeight(.bold).foregroundColor(.white)
+                .lineLimit(1).minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(Color.white.opacity(0.06))
+        .cornerRadius(12)
+    }
+
+    private func holdingRow(holding: LeaderboardUserPortfolio.Holding) -> some View {
+        let value = holding.quantity * holding.currentPrice
+        let cost = holding.quantity * holding.averagePrice
+        let plPercent = cost > 0 ? ((value - cost) / cost) * 100 : 0
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(holding.companyName ?? holding.symbol)
+                    .font(.subheadline).fontWeight(.semibold).foregroundColor(.white).lineLimit(1)
+                Text("\(holding.symbol) · \(Int(holding.quantity)) shares")
+                    .font(.caption).foregroundColor(Theme.textSecondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(formattedPounds(value / 100))
+                    .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                ChangePill(percent: plPercent, compact: true)
+            }
+        }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
+    }
+
+    private func loadPortfolio() async {
+        defer { isLoading = false }
+        do {
+            portfolio = try await APIService.shared.fetchLeaderboardUserPortfolio(
+                type: league.competition_type ?? "annual",
+                userId: member.user_id
+            )
+        } catch {
+            portfolio = LeaderboardUserPortfolio(rank: member.rank, cashBalance: 0, holdings: [])
         }
     }
 }

@@ -14,6 +14,7 @@ struct PortfolioView: View {
     @State private var selectedPortfolioType: PortfolioType
     @State private var selectedHolding: Holding?
     @State private var availablePortfolios: [PortfolioConfig] = []
+    @State private var myLeagues: [League] = []
 
     /// When pushed via NavigationLink from Dashboard, skip the inner NavigationStack
     var isEmbedded: Bool = false
@@ -75,6 +76,9 @@ struct PortfolioView: View {
                     portfolioTypeSelector
                     portfolioSummaryCard
                     holdingsSection
+                    if !myLeagues.isEmpty {
+                        leaguesSection
+                    }
                 }
                 .padding()
             }
@@ -182,6 +186,72 @@ struct PortfolioView: View {
         }
     }
     
+    // MARK: - Leagues Section
+    private var leaguesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("My Leagues")
+                .font(.headline)
+                .foregroundColor(Theme.textPrimary)
+
+            ForEach(myLeagues) { league in
+                leagueRow(league: league)
+            }
+        }
+    }
+
+    private func leagueRow(league: League) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(portfolioColor(for: league.competition_type ?? "annual").opacity(0.2))
+                    .frame(width: 40, height: 40)
+                Image(systemName: league.competition_type == "monthly" ? "calendar.badge.clock" : "star.circle.fill")
+                    .foregroundColor(portfolioColor(for: league.competition_type ?? "annual"))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(league.name)
+                    .font(.subheadline).fontWeight(.semibold)
+                    .foregroundColor(Theme.textPrimary)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text((league.competition_type ?? "annual").capitalized)
+                        .font(.caption).foregroundColor(Theme.textSecondary)
+                    Text("·")
+                        .font(.caption).foregroundColor(Theme.textMuted)
+                    Text(leagueStatusText(league))
+                        .font(.caption)
+                        .foregroundColor(leagueStatusColor(league))
+                }
+            }
+            Spacer()
+            if let count = league.member_count {
+                Text("\(count) members")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+            }
+        }
+        .padding()
+        .glassCard()
+    }
+
+    private func leagueStatusText(_ league: League) -> String {
+        switch league.status {
+        case "active": return "Active"
+        case "pending": return "Pending"
+        case "completed": return "Ended"
+        default: return league.status?.capitalized ?? ""
+        }
+    }
+
+    private func leagueStatusColor(_ league: League) -> Color {
+        switch league.status {
+        case "active": return Theme.accentGreen
+        case "pending": return Theme.accentYellow
+        case "completed": return Theme.textMuted
+        default: return Theme.textSecondary
+        }
+    }
+
     private var emptyHoldingsView: some View {
         VStack(spacing: 12) {
             Image(systemName: "briefcase")
@@ -214,6 +284,9 @@ struct PortfolioView: View {
                 }
             }
             await viewModel.fetchPortfolio(type: selectedPortfolioType)
+            if let leagues = try? await APIService.shared.fetchUserLeagues() {
+                await MainActor.run { myLeagues = leagues }
+            }
         } catch {
             // fallback: show only practice
             await MainActor.run {
