@@ -182,6 +182,9 @@ final class APIService: @unchecked Sendable {
         self.userId = nil
         KeychainHelper.delete("auth_token")
         KeychainHelper.delete("user_id")
+        UserDefaults.standard.removeObject(forKey: "auth_token")
+        UserDefaults.standard.removeObject(forKey: "user_id")
+        UserDefaults.standard.removeObject(forKey: "user_first_name")
     }
     
     /// Public alias used by AuthManager OAuth flow
@@ -1272,12 +1275,8 @@ final class APIService: @unchecked Sendable {
         
         do {
             let response = try decoder.decode(AuthResponse.self, from: data)
-            if let token = response.token {
-                setAuthToken(token)
-            }
-            if let user = response.user {
-                setUserId(user.id ?? user.username ?? "")
-            }
+            // Register endpoint does not return a token — email must be verified first.
+            // Do not save any token here; verification step handles authentication.
             return response
         } catch {
             throw APIError.decodingError(error.localizedDescription)
@@ -1316,18 +1315,31 @@ final class APIService: @unchecked Sendable {
         return false
     }
 
-    func verifyEmail(email: String, code: String) async throws -> Bool {
-        let urlString = APIConfig.remoteBaseURL.replacingOccurrences(of: "/api", with: "") + "/api/auth/verify-email"
-        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+    func verifyEmail(email: String, code: String) async throws -> OAuthTokenResult? {
+        let url = try buildURL(path: "/mobile/auth/verify-email", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["email": email, "code": code])
         let data = try await performRequest(request)
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            return json["success"] as? Bool ?? false
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let success = json["success"] as? Bool, success,
+              let token = json["token"] as? String else {
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let err = json["error"] as? String {
+                throw APIError.networkError(err)
+            }
+            return nil
         }
-        return false
+        let user = json["user"] as? [String: Any]
+        return OAuthTokenResult(
+            token: token,
+            userId: user?["id"] as? String ?? "",
+            username: user?["username"] as? String ?? "",
+            email: user?["email"] as? String ?? email,
+            firstName: user?["first_name"] as? String,
+            lastName: user?["last_name"] as? String
+        )
     }
 
     func resendVerification(email: String) async throws -> Bool {
@@ -2137,6 +2149,10 @@ final class APIService: @unchecked Sendable {
         case 200...299:
             return data
         case 401:
+            // Token expired or invalid — sign out automatically
+            DispatchQueue.main.async {
+                AuthManager.shared.signOut()
+            }
             throw APIError.unauthorized
         default:
             let serverMessage = extractServerMessage(from: data)

@@ -21,6 +21,7 @@ class AuthManager: ObservableObject {
     @Published var errorMessage: String?
     @Published var hasCompletedOnboarding = false
     @Published var onboardingXP: Int = 0
+    @Published var pendingVerificationEmail: String? = nil
     
     private let apiService = APIService.shared
     
@@ -157,28 +158,13 @@ class AuthManager: ObservableObject {
             )
 
             if let user = response.user {
-                currentUser = User(
-                    id: user.id ?? "",
-                    username: user.username ?? "",
-                    email: user.email ?? "",
-                    firstName: user.first_name ?? firstName,
-                    lastName: user.last_name ?? lastName
-                )
-                isAuthenticated = true
-
-                // If onboardingXP provided, persist locally and sync to server (best-effort)
+                // Store XP locally before verification
                 if let xp = onboardingXP {
                     setOnboardingXP(xp)
-                    Task {
-                        do {
-                            _ = try await APIService.shared.recordOnboardingXP(xp: xp)
-                        } catch {
-                            // ignore sync errors - best-effort
-                            // Onboarding XP sync failed (best-effort) - suppress console output in production
-                        }
-                    }
                 }
 
+                // Don't authenticate yet — require email verification first
+                pendingVerificationEmail = user.email ?? email
                 isLoading = false
                 return true
             } else if let error = response.error ?? response.message {
@@ -216,9 +202,22 @@ class AuthManager: ObservableObject {
         isLoading = true
         errorMessage = nil
         do {
-            let success = try await apiService.verifyEmail(email: email, code: code)
+            if let result = try await apiService.verifyEmail(email: email, code: code) {
+                _ = handleOAuthResult(result)
+                pendingVerificationEmail = nil
+                // Sync any onboarding XP now that the user is authenticated
+                Task {
+                    let localXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
+                    if localXP > 0 {
+                        do { _ = try await APIService.shared.recordOnboardingXP(xp: localXP) } catch {}
+                    }
+                }
+                isLoading = false
+                return true
+            }
+            errorMessage = "Invalid or expired code."
             isLoading = false
-            return success
+            return false
         } catch {
             errorMessage = error.localizedDescription
             isLoading = false

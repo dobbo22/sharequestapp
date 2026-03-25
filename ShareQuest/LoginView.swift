@@ -522,7 +522,6 @@ struct RegisterView: View {
     @State private var showConfirmPassword = false
     @State private var showForm = false
     @State private var showDatePicker = false
-    @State private var showEmailVerification = false
     @State private var selectedDate = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
     
     // Onboarding completion animations
@@ -912,10 +911,6 @@ struct RegisterView: View {
         .sheet(isPresented: $showDatePicker) {
             DatePickerSheet(selectedDate: $selectedDate, dateString: $dateOfBirth, isPresented: $showDatePicker)
         }
-        .fullScreenCover(isPresented: $showEmailVerification) {
-            EmailVerificationView(email: email)
-                .environmentObject(authManager)
-        }
     }
 
     private func register() {
@@ -934,16 +929,13 @@ struct RegisterView: View {
                 await MainActor.run {
                     showConfetti = true
                     showXPGainToast = true
+                    // pendingVerificationEmail set in AuthManager.register() — ContentView handles navigation
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                     withAnimation { showXPGainToast = false }
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
                     withAnimation { showConfetti = false }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                        // Show email verification screen before dismissing
-                        showEmailVerification = true
-                    }
                 }
             }
         }

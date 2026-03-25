@@ -14,7 +14,13 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             Group {
-                if !authManager.hasCompletedOnboarding {
+                if let pendingEmail = authManager.pendingVerificationEmail {
+                    // Email verification required — show regardless of auth/onboarding state
+                    NavigationStack {
+                        EmailVerificationView(email: pendingEmail)
+                            .environmentObject(authManager)
+                    }
+                } else if !authManager.hasCompletedOnboarding {
                     // Show full onboarding flow with trade tutorial for new users
                     OnboardingFlowView()
                         .environmentObject(authManager)
@@ -40,6 +46,7 @@ struct ContentView: View {
         }
         .animation(.easeInOut(duration: 0.5), value: authManager.hasCompletedOnboarding)
         .animation(.easeInOut(duration: 0.5), value: authManager.isAuthenticated)
+        .animation(.easeInOut(duration: 0.5), value: authManager.pendingVerificationEmail)
         .onAppear {
             // Show splash for 2 seconds then fade out
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
