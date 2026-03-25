@@ -881,9 +881,9 @@ struct LeagueMemberPortfolioSheet: View {
     private func loadPortfolio() async {
         defer { isLoading = false }
         do {
-            portfolio = try await APIService.shared.fetchLeaderboardUserPortfolio(
-                type: league.competition_type ?? "annual",
-                userId: member.user_id
+            portfolio = try await APIService.shared.fetchLeagueMemberPortfolio(
+                leagueId: league.id,
+                memberId: member.user_id
             )
         } catch {
             portfolio = LeaderboardUserPortfolio(rank: member.rank, cashBalance: 0, holdings: [])

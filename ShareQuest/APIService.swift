@@ -1733,6 +1733,35 @@ final class APIService: @unchecked Sendable {
         return (try? decoder.decode([LeagueMember].self, from: data)) ?? []
     }
 
+    /// Fetch a league member's portfolio (league-specific, not their main annual/monthly)
+    func fetchLeagueMemberPortfolio(leagueId: String, memberId: String) async throws -> LeaderboardUserPortfolio {
+        let path = "/mobile/leagues/\(leagueId)/portfolio?memberId=\(memberId)"
+        let url = try buildURL(path: path, base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.decodingError("Invalid JSON")
+        }
+        let cashBalance = (json["portfolio"] as? [String: Any]).flatMap { $0["cash_balance"] as? Double } ?? 0
+        var holdings: [LeaderboardUserPortfolio.Holding] = []
+        if let raw = json["holdings"] as? [[String: Any]] {
+            holdings = raw.compactMap { h in
+                guard let symbol = h["symbol"] as? String else { return nil }
+                let qty = (h["quantity"] as? Double) ?? (h["quantity"] as? Int).map(Double.init) ?? 0
+                let avgPrice = (h["average_price"] as? Double) ?? 0
+                let curPrice = (h["mid"] as? Double) ?? (h["mid_price"] as? Double) ?? (h["current_price"] as? Double) ?? 0
+                let name = (h["companyname"] as? String) ?? (h["company_name"] as? String)
+                return LeaderboardUserPortfolio.Holding(
+                    symbol: symbol, companyName: name,
+                    quantity: qty, averagePrice: avgPrice, currentPrice: curPrice
+                )
+            }
+        }
+        return LeaderboardUserPortfolio(rank: nil, cashBalance: cashBalance, holdings: holdings)
+    }
+
     /// Create a new league
     struct CreateLeagueResult {
         let id: String
