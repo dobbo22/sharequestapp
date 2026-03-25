@@ -1484,7 +1484,8 @@ final class APIService: @unchecked Sendable {
             let payload = (json["data"] as? [String: Any]) ?? json
             let publicId = payload["publicId"] as? String ?? payload["public_id"] as? String ?? ""
             let checkoutUrl = payload["checkoutUrl"] as? String ?? payload["checkout_url"] as? String ?? ""
-            return RevolutOrderResponse(publicId: publicId, checkoutUrl: checkoutUrl)
+            let orderId = payload["orderId"] as? String ?? payload["order_id"] as? String ?? ""
+            return RevolutOrderResponse(publicId: publicId, checkoutUrl: checkoutUrl, orderId: orderId)
         }
         throw APIError.decodingError("Invalid Revolut order response")
     }
@@ -1809,7 +1810,7 @@ final class APIService: @unchecked Sendable {
         return dataObj["isPaid"] as? Bool ?? false
     }
 
-    func createSubscriptionOrder(plan: String) async throws -> String {
+    func createSubscriptionOrder(plan: String) async throws -> RevolutOrderResponse {
         let url = try buildURL(path: "/mobile/subscriptions/create-order", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -1818,11 +1819,31 @@ final class APIService: @unchecked Sendable {
         request.httpBody = try JSONSerialization.data(withJSONObject: ["plan": plan])
         let data = try await performRequest(request)
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let dataObj = json["data"] as? [String: Any],
-              let checkoutUrl = dataObj["checkoutUrl"] as? String else {
+              let dataObj = json["data"] as? [String: Any] else {
             throw APIError.decodingError("Failed to decode subscription order response")
         }
-        return checkoutUrl
+        let publicId = dataObj["publicId"] as? String ?? dataObj["public_id"] as? String ?? ""
+        let checkoutUrl = dataObj["checkoutUrl"] as? String ?? dataObj["checkout_url"] as? String ?? ""
+        let orderId = dataObj["orderId"] as? String ?? dataObj["order_id"] as? String ?? ""
+        return RevolutOrderResponse(publicId: publicId, checkoutUrl: checkoutUrl, orderId: orderId)
+    }
+
+    func confirmApplePayment(orderId: String, plan: String, applePayTokenData: Data) async throws -> Bool {
+        let url = try buildURL(path: "/mobile/subscriptions/confirm-apple-pay", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addHeaders(to: &request)
+        // Decode Apple Pay token from JSON data to pass as object
+        guard let tokenJSON = try? JSONSerialization.jsonObject(with: applePayTokenData) else {
+            throw APIError.decodingError("Invalid Apple Pay token data")
+        }
+        let body: [String: Any] = ["orderId": orderId, "plan": plan, "applePayToken": tokenJSON]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataObj = json["data"] as? [String: Any] else { return false }
+        return dataObj["paid"] as? Bool ?? false
     }
 
     func getStockHistory(symbol: String, period: Int = 30) async throws -> [PricePoint] {
@@ -3150,6 +3171,7 @@ struct ActiveSubscription: Decodable, Identifiable {
 struct RevolutOrderResponse {
     let publicId: String
     let checkoutUrl: String
+    let orderId: String
 }
 
 struct PaymentVerifyResponse {

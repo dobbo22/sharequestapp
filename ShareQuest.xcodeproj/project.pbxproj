@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		057CAAE551674F2A0BDC0F4B /* Pods_ShareQuest_ShareQuestUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0324E09A533C2F10ABD24C86 /* Pods_ShareQuest_ShareQuestUITests.framework */; };
+		27249BA10BCD54665E194788 /* Pods_ShareQuest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0E686F1679F6A4999A0A6908 /* Pods_ShareQuest.framework */; };
+		5D238B5C89D784F868FD8875 /* Pods_ShareQuestTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6A7ACE5D38C7D826E66237E8 /* Pods_ShareQuestTests.framework */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		5BDEBAD12F61D6D300A532C0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,9 +30,18 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0324E09A533C2F10ABD24C86 /* Pods_ShareQuest_ShareQuestUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_ShareQuest_ShareQuestUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		0E686F1679F6A4999A0A6908 /* Pods_ShareQuest.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_ShareQuest.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		1274F8340178546234F39428 /* Pods-ShareQuestTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShareQuestTests.release.xcconfig"; path = "Target Support Files/Pods-ShareQuestTests/Pods-ShareQuestTests.release.xcconfig"; sourceTree = "<group>"; };
+		2212C33E85E9D609E9C6F9BF /* Pods-ShareQuest.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShareQuest.debug.xcconfig"; path = "Target Support Files/Pods-ShareQuest/Pods-ShareQuest.debug.xcconfig"; sourceTree = "<group>"; };
 		5BDEBABF2F61D6D200A532C0 /* ShareQuest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShareQuest.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5BDEBAD02F61D6D300A532C0 /* ShareQuestTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ShareQuestTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5BDEBADA2F61D6D300A532C0 /* ShareQuestUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ShareQuestUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6A7ACE5D38C7D826E66237E8 /* Pods_ShareQuestTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_ShareQuestTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		91508D772B70CA5363BA2D5B /* Pods-ShareQuest-ShareQuestUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShareQuest-ShareQuestUITests.debug.xcconfig"; path = "Target Support Files/Pods-ShareQuest-ShareQuestUITests/Pods-ShareQuest-ShareQuestUITests.debug.xcconfig"; sourceTree = "<group>"; };
+		92568A81550951D92946947E /* Pods-ShareQuest.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShareQuest.release.xcconfig"; path = "Target Support Files/Pods-ShareQuest/Pods-ShareQuest.release.xcconfig"; sourceTree = "<group>"; };
+		CB98E58967BE0A7751B313C9 /* Pods-ShareQuestTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShareQuestTests.debug.xcconfig"; path = "Target Support Files/Pods-ShareQuestTests/Pods-ShareQuestTests.debug.xcconfig"; sourceTree = "<group>"; };
+		DC859818445622BB60DBA07F /* Pods-ShareQuest-ShareQuestUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShareQuest-ShareQuestUITests.release.xcconfig"; path = "Target Support Files/Pods-ShareQuest-ShareQuestUITests/Pods-ShareQuest-ShareQuestUITests.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -50,11 +65,15 @@
 		};
 		5BDEBAD32F61D6D300A532C0 /* ShareQuestTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = ShareQuestTests;
 			sourceTree = "<group>";
 		};
 		5BDEBADD2F61D6D300A532C0 /* ShareQuestUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = ShareQuestUITests;
 			sourceTree = "<group>";
 		};
@@ -65,6 +84,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				27249BA10BCD54665E194788 /* Pods_ShareQuest.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,6 +92,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5D238B5C89D784F868FD8875 /* Pods_ShareQuestTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,6 +100,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				057CAAE551674F2A0BDC0F4B /* Pods_ShareQuest_ShareQuestUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,6 +114,8 @@
 				5BDEBAD32F61D6D300A532C0 /* ShareQuestTests */,
 				5BDEBADD2F61D6D300A532C0 /* ShareQuestUITests */,
 				5BDEBAC02F61D6D200A532C0 /* Products */,
+				9103DC34B311F40A1AF40063 /* Pods */,
+				C901412707527D2F88C383A2 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -105,6 +129,30 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		9103DC34B311F40A1AF40063 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				2212C33E85E9D609E9C6F9BF /* Pods-ShareQuest.debug.xcconfig */,
+				92568A81550951D92946947E /* Pods-ShareQuest.release.xcconfig */,
+				91508D772B70CA5363BA2D5B /* Pods-ShareQuest-ShareQuestUITests.debug.xcconfig */,
+				DC859818445622BB60DBA07F /* Pods-ShareQuest-ShareQuestUITests.release.xcconfig */,
+				CB98E58967BE0A7751B313C9 /* Pods-ShareQuestTests.debug.xcconfig */,
+				1274F8340178546234F39428 /* Pods-ShareQuestTests.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		C901412707527D2F88C383A2 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0E686F1679F6A4999A0A6908 /* Pods_ShareQuest.framework */,
+				0324E09A533C2F10ABD24C86 /* Pods_ShareQuest_ShareQuestUITests.framework */,
+				6A7ACE5D38C7D826E66237E8 /* Pods_ShareQuestTests.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -112,9 +160,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5BDEBAE32F61D6D300A532C0 /* Build configuration list for PBXNativeTarget "ShareQuest" */;
 			buildPhases = (
+				48854E5A3F4C0C1746241068 /* [CP] Check Pods Manifest.lock */,
 				5BDEBABB2F61D6D200A532C0 /* Sources */,
 				5BDEBABC2F61D6D200A532C0 /* Frameworks */,
 				5BDEBABD2F61D6D200A532C0 /* Resources */,
+				80CD31E876867204A9FF3C20 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -124,8 +174,6 @@
 				5BDEBAC12F61D6D200A532C0 /* ShareQuest */,
 			);
 			name = ShareQuest;
-			packageProductDependencies = (
-			);
 			productName = ShareQuest;
 			productReference = 5BDEBABF2F61D6D200A532C0 /* ShareQuest.app */;
 			productType = "com.apple.product-type.application";
@@ -134,6 +182,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5BDEBAE82F61D6D300A532C0 /* Build configuration list for PBXNativeTarget "ShareQuestTests" */;
 			buildPhases = (
+				4D96E4387577D135D6168C38 /* [CP] Check Pods Manifest.lock */,
 				5BDEBACC2F61D6D300A532C0 /* Sources */,
 				5BDEBACD2F61D6D300A532C0 /* Frameworks */,
 				5BDEBACE2F61D6D300A532C0 /* Resources */,
@@ -147,8 +196,6 @@
 				5BDEBAD32F61D6D300A532C0 /* ShareQuestTests */,
 			);
 			name = ShareQuestTests;
-			packageProductDependencies = (
-			);
 			productName = ShareQuestTests;
 			productReference = 5BDEBAD02F61D6D300A532C0 /* ShareQuestTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -157,9 +204,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5BDEBAEB2F61D6D300A532C0 /* Build configuration list for PBXNativeTarget "ShareQuestUITests" */;
 			buildPhases = (
+				D5FE4E066C6D0FAB05760E84 /* [CP] Check Pods Manifest.lock */,
 				5BDEBAD62F61D6D300A532C0 /* Sources */,
 				5BDEBAD72F61D6D300A532C0 /* Frameworks */,
 				5BDEBAD82F61D6D300A532C0 /* Resources */,
+				84E4854D938EC92204044885 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -170,8 +219,6 @@
 				5BDEBADD2F61D6D300A532C0 /* ShareQuestUITests */,
 			);
 			name = ShareQuestUITests;
-			packageProductDependencies = (
-			);
 			productName = ShareQuestUITests;
 			productReference = 5BDEBADA2F61D6D300A532C0 /* ShareQuestUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -244,6 +291,109 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		48854E5A3F4C0C1746241068 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-ShareQuest-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		4D96E4387577D135D6168C38 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-ShareQuestTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		80CD31E876867204A9FF3C20 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ShareQuest/Pods-ShareQuest-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ShareQuest/Pods-ShareQuest-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-ShareQuest/Pods-ShareQuest-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		84E4854D938EC92204044885 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ShareQuest-ShareQuestUITests/Pods-ShareQuest-ShareQuestUITests-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ShareQuest-ShareQuestUITests/Pods-ShareQuest-ShareQuestUITests-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-ShareQuest-ShareQuestUITests/Pods-ShareQuest-ShareQuestUITests-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		D5FE4E066C6D0FAB05760E84 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-ShareQuest-ShareQuestUITests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		5BDEBABB2F61D6D200A532C0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -284,6 +434,7 @@
 /* Begin XCBuildConfiguration section */
 		5BDEBAE42F61D6D300A532C0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2212C33E85E9D609E9C6F9BF /* Pods-ShareQuest.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -331,6 +482,7 @@
 		};
 		5BDEBAE52F61D6D300A532C0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 92568A81550951D92946947E /* Pods-ShareQuest.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -416,7 +568,7 @@
 				DEVELOPMENT_TEAM = ATMHQQQQ5S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -478,7 +630,7 @@
 				DEVELOPMENT_TEAM = ATMHQQQQ5S;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -496,6 +648,7 @@
 		};
 		5BDEBAE92F61D6D300A532C0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = CB98E58967BE0A7751B313C9 /* Pods-ShareQuestTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -522,6 +675,7 @@
 		};
 		5BDEBAEA2F61D6D300A532C0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1274F8340178546234F39428 /* Pods-ShareQuestTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -548,6 +702,7 @@
 		};
 		5BDEBAEC2F61D6D300A532C0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 91508D772B70CA5363BA2D5B /* Pods-ShareQuest-ShareQuestUITests.debug.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -573,6 +728,7 @@
 		};
 		5BDEBAED2F61D6D300A532C0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = DC859818445622BB60DBA07F /* Pods-ShareQuest-ShareQuestUITests.release.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

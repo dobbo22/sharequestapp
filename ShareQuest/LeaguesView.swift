@@ -775,7 +775,7 @@ struct CreateLeagueSheet: View {
     @State private var description = ""
     @State private var isPrivate = false
     @State private var competitionType = "annual"
-    @State private var endDate = Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date()
+    @State private var endDate = Self.defaultEndDate(for: "annual")
     @State private var isCreating = false
     @State private var errorMessage: String?
     @State private var checkoutURL: URL?
@@ -949,6 +949,9 @@ struct CreateLeagueSheet: View {
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .onChange(of: competitionType) { _, newType in
+                endDate = Self.defaultEndDate(for: newType)
+            }
             .sheet(item: Binding(
                 get: { checkoutURL.map { IdentifiableURL(url: $0) } },
                 set: { if $0 == nil { handlePaymentReturn() } }
@@ -964,6 +967,29 @@ struct CreateLeagueSheet: View {
             } message: {
                 Text("Your league has been created and your entry fee paid. Good luck!")
             }
+        }
+    }
+
+    /// Returns the appropriate default end date for the given competition type.
+    /// - Annual: last trading day of the current year (Dec 31, rolling back over weekends)
+    /// - Monthly (default): one month from today
+    static func defaultEndDate(for type: String) -> Date {
+        let cal = Calendar.current
+        let today = Date()
+        if type == "annual" {
+            let year = cal.component(.year, from: today)
+            // Dec 31 of current year
+            let components = DateComponents(year: year, month: 12, day: 31)
+            guard var candidate = cal.date(from: components) else {
+                return cal.date(byAdding: .year, value: 1, to: today) ?? today
+            }
+            // Roll back to last weekday (Mon–Fri) if Dec 31 falls on a weekend
+            while cal.isDateInWeekend(candidate) {
+                candidate = cal.date(byAdding: .day, value: -1, to: candidate) ?? candidate
+            }
+            return candidate
+        } else {
+            return cal.date(byAdding: .month, value: 1, to: today) ?? today
         }
     }
 

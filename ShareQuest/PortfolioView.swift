@@ -446,41 +446,41 @@ class PortfolioViewModel: ObservableObject {
     func fetchPortfolio(type: PortfolioType) async {
         isLoading = true
         errorMessage = nil
-        
+
         do {
             let response = try await apiService.fetchPortfolio(type: type.rawValue)
-            
+
             if let portfolio = response.portfolio {
                 cashBalance = portfolio.cashBalanceValue
                 initialBalance = portfolio.initialBalanceValue
                 totalPortfolioValue = portfolio.totalPortfolioValue
             }
-            
-            if let holdingsData = response.holdings {
+
+            if let holdingsData = response.holdings, !holdingsData.isEmpty {
+                // Fetch live prices for all holdings
+                let symbols = holdingsData.map { $0.symbol }
+                let livePrices = (try? await apiService.fetchBatchPrices(symbols: symbols)) ?? [:]
+
                 holdings = holdingsData.map { h in
-                    let pricePence = h.mid ?? h.mid_price ?? h.current_price
+                    // Prefer live price from batch (in pence), fall back to stored price
+                    let livePricePence = livePrices[h.symbol]?.price
+                    let pricePence = livePricePence ?? h.mid ?? h.mid_price ?? h.current_price
                     return Holding(
                         id: h.symbol,
                         symbol: h.symbol,
                         companyName: h.displayName,
                         quantity: h.quantity,
-                        averagePrice: h.average_price / 100, // Convert pence to pounds
+                        averagePrice: h.average_price / 100,
                         currentPrice: pricePence / 100
                     )
                 }
-                // Debug logging: print holdings data
-                print("[PortfolioViewModel] Holdings loaded:")
-                for h in holdingsData {
-                    let pricePence = h.mid ?? h.mid_price ?? h.current_price
-                    print("\(h.symbol): qty=\(h.quantity), avg=\(h.average_price), price=\(pricePence), value=\(Double(h.quantity) * pricePence / 100)")
-                }
             }
-            
+
         } catch {
             // Keep last loaded values, just show error
             errorMessage = error.localizedDescription
         }
-        
+
         isLoading = false
     }
     
