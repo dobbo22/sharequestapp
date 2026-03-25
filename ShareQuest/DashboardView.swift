@@ -348,10 +348,10 @@ struct DashboardView: View {
                 HStack(spacing: 3) {
                     Image(systemName: info.icon)
                         .font(.system(size: scaled(10), weight: .bold))
-                        .foregroundColor(lvColor)
+                        .foregroundColor(.white)
                     Text("Lv.\(info.level)")
                         .font(.system(size: scaled(11), weight: .black))
-                        .foregroundColor(lvColor)
+                        .foregroundColor(.white)
                 }
                 .padding(.horizontal, 7).padding(.vertical, 3)
                 .background(lvColor.opacity(0.18))
