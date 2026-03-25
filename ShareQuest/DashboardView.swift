@@ -217,10 +217,14 @@ struct DashboardView: View {
                     }
                 }
             }
-            .onChange(of: viewModel.displayedXP) { oldXP, newXP in
-                let oldLevel = sqLevelInfo(totalXP: oldXP).level
+            .onChange(of: viewModel.displayedXP) { _, newXP in
                 let newLevelInfo = sqLevelInfo(totalXP: newXP)
-                if newLevelInfo.level > oldLevel {
+                let userId = UserDefaults.standard.string(forKey: "user_id") ?? "unknown"
+                let shownKey = "levelUpShownForLevel_\(userId)"
+                let lastShownLevel = UserDefaults.standard.integer(forKey: shownKey)
+                // Only show once per level — never re-show on login/reload
+                if newLevelInfo.level > lastShownLevel {
+                    UserDefaults.standard.set(newLevelInfo.level, forKey: shownKey)
                     levelUpInfo = (newLevelInfo.level, newLevelInfo.name, newLevelInfo.icon)
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                         showLevelUp = true
