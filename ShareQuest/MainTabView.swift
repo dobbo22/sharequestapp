@@ -21,21 +21,29 @@ struct MainTabView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Page content — extend under the tab bar using ignoresSafeArea
-            Group {
-                switch selectedTab {
-                case 0: DashboardView(selectedTab: $selectedTab).environmentObject(authManager)
-                case 1: PortfolioView()
-                case 2: StocksView()
-                case 3: LeaderboardView()
-                case 4: LeaguesView()
-                default: DashboardView(selectedTab: $selectedTab).environmentObject(authManager)
-                }
+            // Keep TabView so each tab's NavigationStack is preserved
+            TabView(selection: $selectedTab) {
+                DashboardView(selectedTab: $selectedTab)
+                    .environmentObject(authManager)
+                    .tag(0)
+
+                PortfolioView()
+                    .tag(1)
+
+                StocksView()
+                    .tag(2)
+
+                LeaderboardView()
+                    .tag(3)
+
+                LeaguesView()
+                    .tag(4)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Hide the system tab bar — we draw our own below
+            .toolbar(.hidden, for: .tabBar)
+            // Push content up so it isn't hidden behind the custom bar
             .safeAreaInset(edge: .bottom) {
-                // Reserve space so content isn't hidden behind the bar
-                Color.clear.frame(height: tabBarHeight)
+                Color.clear.frame(height: 60)
             }
 
             customTabBar
@@ -44,8 +52,6 @@ struct MainTabView: View {
     }
 
     // MARK: - Custom Tab Bar
-
-    private var tabBarHeight: CGFloat { 60 }
 
     private var customTabBar: some View {
         HStack(spacing: 0) {
@@ -93,7 +99,6 @@ struct MainTabView: View {
         .buttonStyle(PlainButtonStyle())
     }
 
-    // Extra bottom padding for devices with a home indicator
     private var bottomPadding: CGFloat {
         (UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
