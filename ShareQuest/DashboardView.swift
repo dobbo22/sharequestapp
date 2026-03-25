@@ -360,7 +360,7 @@ struct DashboardView: View {
                 // Level name — takes remaining space, shrinks before XP
                 Text(info.name)
                     .font(.system(size: scaled(12), weight: .semibold))
-                    .foregroundColor(lvColor)
+                    .foregroundColor(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .layoutPriority(0)
