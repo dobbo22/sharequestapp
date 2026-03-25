@@ -106,7 +106,7 @@
 		5BDEBAB62F61D6D200A532C0 = {
 			isa = PBXGroup;
 			children = (
-				5BDEBAC12F61D6D200A532C0 /* ShareQuest */,
+					5BDEBAC12F61D6D200A532C0 /* ShareQuest */,
 				5BDEBAD32F61D6D300A532C0 /* ShareQuestTests */,
 				5BDEBADD2F61D6D300A532C0 /* ShareQuestUITests */,
 				5BDEBAC02F61D6D200A532C0 /* Products */,
