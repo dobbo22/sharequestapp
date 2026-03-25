@@ -656,30 +656,35 @@ struct DashboardView: View {
                 .cornerRadius(16)
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(gold.opacity(0.4), lineWidth: 1))
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: vscaled(6)) {
                     HStack(spacing: 8) {
-                        Image(systemName: "trophy.circle.fill").font(.title2).foregroundColor(gold)
-                        Text("Annual ShareQuest").font(.title3).fontWeight(.bold).foregroundColor(.white)
+                        Image(systemName: "trophy.circle.fill")
+                            .font(.system(size: scaled(18))).foregroundColor(gold)
+                        Text("Annual ShareQuest")
+                            .font(.system(size: scaled(16), weight: .bold)).foregroundColor(.white)
                         Spacer()
                         VStack(alignment: .trailing, spacing: 3) {
-                            Text("£50/yr").font(.caption).fontWeight(.bold).foregroundColor(gold)
+                            Text("£50/yr")
+                                .font(.system(size: scaled(11), weight: .bold)).foregroundColor(gold)
                                 .padding(.horizontal, 8).padding(.vertical, 3)
                                 .background(gold.opacity(0.15)).cornerRadius(6)
-                            Text("+500 XP Bonus").font(.caption2).fontWeight(.bold)
+                            Text("+500 XP Bonus")
+                                .font(.system(size: scaled(10), weight: .bold))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 8).padding(.vertical, 3)
                                 .background(Color.purple.opacity(0.5)).cornerRadius(6)
                         }
                     }
                     Text("Compete in the year-long trading competition and win from the prize pool.")
-                        .font(.subheadline).foregroundColor(.white.opacity(0.85))
+                        .font(.system(size: scaled(12))).foregroundColor(.white.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                     HStack {
                         Text("Subscribe to compete")
-                            .font(.subheadline).fontWeight(.semibold).foregroundColor(gold)
-                        Image(systemName: "chevron.right").font(.caption).foregroundColor(gold)
+                            .font(.system(size: scaled(13), weight: .semibold)).foregroundColor(gold)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: scaled(11))).foregroundColor(gold)
                     }
-                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .padding(.horizontal, 12).padding(.vertical, vscaled(7))
                     .background(gold.opacity(0.12)).cornerRadius(10)
                 }
                 .padding(16)
@@ -696,29 +701,33 @@ struct DashboardView: View {
             )
             .cornerRadius(16)
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: vscaled(6)) {
                 HStack {
-                    Image(systemName: "trophy.fill").font(.title2).foregroundColor(.yellow)
-                    Text("Compete & Win").font(.title3).fontWeight(.bold).foregroundColor(.white)
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: scaled(18))).foregroundColor(.yellow)
+                    Text("Compete & Win")
+                        .font(.system(size: scaled(16), weight: .bold)).foregroundColor(.white)
                     Spacer()
-                    Text("From £5").font(.caption).fontWeight(.bold).foregroundColor(.yellow)
-                        .padding(.horizontal, 10).padding(.vertical, 4)
+                    Text("From £5")
+                        .font(.system(size: scaled(11), weight: .bold)).foregroundColor(.yellow)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(Color.yellow.opacity(0.15)).cornerRadius(8)
                 }
                 Text("Join a private league, trade against friends or the community, and split the prize pool.")
-                    .font(.subheadline).foregroundColor(.white.opacity(0.85))
+                    .font(.system(size: scaled(12)))
+                    .foregroundColor(.white.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
                 Button { selectedTab = 4 } label: {
                     HStack {
                         Text("View Leagues").fontWeight(.semibold)
                         Image(systemName: "arrow.right")
                     }
-                    .font(.subheadline).foregroundColor(.white)
-                    .padding(.horizontal, 20).padding(.vertical, 10)
+                    .font(.system(size: scaled(13))).foregroundColor(.white)
+                    .padding(.horizontal, 16).padding(.vertical, vscaled(8))
                     .background(Color.white.opacity(0.2)).cornerRadius(10)
                 }
             }
-            .padding(16)
+            .padding(vscaled(14))
         }
     }
 
