@@ -82,6 +82,9 @@ final class SubscriptionsViewModel: ObservableObject {
     // Simple boolean status fetched from /mobile/user/subscriptions
     @Published var subStatus: UserSubscriptionsResponse? = nil
 
+    // Store the current Revolut order for payment sheet
+    @Published var currentOrder: RevolutOrderResponse? = nil
+
     // Public leagues for the join section
     @Published var publicLeagues: [League] = []
     @Published var privateLeagues: [League] = []
@@ -135,16 +138,24 @@ final class SubscriptionsViewModel: ObservableObject {
         paymentError = nil
         defer { isLoadingPayment = false }
         do {
-            let checkoutUrlString = try await APIService.shared.createSubscriptionOrder(plan: plan.id)
-            guard let url = URL(string: checkoutUrlString) else {
-                paymentError = "Invalid checkout URL returned."
-                return
+            let orderResponse = try await APIService.shared.createSubscriptionOrder(plan: plan.id)
+            currentOrder = orderResponse
+            // If you still need to show Safari for web checkout, use orderResponse.checkoutUrl
+            if let url = URL(string: orderResponse.checkoutUrl) {
+                checkoutURL = url
+                showSafari = true
             }
-            checkoutURL = url
-            showSafari = true
         } catch {
             paymentError = "Could not start payment: \(error.localizedDescription)"
         }
+    }
+    // Called when payment is successful
+    func handlePaymentSuccess() async {
+        // Refresh user subscriptions and update state
+        let updated = try? await APIService.shared.fetchUserSubscriptions()
+        subStatus = updated
+        await loadManageData()
+        step = .success
     }
 
     func handleSafariDismiss() {
@@ -240,7 +251,7 @@ struct SubscriptionsView: View {
                     switch vm.step {
                     case .plans:   planSelectionView
                     case .terms:   termsView
-                    case .payment: paymentView
+                    case .payment: nativePaymentSheetView
                     case .success: successView
                     }
                 }
@@ -263,12 +274,6 @@ struct SubscriptionsView: View {
                         Button("Manage") { vm.showManage = true }
                             .foregroundColor(Theme.primaryBlue)
                     }
-                }
-            }
-            .sheet(isPresented: $vm.showSafari, onDismiss: { vm.handleSafariDismiss() }) {
-                if let url = vm.checkoutURL {
-                    SafariView(url: url) { vm.handleSafariDismiss() }
-                        .ignoresSafeArea()
                 }
             }
             .sheet(isPresented: $vm.showManage) {
@@ -648,61 +653,23 @@ struct SubscriptionsView: View {
         }
     }
 
-    // MARK: - Payment View
-
-    private var paymentView: some View {
-        VStack(spacing: 32) {
-            Spacer()
-
-            if vm.verifyingPayment {
-                VStack(spacing: 20) {
-                    ProgressView().scaleEffect(1.4).tint(.white)
-                    Text("Checking subscription status...")
-                        .font(.subheadline).foregroundColor(Theme.textSecondary)
+    // MARK: - Native Payment Sheet View
+    @ViewBuilder
+    private var nativePaymentSheetView: some View {
+        if let plan = vm.selectedPlan, let order = vm.currentOrder {
+            NativePaymentSheet(
+                plan: plan,
+                order: order,
+                onSuccess: {
+                    Task { await vm.handlePaymentSuccess() }
+                },
+                onError: { error in
+                    vm.paymentError = error
                 }
-            } else if let err = vm.paymentError {
-                VStack(spacing: 16) {
-                    Image(systemName: "clock.badge.questionmark")
-                        .font(.system(size: 48))
-                        .foregroundColor(Theme.accentYellow)
-                    Text("Not confirmed yet")
-                        .font(.title3).fontWeight(.bold).foregroundColor(.white)
-                    Text(err)
-                        .font(.subheadline).foregroundColor(Theme.textSecondary)
-                        .multilineTextAlignment(.center).padding(.horizontal, 32)
-                    Button("Open Checkout Again") { Task { await vm.startPayment() } }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Theme.primaryBlue)
-                }
-            } else {
-                VStack(spacing: 16) {
-                    Image(systemName: "lock.shield.fill")
-                        .font(.system(size: 44))
-                        .foregroundColor(Theme.accentGreen)
-                    Text("Secure Checkout")
-                        .font(.title3).fontWeight(.bold).foregroundColor(.white)
-                    Text("Complete your subscription in our secure web checkout. Return to the app once payment is done.")
-                        .font(.subheadline).foregroundColor(Theme.textSecondary)
-                        .multilineTextAlignment(.center).padding(.horizontal, 32)
-                    Button {
-                        vm.showSafari = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "creditcard.fill")
-                            Text("Open Checkout")
-                        }
-                        .font(.headline).foregroundColor(.white)
-                        .frame(maxWidth: .infinity).padding(.vertical, 16)
-                        .background(Color(red: 0.27, green: 0.32, blue: 0.96))
-                        .cornerRadius(14)
-                    }
-                    .padding(.horizontal, 32)
-                }
-            }
-
-            Spacer()
+            )
+        } else {
+            ProgressView().scaleEffect(1.4).tint(.white)
         }
-        .task { await vm.startPayment() }
     }
 
     // MARK: - Success View
