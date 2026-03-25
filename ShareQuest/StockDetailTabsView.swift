@@ -60,11 +60,11 @@ struct TabSelector: View {
                         withAnimation(.easeInOut(duration: 0.2)) { activeTab = tab }
                     } label: {
                         Text(tab.displayName)
-                            .font(.system(size: scaled(15)))
+                            .font(.system(size: scaled(13)))
                             .fontWeight(activeTab == tab ? .semibold : .regular)
                             .foregroundColor(activeTab == tab ? .white : .white.opacity(0.5))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
+                            .padding(.horizontal, scaled(12))
+                            .padding(.vertical, vscaled(7))
                             .background(activeTab == tab ? Theme.primaryBlue : Color.clear)
                             .cornerRadius(20)
                     }
