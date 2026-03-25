@@ -115,13 +115,13 @@ struct DashboardView: View {
                 Theme.backgroundPrimary
                     .ignoresSafeArea()
 
-                VStack(spacing: 12) {
+                VStack(spacing: vscaled(10)) {
 
                     // Fixed header at the top so user name and bell are always visible
                     headerSection
-                    
+
                     ScrollView {
-                        VStack(spacing: 20) {
+                        VStack(spacing: vscaled(14)) {
                             // Gamification Bar (always reserve space, show placeholder if nil)
                             Group {
                                 if viewModel.gamProfile != nil {
@@ -162,7 +162,7 @@ struct DashboardView: View {
                             }
 
                             // Bottom padding for tab bar
-                            Spacer(minLength: 100)
+                            Spacer(minLength: vscaled(80))
                         }
                         .padding(.horizontal)
                     }
@@ -502,7 +502,7 @@ struct DashboardView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Theme.glassBackground)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 110)
+                    .frame(height: vscaled(100))
                     .overlay(
                         Text("No portfolios available")
                             .foregroundColor(Theme.textSecondary)
@@ -516,7 +516,7 @@ struct DashboardView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 130)
+                .frame(height: vscaled(120))
 
                 // Page dots
                 if viewModel.portfolioCards.count > 1 {
@@ -536,7 +536,7 @@ struct DashboardView: View {
     
     // MARK: - Tasks + Leagues Tabbed Section
     private var challengesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: vscaled(10)) {
             // Tab picker
             HStack(spacing: 0) {
                 ForEach(["Daily Tasks", "ShareQuests"], id: \.self) { label in
@@ -589,7 +589,7 @@ struct DashboardView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 170)
+            .frame(height: vscaled(155))
 
             // Page dots — only when both cards visible
             if !subscribed {

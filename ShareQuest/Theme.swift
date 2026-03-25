@@ -13,14 +13,24 @@ import SwiftUI
 // On larger screens (iPhone 16 Pro Max = 430pt, 17 Pro Max = ~440pt) fonts
 // scale up proportionally. Clamped so small phones don't shrink too much.
 
-private let baseWidth: CGFloat = 390
+private let baseWidth: CGFloat  = 390
+private let baseHeight: CGFloat = 852   // iPhone 15/16 Pro logical height
 
-/// Returns a font size scaled to the current screen width.
+/// Returns a size scaled to the current screen width (fonts, icons).
 func scaled(_ size: CGFloat) -> CGFloat {
-    let screen = UIScreen.main.bounds.width
-    let factor = min(max(screen / baseWidth, 0.85), 1.20)
+    let factor = min(max(UIScreen.main.bounds.width / baseWidth, 0.85), 1.20)
     return (size * factor).rounded()
 }
+
+/// Returns a vertical size (padding, spacing, frame height) scaled to screen height.
+/// Smaller phones get tighter spacing so more content fits on screen.
+func vscaled(_ size: CGFloat) -> CGFloat {
+    let factor = min(max(UIScreen.main.bounds.height / baseHeight, 0.80), 1.15)
+    return (size * factor).rounded()
+}
+
+/// True on compact-height devices (iPhone SE, 16 Pro etc.) — use tighter layouts.
+var isCompactHeight: Bool { UIScreen.main.bounds.height < 900 }
 
 // MARK: - App Theme
 

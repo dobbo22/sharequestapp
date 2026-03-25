@@ -19,12 +19,12 @@ struct MainTabView: View {
         ("Leagues",     "trophy.circle",             "trophy.circle.fill"),
     ]
 
-    /// Bump Dynamic Type one step up on wider screens so all semantic fonts
-    /// (title, headline, subheadline, caption…) scale together automatically.
+    /// Pick a Dynamic Type size based on screen width.
+    /// Also caps maximum so accessibility settings don't balloon the UI.
     private var dynamicTypeSize: DynamicTypeSize {
         let width = UIScreen.main.bounds.width
-        if width >= 430 { return .large }       // iPhone 16/17 Pro Max, Plus
-        return .medium                           // iPhone 16 Pro and smaller
+        if width >= 430 { return .large }   // Pro Max / Plus — step up one size
+        return .medium                      // Pro and smaller — system default
     }
 
     var body: some View {
@@ -49,7 +49,10 @@ struct MainTabView: View {
             }
             // Hide the system tab bar — we draw our own below
             .toolbar(.hidden, for: .tabBar)
-            .dynamicTypeSize(dynamicTypeSize)
+            // Cap range: never smaller than .small, never larger than .xLarge
+            // so system accessibility settings don't blow up the layout
+            .dynamicTypeSize(.small ... .xLarge)
+            .environment(\.dynamicTypeSize, dynamicTypeSize)
             // Push content up so it isn't hidden behind the custom bar
             .safeAreaInset(edge: .bottom) {
                 Color.clear.frame(height: 60)
