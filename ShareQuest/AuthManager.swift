@@ -205,9 +205,12 @@ class AuthManager: ObservableObject {
             if let result = try await apiService.verifyEmail(email: email, code: code) {
                 _ = handleOAuthResult(result)
                 pendingVerificationEmail = nil
-                // Sync any onboarding XP now that the user is authenticated
+                // Complete onboarding and sync XP
+                let localXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
+                if !hasCompletedOnboarding {
+                    completeOnboarding(withXP: localXP > 0 ? localXP : onboardingXP)
+                }
                 Task {
-                    let localXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
                     if localXP > 0 {
                         do { _ = try await APIService.shared.recordOnboardingXP(xp: localXP) } catch {}
                     }

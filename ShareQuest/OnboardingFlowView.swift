@@ -1013,6 +1013,8 @@ struct OnboardingSearchView: View {
                         return SearchResult(symbol: stock.symbol, name: stock.displayName, price: pence)
                     }
                     isSearching = false
+                    // Dismiss keyboard so results are visible
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 }
             } catch {
                 if Task.isCancelled { return }
