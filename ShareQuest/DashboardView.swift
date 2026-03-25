@@ -555,10 +555,10 @@ struct DashboardView: View {
                         withAnimation(.easeInOut(duration: 0.2)) { taskSectionTab = idx }
                     } label: {
                         Text(label)
-                            .font(.subheadline).fontWeight(.semibold)
+                            .font(.system(size: scaled(13), weight: .semibold))
                             .foregroundColor(taskSectionTab == idx ? .white : Theme.textSecondary)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
+                            .padding(.vertical, vscaled(7))
                             .background(
                                 taskSectionTab == idx
                                     ? AnyShapeStyle(LinearGradient(colors: [Theme.primaryBlue, Theme.accentPurple], startPoint: .leading, endPoint: .trailing))
