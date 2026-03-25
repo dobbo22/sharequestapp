@@ -60,7 +60,7 @@ struct TabSelector: View {
                         withAnimation(.easeInOut(duration: 0.2)) { activeTab = tab }
                     } label: {
                         Text(tab.displayName)
-                            .font(.subheadline)
+                            .font(.system(size: scaled(15)))
                             .fontWeight(activeTab == tab ? .semibold : .regular)
                             .foregroundColor(activeTab == tab ? .white : .white.opacity(0.5))
                             .padding(.horizontal, 14)
@@ -87,10 +87,9 @@ struct InfoCard<Content: View>: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .foregroundColor(Theme.primaryBlue)
-                    .font(.subheadline)
+                    .font(.system(size: scaled(15)))
                 Text(title)
-                    .font(.caption)
-                    .fontWeight(.semibold)
+                    .font(.system(size: scaled(12), weight: .semibold))
                     .foregroundColor(.white.opacity(0.85))
                     .tracking(0.5)
             }
@@ -127,7 +126,7 @@ struct OverviewContent: View {
             // About
             InfoCard(title: "ABOUT", icon: "building.2") {
                 Text(vm.descriptionFull)
-                    .font(.subheadline)
+                    .font(.system(size: scaled(15)))
                     .foregroundColor(.white.opacity(0.9))
                     .lineSpacing(4)
             }
@@ -140,8 +139,8 @@ struct SectorChip: View {
     let icon: String
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: icon).font(.caption2).foregroundColor(Theme.primaryBlue)
-            Text(label).font(.caption).foregroundColor(.white.opacity(0.85))
+            Image(systemName: icon).font(.system(size: scaled(11))).foregroundColor(Theme.primaryBlue)
+            Text(label).font(.system(size: scaled(12))).foregroundColor(.white.opacity(0.85))
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .background(Color.white.opacity(0.06))
@@ -167,27 +166,27 @@ struct ChartContent: View {
                     if let chg = vm.chartPriceChange {
                         HStack(spacing: 4) {
                             Image(systemName: chg >= 0 ? "arrow.up.right" : "arrow.down.right")
-                                .font(.caption)
+                                .font(.system(size: scaled(12)))
                             Text(String(format: "%+.2f%%", chg))
-                                .font(.subheadline).fontWeight(.semibold)
+                                .font(.system(size: scaled(15), weight: .semibold))
                         }
                         .foregroundColor(chg >= 0 ? Color(red: 0.2, green: 0.8, blue: 0.5) : Color(red: 0.9, green: 0.3, blue: 0.3))
                         Text("over period")
-                            .font(.caption).foregroundColor(.white.opacity(0.5))
+                            .font(.system(size: scaled(12))).foregroundColor(.white.opacity(0.5))
                     }
                     Spacer()
                     // Period pills
-                    HStack(spacing: 6) {
+                    HStack(spacing: scaled(5)) {
                         ForEach(periods, id: \.days) { p in
                             Button {
                                 Task { await vm.loadHistory(period: p.days) }
                             } label: {
                                 Text(p.label)
-                                    .font(.caption).fontWeight(.semibold)
+                                    .font(.system(size: scaled(12), weight: .semibold))
                                     .foregroundColor(vm.selectedHistoryPeriod == p.days ? .white : .white.opacity(0.5))
-                                    .padding(.horizontal, 10).padding(.vertical, 5)
+                                    .padding(.horizontal, scaled(8)).padding(.vertical, vscaled(4))
                                     .background(vm.selectedHistoryPeriod == p.days ? Theme.primaryBlue : Color.white.opacity(0.08))
-                                    .cornerRadius(12)
+                                    .cornerRadius(10)
                             }
                         }
                     }
@@ -199,7 +198,7 @@ struct ChartContent: View {
                     ProgressView().frame(height: 200).tint(.white)
                 } else if vm.priceHistory.isEmpty {
                     Text("No price data available")
-                        .font(.subheadline).foregroundColor(.white.opacity(0.4))
+                        .font(.system(size: scaled(15))).foregroundColor(.white.opacity(0.4))
                         .frame(height: 180)
                 } else {
                     priceLineChart
@@ -269,7 +268,7 @@ struct ChartContent: View {
         .chartYAxis {
             AxisMarks(position: .trailing) {
                 AxisValueLabel().foregroundStyle(Color.white.opacity(0.5))
-                    .font(.caption2)
+                    .font(.system(size: scaled(11)))
             }
         }
         .chartYScale(domain: vm.chartMin...vm.chartMax)
@@ -296,9 +295,9 @@ struct OHLCCell: View {
     let value: Double?
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(label).font(.caption2).foregroundColor(.white.opacity(0.5))
+            Text(label).font(.system(size: scaled(11))).foregroundColor(.white.opacity(0.5))
             Text(value.map { formatPenceFromPounds($0) } ?? "--")
-                .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -418,19 +417,19 @@ struct FinRow: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 HStack(spacing: 6) {
-                    Text(label).font(.subheadline).foregroundColor(.white.opacity(0.85))
+                    Text(label).font(.system(size: scaled(15))).foregroundColor(.white.opacity(0.85))
                     Button { withAnimation(.easeInOut(duration: 0.15)) { showTip.toggle() } } label: {
-                        Image(systemName: "info.circle").font(.caption).foregroundColor(Theme.primaryBlue.opacity(0.7))
+                        Image(systemName: "info.circle").font(.system(size: scaled(12))).foregroundColor(Theme.primaryBlue.opacity(0.7))
                     }
                 }
                 Spacer()
-                Text(value).font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                Text(value).font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white)
             }
             .padding(.vertical, 12)
 
             if showTip {
                 Text(tooltip)
-                    .font(.caption).foregroundColor(.white.opacity(0.75))
+                    .font(.system(size: scaled(12))).foregroundColor(.white.opacity(0.75))
                     .padding(10)
                     .background(Theme.primaryBlue.opacity(0.18))
                     .cornerRadius(8)
@@ -463,7 +462,7 @@ struct BalanceSheetContent: View {
                                 withAnimation(.easeInOut(duration: 0.15)) { vm.selectedBSYear = yr }
                             } label: {
                                 Text(yr)
-                                    .font(.subheadline).fontWeight(.semibold)
+                                    .font(.system(size: scaled(15), weight: .semibold))
                                     .foregroundColor(vm.selectedBSYear == yr || (vm.selectedBSYear == nil && yr == vm.balanceSheetYears.first) ? .white : .white.opacity(0.5))
                                     .padding(.horizontal, 16).padding(.vertical, 8)
                                     .background(vm.selectedBSYear == yr || (vm.selectedBSYear == nil && yr == vm.balanceSheetYears.first) ? Theme.primaryBlue : Color.white.opacity(0.07))
@@ -554,23 +553,23 @@ struct BalanceSheetContent: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Text("Year").font(.caption).foregroundColor(.white.opacity(0.5)).frame(width: 44, alignment: .leading)
+                    Text("Year").font(.system(size: scaled(12))).foregroundColor(.white.opacity(0.5)).frame(width: 44, alignment: .leading)
                     Spacer()
-                    Text("Revenue").font(.caption).foregroundColor(.white.opacity(0.5)).frame(width: 72, alignment: .trailing)
-                    Text("Net Income").font(.caption).foregroundColor(.white.opacity(0.5)).frame(width: 80, alignment: .trailing)
-                    Text("Margin").font(.caption).foregroundColor(.white.opacity(0.5)).frame(width: 54, alignment: .trailing)
+                    Text("Revenue").font(.system(size: scaled(12))).foregroundColor(.white.opacity(0.5)).frame(width: 72, alignment: .trailing)
+                    Text("Net Income").font(.system(size: scaled(12))).foregroundColor(.white.opacity(0.5)).frame(width: 80, alignment: .trailing)
+                    Text("Margin").font(.system(size: scaled(12))).foregroundColor(.white.opacity(0.5)).frame(width: 54, alignment: .trailing)
                 }
                 .padding(.bottom, 8)
 
                 ForEach(vm.incomeStatementRows.prefix(5), id: \.year) { row in
                     Divider().background(Color.white.opacity(0.08))
                     HStack {
-                        Text(row.year).font(.subheadline).foregroundColor(.white.opacity(0.6)).frame(width: 44, alignment: .leading)
+                        Text(row.year).font(.system(size: scaled(15))).foregroundColor(.white.opacity(0.6)).frame(width: 44, alignment: .leading)
                         Spacer()
                         Text(row.revenue.map { vm.formatLargeValuePublic($0) } ?? "--")
-                            .font(.subheadline).fontWeight(.semibold).foregroundColor(.white).frame(width: 72, alignment: .trailing)
+                            .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white).frame(width: 72, alignment: .trailing)
                         Text(row.netIncome.map { vm.formatLargeValuePublic($0) } ?? "--")
-                            .font(.subheadline).fontWeight(.semibold)
+                            .font(.system(size: scaled(15), weight: .semibold))
                             .foregroundColor(row.netIncome.map { $0 >= 0 } == true ? Color(red: 0.2, green: 0.8, blue: 0.5) : Color(red: 0.9, green: 0.35, blue: 0.3))
                             .frame(width: 80, alignment: .trailing)
                         Group {
@@ -581,7 +580,7 @@ struct BalanceSheetContent: View {
                                 Text("--").foregroundColor(.white.opacity(0.4))
                             }
                         }
-                        .font(.caption).fontWeight(.semibold).frame(width: 54, alignment: .trailing)
+                        .font(.system(size: scaled(12), weight: .semibold)).frame(width: 54, alignment: .trailing)
                     }
                     .padding(.vertical, 10)
                 }
@@ -592,7 +591,7 @@ struct BalanceSheetContent: View {
     private var noDataCard: some View {
         InfoCard(title: "BALANCE SHEET", icon: "doc.plaintext") {
             Text("Balance sheet data not yet available for this stock.")
-                .font(.subheadline).foregroundColor(.white.opacity(0.5))
+                .font(.system(size: scaled(15))).foregroundColor(.white.opacity(0.5))
         }
     }
 }
@@ -626,7 +625,7 @@ struct LegendDot: View {
     var body: some View {
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 8, height: 8)
-            Text(label).font(.caption2).foregroundColor(.white.opacity(0.7))
+            Text(label).font(.system(size: scaled(11))).foregroundColor(.white.opacity(0.7))
         }
     }
 }
@@ -653,12 +652,12 @@ struct BSRow: View {
         HStack {
             if indent { Color.clear.frame(width: 12) }
             Text(label)
-                .font(bold ? .subheadline : .subheadline)
+                .font(.system(size: scaled(15)))
                 .fontWeight(bold ? .semibold : .regular)
                 .foregroundColor(bold ? .white : .white.opacity(0.8))
             Spacer()
             Text(displayValue)
-                .font(.subheadline)
+                .font(.system(size: scaled(15)))
                 .fontWeight(bold ? .bold : .semibold)
                 .foregroundColor(bold ? .white : .white.opacity(0.9))
         }
@@ -687,10 +686,10 @@ struct ChangeIndicator: View {
     var color: Color { isPositive ? .green : .red }
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: isPositive ? "arrow.up.right" : "arrow.down.right").font(.caption)
+            Image(systemName: isPositive ? "arrow.up.right" : "arrow.down.right").font(.system(size: scaled(12)))
             Text(String(format: "%@%.2f%%", isPositive ? "+" : "", changePercent))
-                .font(.subheadline).fontWeight(.semibold)
-            if showLabel { Text("today").font(.caption).foregroundColor(.white.opacity(0.5)) }
+                .font(.system(size: scaled(15), weight: .semibold))
+            if showLabel { Text("today").font(.system(size: scaled(12))).foregroundColor(.white.opacity(0.5)) }
         }
         .foregroundColor(color)
     }
@@ -703,7 +702,7 @@ struct TabButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.subheadline).fontWeight(isActive ? .semibold : .regular)
+                .font(.system(size: scaled(15))).fontWeight(isActive ? .semibold : .regular)
                 .foregroundColor(isActive ? .white : .white.opacity(0.5))
                 .padding(.horizontal, 16).padding(.vertical, 10)
                 .background(isActive ? Theme.primaryBlue : Color.clear)
@@ -720,11 +719,11 @@ struct RangeSlider: View {
     var body: some View {
         VStack(spacing: 6) {
             HStack {
-                Text(lowValue).font(.subheadline).fontWeight(.bold).foregroundColor(.white)
+                Text(lowValue).font(.system(size: scaled(15), weight: .bold)).foregroundColor(.white)
                 Spacer()
-                Text(label).font(.caption).fontWeight(.medium).foregroundColor(.white.opacity(0.85))
+                Text(label).font(.system(size: scaled(12), weight: .medium)).foregroundColor(.white.opacity(0.85))
                 Spacer()
-                Text(highValue).font(.subheadline).fontWeight(.bold).foregroundColor(.white)
+                Text(highValue).font(.system(size: scaled(15), weight: .bold)).foregroundColor(.white)
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
@@ -745,9 +744,9 @@ struct PriceRowWhite: View {
     let label: String; let value: String
     var body: some View {
         HStack {
-            Text(label).font(.subheadline).foregroundColor(.white)
+            Text(label).font(.system(size: scaled(15))).foregroundColor(.white)
             Spacer()
-            Text(value).font(.subheadline).fontWeight(.bold).foregroundColor(.white)
+            Text(value).font(.system(size: scaled(15), weight: .bold)).foregroundColor(.white)
         }
     }
 }
@@ -758,18 +757,18 @@ struct BidAskCard: View {
         HStack {
             if isMarketOpen {
                 VStack(spacing: 4) {
-                    Text("SELLING PRICE").font(.caption2).fontWeight(.heavy).foregroundColor(.black.opacity(0.7))
-                    Text(bid).font(.subheadline).fontWeight(.black).lineLimit(1).minimumScaleFactor(0.8).foregroundColor(.black)
+                    Text("SELLING PRICE").font(.system(size: scaled(11), weight: .heavy)).foregroundColor(.black.opacity(0.7))
+                    Text(bid).font(.system(size: scaled(15), weight: .black)).lineLimit(1).minimumScaleFactor(0.8).foregroundColor(.black)
                 }.frame(maxWidth: .infinity)
                 Rectangle().fill(Color.black.opacity(0.2)).frame(width: 1, height: 40)
                 VStack(spacing: 4) {
-                    Text("BUYING PRICE").font(.caption2).fontWeight(.heavy).foregroundColor(.black.opacity(0.7))
-                    Text(ask).font(.subheadline).fontWeight(.black).lineLimit(1).minimumScaleFactor(0.8).foregroundColor(.black)
+                    Text("BUYING PRICE").font(.system(size: scaled(11), weight: .heavy)).foregroundColor(.black.opacity(0.7))
+                    Text(ask).font(.system(size: scaled(15), weight: .black)).lineLimit(1).minimumScaleFactor(0.8).foregroundColor(.black)
                 }.frame(maxWidth: .infinity)
             } else {
                 VStack(spacing: 4) {
-                    Text("CLOSE PRICE").font(.caption2).fontWeight(.heavy).foregroundColor(.black.opacity(0.7))
-                    Text(closePrice).font(.subheadline).fontWeight(.black).lineLimit(1).minimumScaleFactor(0.8).foregroundColor(.black)
+                    Text("CLOSE PRICE").font(.system(size: scaled(11), weight: .heavy)).foregroundColor(.black.opacity(0.7))
+                    Text(closePrice).font(.system(size: scaled(15), weight: .black)).lineLimit(1).minimumScaleFactor(0.8).foregroundColor(.black)
                 }.frame(maxWidth: .infinity)
             }
         }
@@ -783,12 +782,12 @@ struct PriceRow: View {
     let label: String; let value: String; var explanation: String? = nil
     var body: some View {
         HStack {
-            Text(label).font(.subheadline).foregroundColor(.white.opacity(0.85))
+            Text(label).font(.system(size: scaled(15))).foregroundColor(.white.opacity(0.85))
             Spacer()
             HStack(spacing: 4) {
-                Text(value).font(.subheadline).fontWeight(.bold).foregroundColor(.white)
+                Text(value).font(.system(size: scaled(15), weight: .bold)).foregroundColor(.white)
                 if let e = explanation {
-                    Text("(\(e))").font(.caption2).foregroundColor(.white.opacity(0.5))
+                    Text("(\(e))").font(.system(size: scaled(11))).foregroundColor(.white.opacity(0.5))
                 }
             }
         }
@@ -803,8 +802,8 @@ struct PerfChip: View {
     }
     var body: some View {
         HStack(spacing: 4) {
-            Text(label).font(.caption).fontWeight(.bold).foregroundColor(.white)
-            Text(value.map { String(format: "%+.1f%%", $0) } ?? "--").font(.caption).fontWeight(.semibold).foregroundColor(.white)
+            Text(label).font(.system(size: scaled(12), weight: .bold)).foregroundColor(.white)
+            Text(value.map { String(format: "%+.1f%%", $0) } ?? "--").font(.system(size: scaled(12), weight: .semibold)).foregroundColor(.white)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 14).fill(bgColor))
@@ -816,8 +815,8 @@ struct ActionButton: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 6) {
-                HStack(spacing: 6) { Image(systemName: icon); Text(title).fontWeight(.semibold) }.font(.subheadline)
-                Text(subtitle).font(.caption2).opacity(0.8)
+                HStack(spacing: 6) { Image(systemName: icon); Text(title).fontWeight(.semibold) }.font(.system(size: scaled(15)))
+                Text(subtitle).font(.system(size: scaled(11))).opacity(0.8)
             }
             .foregroundColor(.white).padding(.vertical, 14).frame(maxWidth: .infinity).background(color).cornerRadius(10)
         }
