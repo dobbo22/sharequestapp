@@ -115,13 +115,13 @@ struct DashboardView: View {
                 Theme.backgroundPrimary
                     .ignoresSafeArea()
 
-                VStack(spacing: vscaled(10)) {
+                VStack(spacing: vscaled(8)) {
 
                     // Fixed header at the top so user name and bell are always visible
                     headerSection
 
                     ScrollView {
-                        VStack(spacing: vscaled(14)) {
+                        VStack(spacing: vscaled(10)) {
                             // Gamification Bar (always reserve space, show placeholder if nil)
                             Group {
                                 if viewModel.gamProfile != nil {
@@ -170,7 +170,7 @@ struct DashboardView: View {
                         await viewModel.refresh()
                     }
                 }
-                .padding(.top) // Use SwiftUI's safe area padding
+                .padding(.top, vscaled(4))
                 
                 // XP Toast
                 if showXPToast {
@@ -291,7 +291,7 @@ struct DashboardView: View {
                 }
             }
         }
-        .padding(.top)
+        .padding(.top, vscaled(6))
         // Present notifications sheet when bell tapped
         .sheet(isPresented: $showNotifications) {
             NotificationsView()
@@ -334,57 +334,67 @@ struct DashboardView: View {
     
     // MARK: - Gamification Bar
 
+    private func compactXP(_ xp: Int) -> String {
+        xp >= 1000 ? "\(xp / 1000)K" : "\(xp)"
+    }
+
     private var gamificationBar: some View {
         let info = sqLevelInfo(totalXP: viewModel.displayedXP)
         let progress = info.rangeXP > 0 ? min(Double(info.progressXP) / Double(info.rangeXP), 1.0) : 1.0
         let lvColor = sqLevelColor(info.level)
 
-        return VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                HStack(spacing: 5) {
+        return VStack(spacing: 6) {
+            HStack(spacing: 6) {
+                // Level badge — compact pill
+                HStack(spacing: 3) {
                     Image(systemName: info.icon)
+                        .font(.system(size: scaled(10), weight: .bold))
                         .foregroundColor(lvColor)
-                        .font(.caption)
                     Text("Lv.\(info.level)")
-                        .fontWeight(.bold)
+                        .font(.system(size: scaled(11), weight: .black))
                         .foregroundColor(lvColor)
-                    Text(info.name)
-                        .fontWeight(.semibold)
-                        .foregroundColor(lvColor)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
                 }
-                .font(.subheadline)
-                .layoutPriority(1)
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .background(lvColor.opacity(0.18))
+                .cornerRadius(8)
 
-                Spacer(minLength: 4)
+                // Level name — takes remaining space, shrinks before XP
+                Text(info.name)
+                    .font(.system(size: scaled(12), weight: .semibold))
+                    .foregroundColor(lvColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .layoutPriority(0)
 
-                Text("\(info.progressXP) / \(info.rangeXP) XP")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                Spacer(minLength: 2)
+
+                // XP — compact "261/1K XP" style
+                Text("\(info.progressXP)/\(compactXP(info.rangeXP)) XP")
+                    .font(.system(size: scaled(11), weight: .bold))
                     .foregroundColor(Color(red: 1, green: 0.84, blue: 0))
                     .lineLimit(1)
+                    .layoutPriority(1)
 
                 StreakBadge(streak: viewModel.streak)
             }
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.1)).frame(height: 5)
+                    Capsule().fill(Color.white.opacity(0.1)).frame(height: 4)
                     Capsule()
                         .fill(LinearGradient(colors: [lvColor.opacity(0.8), lvColor],
                                              startPoint: .leading, endPoint: .trailing))
-                        .frame(width: geo.size.width * progress, height: 5)
+                        .frame(width: geo.size.width * progress, height: 4)
                         .animation(.easeOut(duration: 0.6), value: progress)
                 }
             }
-            .frame(height: 5)
+            .frame(height: 4)
         }
-        .padding()
+        .padding(.horizontal, 12).padding(.vertical, 10)
         .background(Theme.glassBackground)
         .background(.ultraThinMaterial)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.glassBorder, lineWidth: 1))
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.glassBorder, lineWidth: 1))
     }
 
     // Extracted market pill for reuse
@@ -991,19 +1001,19 @@ struct DailyTaskRowView: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             // Icon
             ZStack {
                 Circle()
                     .fill(taskIconColor.opacity(0.15))
-                    .frame(width: 40, height: 40)
+                    .frame(width: vscaled(36), height: vscaled(36))
                 Image(systemName: taskIcon)
-                    .font(.system(size: scaled(18)))
+                    .font(.system(size: scaled(16)))
                     .foregroundColor(taskIconColor)
             }
 
             // Title + progress
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(challenge.displayTitle)
                     .font(.subheadline)
                     .fontWeight(.semibold)
@@ -1056,7 +1066,7 @@ struct DailyTaskRowView: View {
                 }
             }
         }
-        .padding()
+        .padding(.horizontal, 12).padding(.vertical, vscaled(10))
         .background(challenge.isCompleted ? Theme.accentGreen.opacity(0.08) : Theme.glassBackground)
         .cornerRadius(14)
         .overlay(
@@ -1997,10 +2007,10 @@ struct PortfolioCardView: View {
             initialType: PortfolioType(rawValue: portfolio.id) ?? .practice,
             isEmbedded: true
         )) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: vscaled(8)) {
                 HStack {
                     Text(portfolio.emoji)
-                        .font(.title2)
+                        .font(.title3)
                     Text(portfolio.name)
                         .font(.subheadline)
                         .fontWeight(.semibold)
@@ -2012,13 +2022,14 @@ struct PortfolioCardView: View {
                 }
 
                 Text(portfolio.formattedValue)
-                    .font(.title3)
-                    .fontWeight(.bold)
+                    .font(.system(size: scaled(26), weight: .bold))
                     .foregroundColor(.white)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
 
                 ChangePill(percent: portfolio.changePercent)
             }
-            .padding()
+            .padding(.horizontal, 16).padding(.vertical, vscaled(12))
             .frame(maxWidth: .infinity)
             .background(
                 LinearGradient(
