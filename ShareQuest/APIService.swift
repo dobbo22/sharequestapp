@@ -1733,6 +1733,27 @@ final class APIService: @unchecked Sendable {
         return (try? decoder.decode([LeagueMember].self, from: data)) ?? []
     }
 
+    /// Execute a trade within a specific league portfolio
+    func executeLeagueTrade(leagueId: String, symbol: String, companyName: String,
+                            action: String, quantity: Int, price: Double) async throws -> MobileTradeResponse {
+        let url = try buildURL(path: "/mobile/leagues/\(leagueId)/trade", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addHeaders(to: &request)
+        let body: [String: Any] = [
+            "symbol": symbol,
+            "quantity": quantity,
+            "price": price,
+            "action": action,
+            "companyName": companyName
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let data = try await performRequest(request)
+        return (try? decoder.decode(MobileTradeResponse.self, from: data))
+            ?? MobileTradeResponse(success: true, data: nil, error: nil, message: nil)
+    }
+
     /// Fetch a league member's portfolio (league-specific, not their main annual/monthly)
     func fetchLeagueMemberPortfolio(leagueId: String, memberId: String) async throws -> LeaderboardUserPortfolio {
         let path = "/mobile/leagues/\(leagueId)/portfolio?memberId=\(memberId)"
@@ -2609,7 +2630,8 @@ struct LeaderboardResponse: Codable {
 struct LeaderboardUserPortfolio {
     let rank: Int?
     let cashBalance: Double
-    struct Holding {
+    struct Holding: Identifiable {
+        var id: String { symbol }
         let symbol: String
         let companyName: String?
         let quantity: Double

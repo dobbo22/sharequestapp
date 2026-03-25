@@ -119,6 +119,10 @@ class TradeSheetViewModel: ObservableObject {
     /// When set, the portfolio selector is hidden and this portfolio is always used
     let lockedPortfolio: String?
 
+    /// When set, all trades go to this specific league (id prefix "league_<id>")
+    let lockedLeagueId: String?
+    let lockedLeagueName: String?
+
     struct TradeSuccessInfo: Equatable {
         let message: String
         let isPendingOrder: Bool
@@ -138,6 +142,11 @@ class TradeSheetViewModel: ObservableObject {
     }
 
     var executeButtonColors: [Color] {
+        if lockedLeagueId != nil || selectedPortfolio.hasPrefix("league_") {
+            return tradeAction == "buy"
+                ? [Color(red: 0.95, green: 0.65, blue: 0.15), Color(red: 0.85, green: 0.50, blue: 0.10)]
+                : [Color(red: 0.94, green: 0.27, blue: 0.27), Color(red: 0.86, green: 0.15, blue: 0.15)]
+        }
         if let window = tradingWindow {
             if window.isAfterHours { return [Color(red: 0.96, green: 0.62, blue: 0.04), Color(red: 0.85, green: 0.59, blue: 0.02)] }
             if window.isPreMarket { return [Color(red: 0.23, green: 0.51, blue: 0.96), Color(red: 0.15, green: 0.39, blue: 0.92)] }
@@ -148,6 +157,9 @@ class TradeSheetViewModel: ObservableObject {
     }
 
     var executeButtonLabel: String {
+        if lockedLeagueId != nil || selectedPortfolio.hasPrefix("league_") {
+            return "\(tradeAction == "buy" ? "Buy" : "Sell") \(stock.symbol)"
+        }
         if let window = tradingWindow {
             if window.isPreMarket { return "Schedule \(tradeAction == "buy" ? "Buy" : "Sell")" }
             if window.isAfterHours { return "\(tradeAction == "buy" ? "Buy" : "Sell") at Close" }
@@ -156,7 +168,8 @@ class TradeSheetViewModel: ObservableObject {
     }
 
     var executeButtonIcon: String {
-        if let window = tradingWindow, window.isPreMarket { return "clock" }
+        if let window = tradingWindow, window.isPreMarket,
+           lockedLeagueId == nil, !selectedPortfolio.hasPrefix("league_") { return "clock" }
         return tradeAction == "buy" ? "plus.circle.fill" : "minus.circle.fill"
     }
 
@@ -164,23 +177,34 @@ class TradeSheetViewModel: ObservableObject {
         isLoading || quantity.isEmpty || (error != nil) || tradeSuccess != nil
     }
 
-    init(stock: Stock, initialAction: String = "buy", initialQuantity: String = "", lockedPortfolio: String? = nil) {
+    init(stock: Stock, initialAction: String = "buy", initialQuantity: String = "",
+         lockedPortfolio: String? = nil, lockedLeagueId: String? = nil, lockedLeagueName: String? = nil) {
         self.stock = stock
         self.tradeAction = initialAction
         self.quantity = initialQuantity
         self.lockedPortfolio = lockedPortfolio
-        self.selectedPortfolio = lockedPortfolio ?? "default"
+        self.lockedLeagueId = lockedLeagueId
+        self.lockedLeagueName = lockedLeagueName
+        if let lid = lockedLeagueId {
+            self.selectedPortfolio = "league_\(lid)"
+        } else {
+            self.selectedPortfolio = lockedPortfolio ?? "default"
+        }
     }
 
     func loadData() async {
         isLoadingData = true
-        async let portfolioTask: () = loadPortfolio()
         async let windowTask: () = loadTradingWindow()
-        if lockedPortfolio == nil {
+        if lockedLeagueId != nil {
+            await loadLeaguePortfolio(leagueId: lockedLeagueId!)
+            await windowTask
+        } else if lockedPortfolio != nil {
+            async let portfolioTask: () = loadPortfolio()
+            await portfolioTask; await windowTask
+        } else {
+            async let portfolioTask: () = loadPortfolio()
             async let subsTask: () = loadAvailablePortfolios()
             await portfolioTask; await windowTask; await subsTask
-        } else {
-            await portfolioTask; await windowTask
         }
         isLoadingData = false
         revalidate()
@@ -195,6 +219,12 @@ class TradeSheetViewModel: ObservableObject {
                 if subs.annual == true  { list.append(("annual",  "Annual",  "trophy")) }
             }
         } catch { /* keep practice-only list */ }
+        // Append active leagues
+        if let leagues = try? await APIService.shared.fetchUserLeagues() {
+            for league in leagues where league.status == "active" {
+                list.append(("league_\(league.id)", league.name, "trophy.fill"))
+            }
+        }
         availablePortfolios = list
         if !list.contains(where: { $0.id == selectedPortfolio }) {
             selectedPortfolio = "default"
@@ -202,12 +232,36 @@ class TradeSheetViewModel: ObservableObject {
     }
 
     private func loadPortfolio() async {
+        let portfolioType = selectedPortfolio.hasPrefix("league_") ? "default" : selectedPortfolio
         do {
-            let resp = try await APIService.shared.fetchPortfolio(type: selectedPortfolio)
+            let resp = try await APIService.shared.fetchPortfolio(type: portfolioType)
             holdings = resp.holdings ?? []
-            // cash_balance comes as string pence — convert to pounds
             let rawPence = Double(resp.portfolio?.cash_balance ?? "10000000") ?? 10_000_000
             cashPounds = rawPence / 100.0
+        } catch {
+            holdings = []
+            cashPounds = 100_000
+        }
+    }
+
+    private func loadLeaguePortfolio(leagueId: String) async {
+        let userId = UserDefaults.standard.string(forKey: "user_id") ?? ""
+        do {
+            let p = try await APIService.shared.fetchLeagueMemberPortfolio(leagueId: leagueId, memberId: userId)
+            cashPounds = p.cashBalance / 100.0
+            // Map league holdings to PortfolioResponse.HoldingData
+            holdings = p.holdings.map { h in
+                PortfolioResponse.HoldingData(
+                    symbol: h.symbol,
+                    companyname: h.companyName ?? h.symbol,
+                    company_name: nil,
+                    quantity: Int(h.quantity),
+                    average_price: h.averagePrice,
+                    current_price: h.currentPrice,
+                    mid: nil,
+                    mid_price: nil
+                )
+            }
         } catch {
             holdings = []
             cashPounds = 100_000
@@ -223,7 +277,12 @@ class TradeSheetViewModel: ObservableObject {
     }
 
     func onPortfolioChanged() async {
-        await loadPortfolio()
+        if selectedPortfolio.hasPrefix("league_") {
+            let lid = String(selectedPortfolio.dropFirst("league_".count))
+            await loadLeaguePortfolio(leagueId: lid)
+        } else {
+            await loadPortfolio()
+        }
         if tradeAction == "sell" && !hasHolding {
             tradeAction = "buy"
         }
@@ -251,8 +310,10 @@ class TradeSheetViewModel: ObservableObject {
                 return
             }
         }
+        // Skip concentration limits for league portfolios
+        let portfolioType = selectedPortfolio.hasPrefix("league_") ? "league" : selectedPortfolio
         let result = concentrationValidate(
-            portfolioType: selectedPortfolio,
+            portfolioType: portfolioType,
             symbol: stock.symbol,
             action: tradeAction,
             quantity: qty,
@@ -271,31 +332,50 @@ class TradeSheetViewModel: ObservableObject {
         isLoading = true
         error = nil
         tradeSuccess = nil
+
+        let pricePence = Int(round(stock.price * 100))
+        let activeLeagueId = lockedLeagueId ?? (selectedPortfolio.hasPrefix("league_") ? String(selectedPortfolio.dropFirst("league_".count)) : nil)
+
         do {
-            // Ensure price is rounded and cast to Int (pence)
-            let pricePence = Int(round(stock.price * 100))
-            let resp = try await APIService.shared.executeMobileTrade(
-                portfolioType: selectedPortfolio,
-                symbol: stock.symbol,
-                companyName: stock.companyName,
-                action: tradeAction,
-                quantity: qty,
-                price: Double(pricePence)
-            )
-            if resp.success {
-                let isPending = resp.data?.isPendingOrder ?? false
-                let msg: String
-                if isPending {
-                    msg = resp.data?.message ?? "Order scheduled for market open"
-                } else if resp.data?.isAfterHours == true {
-                    msg = "\(tradeAction == "buy" ? "Bought" : "Sold") at closing price"
+            if let leagueId = activeLeagueId {
+                let resp = try await APIService.shared.executeLeagueTrade(
+                    leagueId: leagueId,
+                    symbol: stock.symbol,
+                    companyName: stock.companyName,
+                    action: tradeAction,
+                    quantity: qty,
+                    price: Double(pricePence)
+                )
+                if resp.success {
+                    tradeSuccess = TradeSuccessInfo(message: "\(tradeAction == "buy" ? "Bought" : "Sold") successfully in league", isPendingOrder: false)
+                    quantity = ""
                 } else {
-                    msg = resp.data?.message ?? "\(tradeAction == "buy" ? "Bought" : "Sold") successfully"
+                    error = resp.error ?? "Trade failed"
                 }
-                tradeSuccess = TradeSuccessInfo(message: msg, isPendingOrder: isPending)
-                quantity = ""
             } else {
-                error = resp.error ?? resp.message ?? "Trade failed"
+                let resp = try await APIService.shared.executeMobileTrade(
+                    portfolioType: selectedPortfolio,
+                    symbol: stock.symbol,
+                    companyName: stock.companyName,
+                    action: tradeAction,
+                    quantity: qty,
+                    price: Double(pricePence)
+                )
+                if resp.success {
+                    let isPending = resp.data?.isPendingOrder ?? false
+                    let msg: String
+                    if isPending {
+                        msg = resp.data?.message ?? "Order scheduled for market open"
+                    } else if resp.data?.isAfterHours == true {
+                        msg = "\(tradeAction == "buy" ? "Bought" : "Sold") at closing price"
+                    } else {
+                        msg = resp.data?.message ?? "\(tradeAction == "buy" ? "Bought" : "Sold") successfully"
+                    }
+                    tradeSuccess = TradeSuccessInfo(message: msg, isPendingOrder: isPending)
+                    quantity = ""
+                } else {
+                    error = resp.error ?? resp.message ?? "Trade failed"
+                }
             }
         } catch {
             self.error = "An error occurred while processing your trade"
@@ -331,6 +411,19 @@ struct StockTradeSheet: View {
         ))
     }
 
+    /// From league portfolio page — pre-fills action/quantity and locks to a specific league
+    init(stock: Stock, leagueId: String, leagueName: String, initialTradeType: String, initialQuantity: String, onTradeSuccess: (() -> Void)? = nil) {
+        self.stock = stock
+        self.onTradeSuccess = onTradeSuccess
+        _vm = StateObject(wrappedValue: TradeSheetViewModel(
+            stock: stock,
+            initialAction: initialTradeType,
+            initialQuantity: initialQuantity,
+            lockedLeagueId: leagueId,
+            lockedLeagueName: leagueName
+        ))
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -349,8 +442,10 @@ struct StockTradeSheet: View {
 
                         actionToggle
 
-                        // Portfolio selector — hidden when locked to a specific portfolio
-                        if vm.lockedPortfolio == nil {
+                        // Portfolio selector — hidden when locked to a specific portfolio or league
+                        if vm.lockedLeagueId != nil {
+                            lockedPortfolioLabel
+                        } else if vm.lockedPortfolio == nil {
                             portfolioSelector
                         } else {
                             lockedPortfolioLabel
@@ -535,22 +630,33 @@ struct StockTradeSheet: View {
 
     /// Shown instead of the selector when portfolio is locked (called from portfolio page)
     private var lockedPortfolioLabel: some View {
-        let portfolio = PortfolioType(rawValue: vm.lockedPortfolio ?? "default") ?? .practice
-        return HStack(spacing: 8) {
-            Text(portfolio.emoji)
-            Text(portfolio.displayName)
-                .fontWeight(.semibold)
-                .foregroundColor(portfolio.color)
-            Text("Portfolio")
-                .foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
-            Spacer()
+        Group {
+            if let leagueName = vm.lockedLeagueName {
+                let color = Color(red: 0.95, green: 0.65, blue: 0.15)
+                HStack(spacing: 8) {
+                    Image(systemName: "trophy.fill").foregroundColor(color)
+                    Text(leagueName).fontWeight(.semibold).foregroundColor(color)
+                    Text("League").foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
+                    Spacer()
+                }
+                .font(.subheadline)
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 10).fill(color.opacity(0.12)))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(color.opacity(0.4), lineWidth: 1))
+            } else {
+                let portfolio = PortfolioType(rawValue: vm.lockedPortfolio ?? "default") ?? .practice
+                HStack(spacing: 8) {
+                    Text(portfolio.emoji)
+                    Text(portfolio.displayName).fontWeight(.semibold).foregroundColor(portfolio.color)
+                    Text("Portfolio").foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
+                    Spacer()
+                }
+                .font(.subheadline)
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 10).fill(portfolio.color.opacity(0.12)))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(portfolio.color.opacity(0.4), lineWidth: 1))
+            }
         }
-        .font(.subheadline)
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 10)
-            .fill(portfolio.color.opacity(0.12)))
-        .overlay(RoundedRectangle(cornerRadius: 10)
-            .stroke(portfolio.color.opacity(0.4), lineWidth: 1))
     }
 
     // MARK: - Quantity Input
@@ -721,7 +827,9 @@ struct StockTradeSheet: View {
         case "weekly":  return Theme.primaryBlue
         case "monthly": return Theme.accentPurple
         case "annual":  return Theme.accentYellow
-        default:        return Theme.accentGreen
+        default:
+            if id.hasPrefix("league_") { return Color(red: 0.95, green: 0.65, blue: 0.15) }
+            return Theme.accentGreen
         }
     }
 }

@@ -38,6 +38,7 @@ struct PortfolioView: View {
     @State private var mode: PortfolioMode = .shareQuests
     @State private var leagueStates: [LeaguePortfolioState] = []
     @State private var leaguesLoading = false
+    @State private var selectedLeague: League? = nil
 
     var isEmbedded: Bool = false
 
@@ -84,6 +85,9 @@ struct PortfolioView: View {
                     Task { await viewModel.fetchPortfolio(type: selectedPortfolioType) }
                 }
             )
+        }
+        .sheet(item: $selectedLeague) { league in
+            LeaguePortfolioView(league: league)
         }
     }
 
@@ -259,8 +263,10 @@ struct PortfolioView: View {
             } else if leagueStates.isEmpty {
                 emptyLeaguesView
             } else {
-                ForEach($leagueStates) { $state in
-                    LeaguePortfolioCard(state: $state)
+                ForEach(leagueStates) { state in
+                    LeaguePortfolioCard(state: state) {
+                        selectedLeague = state.league
+                    }
                 }
             }
         }
@@ -331,148 +337,13 @@ struct PortfolioView: View {
     }
 }
 
-// MARK: - League Portfolio Card
+// MARK: - League Portfolio Card (summary tap-to-open)
 
 struct LeaguePortfolioCard: View {
-    @Binding var state: LeaguePortfolioState
+    let state: LeaguePortfolioState
+    let onTap: () -> Void
 
-    private var accentColor: Color {
-        portfolioColor(for: state.league.competition_type ?? "annual")
-    }
-
-    private var formattedTotal: String {
-        let pounds = state.totalValue / 100
-        return String(format: "£%.2f", pounds)
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Header row — always visible
-            Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                    state.isExpanded.toggle()
-                }
-                if state.isExpanded && state.holdings.isEmpty {
-                    Task { await loadHoldings() }
-                }
-            } label: {
-                HStack(spacing: 12) {
-                    // Accent bar
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(accentColor)
-                        .frame(width: 4)
-                        .frame(height: 52)
-
-                    // League icon
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(accentColor.opacity(0.18))
-                            .frame(width: 40, height: 40)
-                        Image(systemName: state.league.competition_type == "monthly"
-                              ? "calendar.badge.clock" : "star.circle.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(accentColor)
-                    }
-
-                    // Name + type
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(state.league.name)
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundColor(Theme.textPrimary)
-                            .lineLimit(1)
-                        HStack(spacing: 6) {
-                            typeBadge
-                            statusBadge
-                        }
-                    }
-
-                    Spacer()
-
-                    // Value + return
-                    VStack(alignment: .trailing, spacing: 3) {
-                        Text(formattedTotal)
-                            .font(.subheadline).fontWeight(.bold)
-                            .foregroundColor(Theme.textPrimary)
-                        ChangePill(percent: state.returnPercent, compact: true)
-                    }
-
-                    Image(systemName: state.isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Theme.textMuted)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-            }
-            .buttonStyle(PlainButtonStyle())
-
-            // Expanded holdings
-            if state.isExpanded {
-                Divider().background(Theme.glassBorder).padding(.horizontal)
-
-                if state.isLoading {
-                    HStack { Spacer(); ProgressView().tint(accentColor); Spacer() }
-                        .padding()
-                } else if state.holdings.isEmpty {
-                    Text("No holdings in this league yet")
-                        .font(.caption).foregroundColor(Theme.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                } else {
-                    VStack(spacing: 0) {
-                        // Cash row
-                        HStack {
-                            Text("Cash Available")
-                                .font(.caption).foregroundColor(Theme.textSecondary)
-                            Spacer()
-                            Text(String(format: "£%.2f", state.cashBalance / 100))
-                                .font(.caption).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-
-                        Divider().background(Theme.glassBorder).padding(.horizontal)
-
-                        ForEach(state.holdings, id: \.symbol) { holding in
-                            leagueHoldingRow(holding: holding)
-                            if holding.symbol != state.holdings.last?.symbol {
-                                Divider().background(Theme.glassBorder).padding(.horizontal)
-                            }
-                        }
-                    }
-                    .padding(.bottom, 8)
-                }
-            }
-        }
-        .background(Theme.glassBackground)
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(state.isExpanded ? accentColor.opacity(0.4) : Theme.glassBorder, lineWidth: 1)
-        )
-        .shadow(color: state.isExpanded ? accentColor.opacity(0.12) : .clear, radius: 8, x: 0, y: 4)
-    }
-
-    private var typeBadge: some View {
-        let label = (state.league.competition_type ?? "annual").capitalized
-        return Text(label)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundColor(accentColor)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(accentColor.opacity(0.15))
-            .cornerRadius(6)
-    }
-
-    private var statusBadge: some View {
-        let (label, color) = statusInfo
-        return Text(label)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundColor(color)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.15))
-            .cornerRadius(6)
-    }
+    private var accentColor: Color { portfolioColor(for: state.league.competition_type ?? "annual") }
 
     private var statusInfo: (String, Color) {
         switch state.league.status {
@@ -483,42 +354,263 @@ struct LeaguePortfolioCard: View {
         }
     }
 
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(accentColor)
+                    .frame(width: 4, height: 56)
+
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(accentColor.opacity(0.18))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: state.league.competition_type == "monthly"
+                          ? "calendar.badge.clock" : "star.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(accentColor)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(state.league.name)
+                        .font(.subheadline).fontWeight(.semibold)
+                        .foregroundColor(Theme.textPrimary).lineLimit(1)
+                    HStack(spacing: 6) {
+                        let typeLabel = (state.league.competition_type ?? "annual").capitalized
+                        Text(typeLabel)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(accentColor)
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .background(accentColor.opacity(0.15)).cornerRadius(6)
+                        let (sLabel, sColor) = statusInfo
+                        Text(sLabel)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(sColor)
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .background(sColor.opacity(0.15)).cornerRadius(6)
+                    }
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(String(format: "£%.2f", state.totalValue / 100))
+                        .font(.subheadline).fontWeight(.bold).foregroundColor(Theme.textPrimary)
+                    ChangePill(percent: state.returnPercent, compact: true)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Theme.textMuted)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(Theme.glassBackground)
+            .cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.glassBorder, lineWidth: 1))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - League Portfolio Full View
+
+struct LeaguePortfolioView: View {
+    let league: League
+    @Environment(\.dismiss) private var dismiss
+    @State private var holdings: [LeaderboardUserPortfolio.Holding] = []
+    @State private var cashBalance: Double = 0
+    @State private var totalValue: Double = 0
+    @State private var returnPercent: Double = 0
+    @State private var isLoading = true
+    @State private var tradingHolding: LeaderboardUserPortfolio.Holding? = nil
+
+    private let startingBalance = 10_000_000.0 // £100,000 in pence
+    private var accentColor: Color { portfolioColor(for: league.competition_type ?? "annual") }
+    private var isActive: Bool { league.status == "active" }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.backgroundPrimary.ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 20) {
+                        summaryCard
+                        holdingsSection
+                    }
+                    .padding()
+                }
+                .refreshable { await loadPortfolio() }
+            }
+            .navigationTitle(league.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Done") { dismiss() }.foregroundColor(Theme.primaryBlue)
+                }
+            }
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .sheet(item: $tradingHolding) { holding in
+                StockTradeSheet(
+                    stock: Stock(
+                        id: holding.symbol,
+                        symbol: holding.symbol,
+                        companyName: holding.companyName ?? holding.symbol,
+                        price: holding.currentPrice / 100.0,
+                        changeAmount: 0,
+                        changePercent: 0,
+                        sector: "League",
+                        marketCap: 0
+                    ),
+                    leagueId: league.id,
+                    leagueName: league.name,
+                    initialTradeType: "sell",
+                    initialQuantity: String(Int(holding.quantity)),
+                    onTradeSuccess: { Task { await loadPortfolio() } }
+                )
+            }
+        }
+        .task { await loadPortfolio() }
+    }
+
+    // MARK: Summary Card
+
+    private var summaryCard: some View {
+        VStack(spacing: 16) {
+            // League type badge
+            HStack(spacing: 8) {
+                Image(systemName: league.competition_type == "monthly" ? "calendar.badge.clock" : "star.circle.fill")
+                    .foregroundColor(accentColor)
+                Text((league.competition_type ?? "annual").capitalized + " League")
+                    .font(.caption).fontWeight(.semibold).foregroundColor(accentColor)
+                Spacer()
+                let (sLabel, sColor) = statusInfo
+                Text(sLabel)
+                    .font(.system(size: 10, weight: .semibold)).foregroundColor(sColor)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(sColor.opacity(0.15)).cornerRadius(8)
+            }
+
+            Divider().background(Theme.glassBorder)
+
+            VStack(spacing: 4) {
+                Text("Total Value").font(.subheadline).foregroundColor(Theme.textSecondary)
+                Text(String(format: "£%.2f", totalValue / 100))
+                    .font(.system(size: 28, weight: .bold)).foregroundColor(Theme.textPrimary)
+                    .minimumScaleFactor(0.7).lineLimit(1)
+            }
+
+            ChangePill(percent: returnPercent)
+
+            Divider().background(Theme.glassBorder)
+
+            HStack {
+                VStack(spacing: 4) {
+                    Text("Cash").font(.caption).foregroundColor(Theme.textSecondary)
+                    Text(String(format: "£%.2f", cashBalance / 100))
+                        .font(.subheadline).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                }
+                Spacer()
+                VStack(spacing: 4) {
+                    Text("Holdings").font(.caption).foregroundColor(Theme.textSecondary)
+                    Text(String(format: "£%.2f", (totalValue - cashBalance) / 100))
+                        .font(.subheadline).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                }
+                Spacer()
+                VStack(spacing: 4) {
+                    Text("Members").font(.caption).foregroundColor(Theme.textSecondary)
+                    Text("\(league.member_count ?? 0)")
+                        .font(.subheadline).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                }
+            }
+        }
+        .padding()
+        .glassCard()
+    }
+
+    // MARK: Holdings Section
+
+    private var holdingsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Holdings").font(.headline).foregroundColor(Theme.textPrimary)
+                Spacer()
+                Text("\(holdings.count) stocks").font(.caption).foregroundColor(Theme.textSecondary)
+            }
+
+            if isLoading {
+                ProgressView().tint(accentColor).frame(maxWidth: .infinity, minHeight: 80)
+            } else if holdings.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "briefcase").font(.system(size: 36)).foregroundColor(Theme.textMuted)
+                    Text("No holdings yet").font(.subheadline).foregroundColor(Theme.textSecondary)
+                    if isActive {
+                        Text("Go to Stocks to make your first league trade")
+                            .font(.caption).foregroundColor(Theme.textMuted).multilineTextAlignment(.center)
+                    } else {
+                        Text("Trading opens once the league is active")
+                            .font(.caption).foregroundColor(Theme.textMuted).multilineTextAlignment(.center)
+                    }
+                }
+                .frame(maxWidth: .infinity).padding(.vertical, 40).glassCard()
+            } else {
+                ForEach(holdings, id: \.symbol) { holding in
+                    leagueHoldingRow(holding: holding)
+                }
+            }
+        }
+    }
+
     private func leagueHoldingRow(holding: LeaderboardUserPortfolio.Holding) -> some View {
         let value = holding.quantity * holding.currentPrice
         let cost = holding.quantity * holding.averagePrice
         let plPct = cost > 0 ? ((value - cost) / cost) * 100 : 0
-        return HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(holding.companyName ?? holding.symbol)
-                    .font(.subheadline).fontWeight(.semibold)
-                    .foregroundColor(Theme.textPrimary).lineLimit(1)
-                Text("\(holding.symbol) · \(Int(holding.quantity)) shares")
-                    .font(.caption).foregroundColor(Theme.textSecondary)
+        return Button {
+            if isActive { tradingHolding = holding }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(holding.companyName ?? holding.symbol)
+                        .font(.subheadline).fontWeight(.semibold)
+                        .foregroundColor(Theme.textPrimary).lineLimit(1)
+                    HStack(spacing: 8) {
+                        Text(holding.symbol).font(.caption).foregroundColor(Theme.textSecondary)
+                        Text("\(Int(holding.quantity)) shares").font(.caption).fontWeight(.bold).foregroundColor(.white)
+                    }
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(String(format: "£%.2f", value / 100))
+                        .font(.caption).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                    ChangePill(percent: plPct)
+                }
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(String(format: "£%.2f", value / 100))
-                    .font(.subheadline).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
-                ChangePill(percent: plPct, compact: true)
-            }
+            .padding().glassCard()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .buttonStyle(PlainButtonStyle())
     }
 
-    private func loadHoldings() async {
-        state.isLoading = true
+    private var statusInfo: (String, Color) {
+        switch league.status {
+        case "active":    return ("Active", Theme.accentGreen)
+        case "pending":   return ("Pending", Theme.accentYellow)
+        case "completed": return ("Ended", Theme.textMuted)
+        default:          return (league.status?.capitalized ?? "", Theme.textSecondary)
+        }
+    }
+
+    private func loadPortfolio() async {
+        isLoading = true
         let userId = UserDefaults.standard.string(forKey: "user_id") ?? ""
         if let p = try? await APIService.shared.fetchLeagueMemberPortfolio(
-            leagueId: state.league.id, memberId: userId) {
-            state.holdings = p.holdings
-            state.cashBalance = p.cashBalance
-            let totalPence = p.cashBalance + p.holdings.reduce(0) { $0 + $1.quantity * $1.currentPrice }
-            let startPence = 10_000_000.0
-            state.totalValue = totalPence
-            state.returnPercent = ((totalPence - startPence) / startPence) * 100
+            leagueId: league.id, memberId: userId) {
+            holdings = p.holdings
+            cashBalance = p.cashBalance
+            let holdingsValue = p.holdings.reduce(0.0) { $0 + $1.quantity * $1.currentPrice }
+            totalValue = cashBalance + holdingsValue
+            returnPercent = ((totalValue - startingBalance) / startingBalance) * 100
         }
-        state.isLoading = false
+        isLoading = false
     }
 }
 
