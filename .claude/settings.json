@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -sL -w \"\\\\nHTTP_STATUS:%{http_code}\" \"https://sharequest.co.uk/api/mobile/gamification/profile\" -H \"x-user-id: bina\")",
+      "Bash(python3 -c \"import sys,json; d=sys.stdin.read\\(\\); parts=d.rsplit\\(''''\\\\n'''',1\\); print\\(json.dumps\\(json.loads\\(parts[0]\\), indent=2\\)[:800]\\); print\\(parts[1]\\)\")",
+      "Bash(curl -sL \"https://sharequest.co.uk/api/mobile/auth/login\" -X POST -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"sabina.bear@btinternet.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"Twinkle2811?\"\"\"\"}')",
+      "Bash(curl -sL \"https://sharequest.co.uk/api/mobile/auth/login\" -X POST -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"support@sharequest.co.uk\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"Twinkle2811?\"\"\"\"}')",
+      "Bash(curl -sL \"https://sharequest.co.uk/api/mobile/leagues\" -H \"x-user-id: Bina\")",
+      "Bash(python3 -c \":*)",
+      "Bash(npx tsx --tsconfig tsconfig.json -e \":*)",
+      "Bash(grep -rn \"SubscriptionsView\\(\\)\" /Users/martin/Desktop/ShareQuest/ShareQuest/*.swift)",
+      "Bash(find /Users/martin/Desktop/ShareQuest/STA/trading-app -name RevolutPayButton* -o -name revolut*)",
+      "Bash(curl -sI \"https://sharequest.co.uk/.well-known/apple-developer-merchantid-domain-association\")",
+      "Bash(curl -sIL \"https://sharequest.co.uk/.well-known/apple-developer-merchantid-domain-association\")",
+      "Bash(find /Users/martin/Desktop/ShareQuest/STA/trading-app -name *.js -o -name *.ts)",
+      "Bash(curl -s http://localhost:3000/api/admin/diagnose-leaderboard?type=annual)",
+      "Bash(psql \"postgresql://neondb_owner:npg_hnOjK9g3VJLI@ep-round-mountain-abas00um-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require\" -c \":*)",
+      "Bash(cat /Users/martin/Desktop/ShareQuest/STA/trading-app/app/api/mobile/leagues/[id]/portfolio/route.ts)",
+      "Bash(cat /Users/martin/Desktop/ShareQuest/STA/trading-app/app/api/mobile/leagues/[id]/trade/route.ts)",
+      "Bash(xcodebuild -workspace ShareQuest.xcworkspace -scheme ShareQuest -destination 'platform=iOS Simulator,name=iPhone 16' build)",
+      "Bash(xcodebuild -workspace ShareQuest.xcworkspace -scheme ShareQuest -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build)",
+      "Bash(xcodebuild -workspace ShareQuest.xcworkspace -scheme ShareQuest -destination 'platform=iOS Simulator,name=iPhone 15 Pro' build)",
+      "Bash(xcodebuild -workspace ShareQuest.xcworkspace -scheme ShareQuest -sdk iphonesimulator -destination 'id=D917BE20-6099-47EE-929D-EA9537486FF5' build)",
+      "Bash(xcodebuild -workspace /Users/martin/Desktop/ShareQuest/ShareQuest.xcworkspace -scheme ShareQuest -sdk iphonesimulator build)",
+      "Bash(sed -i '' 's/\\\\.font\\(\\\\.system\\(size: 9,/\\\\.font\\(\\\\.system\\(size: scaled\\(9\\),/g' /Users/martin/Desktop/ShareQuest/ShareQuest/DashboardView.swift)",
+      "Bash(__NEW_LINE_e9624a73e6e91422__ sed:*)",
+      "Bash(ls -1 /Users/martin/Desktop/ShareQuest/ShareQuest/*.swift)",
+      "Bash(xargs -I {} basename {} .swift)",
+      "Bash(xargs basename:*)",
+      "Bash(/tmp/mobile_endpoints.txt:*)",
+      "Read(//tmp/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/martin/Desktop/ShareQuest/STA/trading-app/app/api/mobile/leagues/[id]"
+    ]
+  }
+}

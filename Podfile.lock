@@ -1,0 +1,20 @@
+PODS:
+  - RevolutPayments/RevolutApplePay (3.13.0):
+    - RevolutPayments/RevolutPaymentsCore
+  - RevolutPayments/RevolutPaymentsAPI (3.13.0)
+  - RevolutPayments/RevolutPaymentsCore (3.13.0):
+    - RevolutPayments/RevolutPaymentsAPI
+
+DEPENDENCIES:
+  - RevolutPayments/RevolutApplePay
+
+SPEC REPOS:
+  trunk:
+    - RevolutPayments
+
+SPEC CHECKSUMS:
+  RevolutPayments: d3d05e8240c10ab6216323c6df9196853ce2c6b9
+
+PODFILE CHECKSUM: c1f0faeb27e5d402e9faa3db9dd3d30f358cdbb8
+
+COCOAPODS: 1.16.2

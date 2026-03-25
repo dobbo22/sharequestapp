@@ -1,3 +1,6 @@
 .vercel
 .env*.local
 node_modules
+
+# CocoaPods - track Podfile/Podfile.lock but not the Pods directory (binaries too large)
+Pods/

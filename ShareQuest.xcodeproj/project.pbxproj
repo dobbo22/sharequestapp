@@ -65,15 +65,11 @@
 		};
 		5BDEBAD32F61D6D300A532C0 /* ShareQuestTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = ShareQuestTests;
 			sourceTree = "<group>";
 		};
 		5BDEBADD2F61D6D300A532C0 /* ShareQuestUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = ShareQuestUITests;
 			sourceTree = "<group>";
 		};
@@ -139,7 +135,6 @@
 				CB98E58967BE0A7751B313C9 /* Pods-ShareQuestTests.debug.xcconfig */,
 				1274F8340178546234F39428 /* Pods-ShareQuestTests.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -344,9 +339,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ShareQuest/Pods-ShareQuest-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ShareQuest/Pods-ShareQuest-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -361,9 +360,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ShareQuest-ShareQuestUITests/Pods-ShareQuest-ShareQuestUITests-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ShareQuest-ShareQuestUITests/Pods-ShareQuest-ShareQuestUITests-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
