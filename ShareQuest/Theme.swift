@@ -7,6 +7,23 @@
 
 import SwiftUI
 
+// MARK: - Adaptive Font Scale
+//
+// Base design width is 390pt (iPhone 15/16 Pro).
+// On larger screens (iPhone 16 Pro Max = 430pt, 17 Pro Max = ~440pt) fonts
+// scale up proportionally. Clamped so small phones don't shrink too much.
+
+private let baseWidth: CGFloat = 390
+
+/// Returns a font size scaled to the current screen width.
+func scaled(_ size: CGFloat) -> CGFloat {
+    let screen = UIScreen.main.bounds.width
+    let factor = min(max(screen / baseWidth, 0.85), 1.20)
+    return (size * factor).rounded()
+}
+
+// MARK: - App Theme
+
 /// App theme colors - matches React Native theme
 enum Theme {
     // Primary colors
@@ -91,10 +108,9 @@ struct ChangePill: View {
     var body: some View {
         HStack(spacing: compact ? 2 : 3) {
             Image(systemName: arrowIcon)
-                .font(.system(size: compact ? 8 : 10, weight: .bold))
+                .font(.system(size: compact ? scaled(8) : scaled(10), weight: .bold))
             Text(text)
-                .font(compact ? .system(size: 10, weight: .bold) : .caption)
-                .fontWeight(.bold)
+                .font(.system(size: compact ? scaled(10) : scaled(12), weight: .bold))
         }
         .foregroundColor(.white)
         .padding(.horizontal, compact ? 7 : 10)

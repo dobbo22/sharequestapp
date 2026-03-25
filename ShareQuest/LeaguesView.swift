@@ -164,7 +164,7 @@ struct LeaguesView: View {
                     // Icon + title
                     HStack(spacing: 10) {
                         Image(systemName: "trophy.circle.fill")
-                            .font(.system(size: 32))
+                            .font(.system(size: scaled(32)))
                             .foregroundColor(goldColor)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Annual ShareQuest")
@@ -262,7 +262,7 @@ struct LeaguesView: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48)).foregroundColor(.red)
+                .font(.system(size: scaled(48))).foregroundColor(.red)
             Text(message).foregroundColor(.red).multilineTextAlignment(.center).padding(.horizontal)
             Button("Retry") { Task { await viewModel.fetchLeagues() } }
                 .padding(.horizontal, 24).padding(.vertical, 12)
@@ -274,7 +274,7 @@ struct LeaguesView: View {
     private var emptyView: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.3")
-                .font(.system(size: 64)).foregroundColor(Theme.textMuted)
+                .font(.system(size: scaled(64))).foregroundColor(Theme.textMuted)
             Text(selectedTab == .myLeagues ? "No leagues yet" : "No public leagues")
                 .font(.title3).fontWeight(.bold).foregroundColor(.white)
             Text(selectedTab == .myLeagues
@@ -348,7 +348,7 @@ struct LeagueCard: View {
                             .fill(iconColor)
                             .frame(width: 44, height: 44)
                         Image(systemName: league.is_private == true ? "lock.fill" : "person.3.fill")
-                            .font(.system(size: 18))
+                            .font(.system(size: scaled(18)))
                             .foregroundColor(.white)
                     }
 
@@ -456,7 +456,7 @@ struct LeagueDetailSheet: View {
                             if justPaid {
                                 VStack(spacing: 8) {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 36))
+                                        .font(.system(size: scaled(36)))
                                         .foregroundColor(.green)
                                     Text("Payment Successful!")
                                         .font(.headline).fontWeight(.bold)
@@ -726,11 +726,11 @@ struct LeagueDetailSheet: View {
             VStack(alignment: .leading, spacing: 1) {
                 if isUser {
                     Text("Your Position")
-                        .font(.system(size: 9))
+                        .font(.system(size: scaled(9)))
                         .foregroundColor(.white.opacity(0.5))
                 }
                 Text(member.username)
-                    .font(.system(size: 13, weight: isUser ? .semibold : .medium))
+                    .font(.system(size: scaled(13), weight: isUser ? .semibold : .medium))
                     .foregroundColor(isUser ? Theme.primaryBlue : .white)
                     .lineLimit(1)
             }
@@ -740,7 +740,7 @@ struct LeagueDetailSheet: View {
             // Value + return
             VStack(alignment: .trailing, spacing: 3) {
                 Text(formattedValue(member.total_value ?? 10_000_000))
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: scaled(12), weight: .semibold))
                     .foregroundColor(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -969,7 +969,7 @@ struct CreateLeagueSheet: View {
                                                     .fill(color.opacity(0.2))
                                                     .frame(width: 36, height: 36)
                                                 Image(systemName: icon)
-                                                    .font(.system(size: 16))
+                                                    .font(.system(size: scaled(16)))
                                                     .foregroundColor(color)
                                             }
                                             Text(label)

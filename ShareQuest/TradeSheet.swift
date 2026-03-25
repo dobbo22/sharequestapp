@@ -612,7 +612,7 @@ struct StockTradeSheet: View {
                     Button { vm.selectedPortfolio = option.id } label: {
                         HStack(spacing: 8) {
                             Image(systemName: option.icon)
-                                .font(.system(size: 16))
+                                .font(.system(size: scaled(16)))
                                 .foregroundColor(isSelected ? .white : color)
                             Text(option.label)
                                 .font(.subheadline).fontWeight(.semibold)
@@ -716,15 +716,15 @@ struct StockTradeSheet: View {
             Group {
                 if isDone {
                     Text("Done")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: scaled(16), weight: .semibold))
                         .foregroundColor(Theme.primaryBlue)
                 } else if isDelete {
                     Image(systemName: "delete.left")
-                        .font(.system(size: 20))
+                        .font(.system(size: scaled(20)))
                         .foregroundColor(.white)
                 } else {
                     Text(key)
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.system(size: scaled(22), weight: .medium))
                         .foregroundColor(.white)
                 }
             }
@@ -791,7 +791,7 @@ struct StockTradeSheet: View {
 
     private func alertRow(text: String, color: Color, icon: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            Image(systemName: icon).foregroundColor(color).font(.system(size: 16))
+            Image(systemName: icon).foregroundColor(color).font(.system(size: scaled(16)))
             Text(text).font(.caption).foregroundColor(color).multilineTextAlignment(.leading)
             Spacer()
         }
@@ -808,7 +808,7 @@ struct StockTradeSheet: View {
                 if vm.isLoading {
                     ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
                 } else {
-                    Image(systemName: vm.executeButtonIcon).font(.system(size: 20))
+                    Image(systemName: vm.executeButtonIcon).font(.system(size: scaled(20)))
                     Text(vm.executeButtonLabel).font(.headline)
                 }
             }

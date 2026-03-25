@@ -252,7 +252,7 @@ struct DashboardView: View {
                         .frame(minHeight: 22)
                     Button { showProfile = true } label: {
                         Image(systemName: "gearshape.fill")
-                            .font(.system(size: 16))
+                            .font(.system(size: scaled(16)))
                             .foregroundColor(Theme.textSecondary)
                     }
                 }
@@ -282,7 +282,7 @@ struct DashboardView: View {
                                     .fill(Color.red)
                                     .frame(width: 16, height: 16)
                                 Text(unreadNotificationCount > 9 ? "9+" : "\(unreadNotificationCount)")
-                                    .font(.system(size: 9, weight: .bold))
+                                    .font(.system(size: scaled(9), weight: .bold))
                                     .foregroundColor(.white)
                             }
                             .offset(x: 4, y: -4)
@@ -905,7 +905,7 @@ struct TickerStockView: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     // Price with same directional colour as the pill
                     Text(stock.formattedPrice)
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: scaled(11), weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
@@ -998,7 +998,7 @@ struct DailyTaskRowView: View {
                     .fill(taskIconColor.opacity(0.15))
                     .frame(width: 40, height: 40)
                 Image(systemName: taskIcon)
-                    .font(.system(size: 18))
+                    .font(.system(size: scaled(18)))
                     .foregroundColor(taskIconColor)
             }
 
@@ -1104,7 +1104,7 @@ struct StockHuntHubSheet: View {
                                     .fill(huntColor.opacity(0.15))
                                     .frame(width: 72, height: 72)
                                 Image(systemName: "scope")
-                                    .font(.system(size: 32, weight: .semibold))
+                                    .font(.system(size: scaled(32), weight: .semibold))
                                     .foregroundColor(huntColor)
                             }
 
@@ -1244,7 +1244,7 @@ struct StockHuntHubSheet: View {
                     .frame(width: 36, height: 36)
                 Image(systemName: challenge.isCompleted ? "checkmark.circle.fill" : "scope")
                     .foregroundColor(challenge.isCompleted ? Theme.accentGreen : huntColor)
-                    .font(.system(size: 16))
+                    .font(.system(size: scaled(16)))
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -1410,7 +1410,7 @@ struct DailyTaskDetailSheet: View {
                                     .frame(width: 76, height: 76)
                                     .overlay(Circle().stroke(iconColor.opacity(0.3), lineWidth: 1.5))
                                 Image(systemName: isCompleted ? "checkmark.circle.fill" : iconName)
-                                    .font(.system(size: 36))
+                                    .font(.system(size: scaled(36)))
                                     .foregroundColor(iconColor)
                             }
                             .padding(.top, 8)
@@ -2007,7 +2007,7 @@ struct PortfolioCardView: View {
                         .foregroundColor(.white)
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: scaled(11), weight: .semibold))
                         .foregroundColor(.white.opacity(0.6))
                 }
 

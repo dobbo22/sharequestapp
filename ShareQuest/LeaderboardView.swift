@@ -140,7 +140,7 @@ struct LeaderboardView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: type.icon)
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: scaled(11), weight: .bold))
                         Text(type.displayName)
                             .font(.subheadline)
                             .fontWeight(.semibold)
@@ -191,7 +191,7 @@ struct LeaderboardView: View {
     private func competitionStrip(info: LeaderboardViewModel.CompetitionInfo) -> some View {
         HStack(spacing: 10) {
             Image(systemName: viewModel.selectedType.icon)
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: scaled(13), weight: .bold))
                 .foregroundColor(viewModel.selectedType.color)
 
             Text(viewModel.selectedType.title)
@@ -290,7 +290,7 @@ struct LeaderboardView: View {
                         .overlay(Circle().stroke(isUser ? Theme.primaryBlue.opacity(0.5) : Color.white.opacity(0.12), lineWidth: 1.5))
                 }
                 Text("\(entry.rank)")
-                    .font(.system(size: isMedal ? 14 : 11, weight: .black))
+                    .font(.system(size: scaled(isMedal ? 14 : 11), weight: .black))
                     .foregroundColor(isMedal ? .black.opacity(0.75) : (isUser ? Theme.primaryBlue : .white.opacity(0.6)))
             }
 
@@ -298,11 +298,11 @@ struct LeaderboardView: View {
             VStack(alignment: .leading, spacing: 1) {
                 if isUser {
                     Text("Your Position")
-                        .font(.system(size: 9))
+                        .font(.system(size: scaled(9)))
                         .foregroundColor(.white.opacity(0.5))
                 }
                 Text(entry.username)
-                    .font(.system(size: 13, weight: isUser ? .semibold : .medium))
+                    .font(.system(size: scaled(13), weight: isUser ? .semibold : .medium))
                     .foregroundColor(isUser ? Theme.primaryBlue : .white)
                     .lineLimit(1)
             }
@@ -312,7 +312,7 @@ struct LeaderboardView: View {
             // Full value + movement
             VStack(alignment: .trailing, spacing: 3) {
                 Text(entry.formattedValueFull)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: scaled(12), weight: .semibold))
                     .foregroundColor(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -352,7 +352,7 @@ struct LeaderboardView: View {
     private func errorView(error: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 40))
+                .font(.system(size: scaled(40)))
                 .foregroundColor(Theme.accentYellow)
             Text(error)
                 .font(.subheadline)
@@ -373,7 +373,7 @@ struct LeaderboardView: View {
     private var emptyView: some View {
         VStack(spacing: 14) {
             Image(systemName: "trophy.fill")
-                .font(.system(size: 52))
+                .font(.system(size: scaled(52)))
                 .foregroundColor(Theme.accentYellow.opacity(0.4))
             Text("No participants yet")
                 .font(.headline)

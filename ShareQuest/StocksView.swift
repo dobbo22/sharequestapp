@@ -313,7 +313,7 @@ struct StocksView: View {
                                     .stroke(sortOrder == .defaultOrder ? Theme.glassBorder : sortOrder.color.opacity(0.6), lineWidth: 1)
                             )
                         Image(systemName: sortOrder.icon)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.system(size: scaled(15), weight: .semibold))
                             .foregroundColor(sortOrder.color)
                     }
                 }
@@ -362,7 +362,7 @@ struct StocksView: View {
                     VStack(spacing: 16) {
                         if selectedTab == .watchlist {
                             Image(systemName: "star")
-                                .font(.system(size: 48))
+                                .font(.system(size: scaled(48)))
                                 .foregroundColor(Theme.textMuted)
                             Text("No stocks in watchlist")
                                 .font(.headline)
@@ -374,7 +374,7 @@ struct StocksView: View {
                                 .padding(.horizontal, 40)
                         } else {
                             Image(systemName: searchText.isEmpty ? "magnifyingglass" : "magnifyingglass")
-                                .font(.system(size: 48))
+                                .font(.system(size: scaled(48)))
                                 .foregroundColor(Theme.textMuted)
                             Text(searchText.isEmpty ? "Search for a stock" : "No results for \"\(searchText)\"")
                                 .font(.headline)
@@ -480,7 +480,7 @@ struct StockRowView: View {
                     watchlist.toggle(stock: stock)
                 } label: {
                     Image(systemName: watchlist.isWatched(stock.symbol) ? "star.fill" : "star")
-                        .font(.system(size: 16))
+                        .font(.system(size: scaled(16)))
                         .foregroundColor(watchlist.isWatched(stock.symbol) ? Theme.accentYellow : Theme.textMuted)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -956,7 +956,7 @@ struct SectorsView: View {
     private var backBar: some View {
         Button { vm.goBack() } label: {
             HStack(spacing: 6) {
-                Image(systemName: "chevron.left").font(.system(size: 14, weight: .semibold))
+                Image(systemName: "chevron.left").font(.system(size: scaled(14), weight: .semibold))
                 Text(vm.selectedSubsector != nil ? (vm.selectedSector ?? "") : "All Sectors")
                     .fontWeight(.semibold)
             }
@@ -1038,14 +1038,14 @@ struct SectorTile: View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10).fill(color).frame(width: 42, height: 42)
-                Image(systemName: icon).font(.system(size: 18)).foregroundColor(.white)
+                Image(systemName: icon).font(.system(size: scaled(18))).foregroundColor(.white)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline).fontWeight(.semibold).foregroundColor(.white).lineLimit(1)
                 Text(subtitle).font(.caption).foregroundColor(Theme.textSecondary)
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.textMuted)
+            Image(systemName: "chevron.right").font(.system(size: scaled(13), weight: .semibold)).foregroundColor(Theme.textMuted)
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(Theme.glassBackground)
