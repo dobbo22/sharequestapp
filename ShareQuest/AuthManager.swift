@@ -32,7 +32,7 @@ class AuthManager: ObservableObject {
         onboardingXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
         
         // Check if we have a saved auth token
-        if let _ = UserDefaults.standard.string(forKey: "auth_token") {
+        if let _ = KeychainHelper.read("auth_token") {
             isAuthenticated = true
             // Load user profile in background
             Task {
@@ -193,7 +193,72 @@ class AuthManager: ObservableObject {
         isLoading = false
         return false
     }
-    
+
+    // MARK: - Forgot Password
+
+    func forgotPassword(email: String) async -> Bool {
+        isLoading = true
+        errorMessage = nil
+        do {
+            let success = try await apiService.forgotPassword(email: email)
+            isLoading = false
+            return success
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
+            return false
+        }
+    }
+
+    // MARK: - Email Verification
+
+    func verifyEmail(email: String, code: String) async -> Bool {
+        isLoading = true
+        errorMessage = nil
+        do {
+            let success = try await apiService.verifyEmail(email: email, code: code)
+            isLoading = false
+            return success
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
+            return false
+        }
+    }
+
+    func resendVerification(email: String) async -> Bool {
+        isLoading = true
+        errorMessage = nil
+        do {
+            let success = try await apiService.resendVerification(email: email)
+            isLoading = false
+            return success
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
+            return false
+        }
+    }
+
+    // MARK: - Account Deletion
+
+    func deleteAccount() async -> Bool {
+        isLoading = true
+        errorMessage = nil
+        do {
+            let success = try await apiService.deleteAccount()
+            if success {
+                signOut()
+            }
+            isLoading = false
+            return success
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
+            return false
+        }
+    }
+
     func signOut() {
         apiService.clearAuth()
         isAuthenticated = false
@@ -245,8 +310,8 @@ class AuthManager: ObservableObject {
     func resetAllState() {
         signOut()
         resetOnboarding()
-        UserDefaults.standard.removeObject(forKey: "auth_token")
-        UserDefaults.standard.removeObject(forKey: "user_id")
+        KeychainHelper.delete("auth_token")
+        KeychainHelper.delete("user_id")
     }
 
     // MARK: - Sign in with Apple

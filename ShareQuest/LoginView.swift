@@ -321,12 +321,13 @@ struct SocialLoginButton: View {
 struct ManualSignInView: View {
     @EnvironmentObject var authManager: AuthManager
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var email = ""
     @State private var password = ""
     @State private var showPassword = false
+    @State private var showForgotPassword = false
     @FocusState private var focusedField: Field?
-    
+
     enum Field {
         case email, password
     }
@@ -460,7 +461,7 @@ struct ManualSignInView: View {
                             .opacity(email.isEmpty || password.isEmpty ? 0.6 : 1)
                             
                             // Forgot Password
-                            Button(action: {}) {
+                            Button(action: { showForgotPassword = true }) {
                                 Text("Forgot Password?")
                                     .font(.subheadline)
                                     .foregroundColor(Theme.primaryBlue)
@@ -476,15 +477,17 @@ struct ManualSignInView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(Theme.primaryBlue)
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(Theme.primaryBlue)
                 }
+            }
+            .sheet(isPresented: $showForgotPassword) {
+                ForgotPasswordView()
+                    .environmentObject(authManager)
             }
         }
     }
-    
+
     private func signIn() {
         Task {
             let success = await authManager.signIn(email: email, password: password)
@@ -519,6 +522,7 @@ struct RegisterView: View {
     @State private var showConfirmPassword = false
     @State private var showForm = false
     @State private var showDatePicker = false
+    @State private var showEmailVerification = false
     @State private var selectedDate = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
     
     // Onboarding completion animations
@@ -908,8 +912,12 @@ struct RegisterView: View {
         .sheet(isPresented: $showDatePicker) {
             DatePickerSheet(selectedDate: $selectedDate, dateString: $dateOfBirth, isPresented: $showDatePicker)
         }
+        .fullScreenCover(isPresented: $showEmailVerification) {
+            EmailVerificationView(email: email)
+                .environmentObject(authManager)
+        }
     }
-    
+
     private func register() {
         Task {
             let success = await authManager.register(
@@ -923,7 +931,6 @@ struct RegisterView: View {
                 ageConfirmed: ageConfirmed
             )
             if success {
-                // AuthManager now persisted and attempted to sync onboarding XP. Trigger confetti/toast then dismiss.
                 await MainActor.run {
                     showConfetti = true
                     showXPGainToast = true
@@ -934,7 +941,8 @@ struct RegisterView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
                     withAnimation { showConfetti = false }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                        dismiss()
+                        // Show email verification screen before dismissing
+                        showEmailVerification = true
                     }
                 }
             }
@@ -1117,6 +1125,239 @@ struct LogoView: View {
                         .font(.system(size: size.textSize, weight: .bold))
                         .foregroundColor(.white)
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Forgot Password View
+
+struct ForgotPasswordView: View {
+    @EnvironmentObject var authManager: AuthManager
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var email = ""
+    @State private var submitted = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.backgroundPrimary.ignoresSafeArea()
+
+                VStack(spacing: 24) {
+                    Image(systemName: "lock.rotation")
+                        .font(.system(size: 56))
+                        .foregroundColor(Theme.primaryBlue)
+                        .padding(.top, 20)
+
+                    Text("Reset Password")
+                        .font(.title2).fontWeight(.bold)
+                        .foregroundColor(.white)
+
+                    if submitted {
+                        VStack(spacing: 16) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 48))
+                                .foregroundColor(Theme.accentGreen)
+                            Text("Check your inbox")
+                                .font(.headline).foregroundColor(.white)
+                            Text("If an account exists for \(email), you'll receive a password reset link shortly.")
+                                .font(.subheadline).foregroundColor(Theme.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                            Button("Done") { dismiss() }
+                                .font(.headline).foregroundColor(.white)
+                                .frame(maxWidth: .infinity).padding()
+                                .background(Theme.primaryBlue).cornerRadius(12)
+                                .padding(.horizontal)
+                        }
+                    } else {
+                        VStack(spacing: 16) {
+                            Text("Enter the email address associated with your account and we'll send you a reset link.")
+                                .font(.subheadline).foregroundColor(Theme.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+
+                            HStack {
+                                Image(systemName: "envelope").foregroundColor(Theme.textMuted)
+                                TextField("Email address", text: $email)
+                                    .textContentType(.emailAddress)
+                                    .keyboardType(.emailAddress)
+                                    .autocapitalization(.none)
+                                    .autocorrectionDisabled()
+                                    .foregroundColor(.white)
+                            }
+                            .padding()
+                            .background(Theme.backgroundCard)
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.glassBorder, lineWidth: 1))
+                            .padding(.horizontal)
+
+                            if let err = errorMessage {
+                                Text(err)
+                                    .font(.caption).foregroundColor(Theme.accentRed)
+                                    .padding(.horizontal)
+                            }
+
+                            Button(action: sendReset) {
+                                if authManager.isLoading {
+                                    ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                } else {
+                                    Text("Send Reset Link").fontWeight(.semibold)
+                                }
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity).padding()
+                            .background(email.isEmpty ? Theme.primaryBlue.opacity(0.4) : Theme.primaryBlue)
+                            .cornerRadius(12)
+                            .padding(.horizontal)
+                            .disabled(email.isEmpty || authManager.isLoading)
+                        }
+                    }
+
+                    Spacer()
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }.foregroundColor(Theme.primaryBlue)
+                }
+            }
+        }
+    }
+
+    private func sendReset() {
+        errorMessage = nil
+        Task {
+            let success = await authManager.forgotPassword(email: email)
+            await MainActor.run {
+                if success {
+                    submitted = true
+                } else {
+                    errorMessage = authManager.errorMessage ?? "Failed to send reset email. Please try again."
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Email Verification View
+
+struct EmailVerificationView: View {
+    let email: String
+    @EnvironmentObject var authManager: AuthManager
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var code = ""
+    @State private var verified = false
+    @State private var resendSent = false
+    @State private var errorMessage: String?
+    @FocusState private var codeFocused: Bool
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.backgroundPrimary.ignoresSafeArea()
+
+                VStack(spacing: 24) {
+                    Image(systemName: verified ? "checkmark.seal.fill" : "envelope.badge")
+                        .font(.system(size: 60))
+                        .foregroundColor(verified ? Theme.accentGreen : Theme.primaryBlue)
+                        .padding(.top, 20)
+
+                    if verified {
+                        VStack(spacing: 12) {
+                            Text("Email Verified!").font(.title2).fontWeight(.bold).foregroundColor(.white)
+                            Text("Your account is now active. Welcome to ShareQuest!")
+                                .font(.subheadline).foregroundColor(Theme.textSecondary)
+                                .multilineTextAlignment(.center).padding(.horizontal)
+                            Button("Continue") { dismiss() }
+                                .font(.headline).foregroundColor(.white)
+                                .frame(maxWidth: .infinity).padding()
+                                .background(Theme.accentGreen).cornerRadius(12)
+                                .padding(.horizontal)
+                        }
+                    } else {
+                        VStack(spacing: 16) {
+                            Text("Verify Your Email").font(.title2).fontWeight(.bold).foregroundColor(.white)
+                            Text("We sent a 6-digit code to\n**\(email)**")
+                                .font(.subheadline).foregroundColor(Theme.textSecondary)
+                                .multilineTextAlignment(.center).padding(.horizontal)
+
+                            TextField("6-digit code", text: $code)
+                                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                .multilineTextAlignment(.center)
+                                .keyboardType(.numberPad)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: 200)
+                                .padding()
+                                .background(Theme.backgroundCard)
+                                .cornerRadius(12)
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.glassBorder, lineWidth: 1))
+                                .focused($codeFocused)
+                                .onChange(of: code) { _, val in
+                                    code = String(val.prefix(6).filter { $0.isNumber })
+                                }
+
+                            if let err = errorMessage {
+                                Text(err).font(.caption).foregroundColor(Theme.accentRed)
+                            }
+
+                            Button(action: verify) {
+                                if authManager.isLoading {
+                                    ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                } else {
+                                    Text("Verify").fontWeight(.semibold)
+                                }
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity).padding()
+                            .background(code.count == 6 ? Theme.primaryBlue : Theme.primaryBlue.opacity(0.4))
+                            .cornerRadius(12).padding(.horizontal)
+                            .disabled(code.count != 6 || authManager.isLoading)
+
+                            if resendSent {
+                                Text("Verification email resent!").font(.caption).foregroundColor(Theme.accentGreen)
+                            } else {
+                                Button("Resend Code") { resend() }
+                                    .font(.subheadline).foregroundColor(Theme.primaryBlue)
+                            }
+                        }
+                    }
+                    Spacer()
+                }
+                .onAppear { codeFocused = true }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Skip for now") { dismiss() }.foregroundColor(Theme.textMuted)
+                }
+            }
+        }
+    }
+
+    private func verify() {
+        errorMessage = nil
+        Task {
+            let success = await authManager.verifyEmail(email: email, code: code)
+            await MainActor.run {
+                if success {
+                    verified = true
+                } else {
+                    errorMessage = authManager.errorMessage ?? "Invalid or expired code. Please try again."
+                }
+            }
+        }
+    }
+
+    private func resend() {
+        Task {
+            let success = await authManager.resendVerification(email: email)
+            await MainActor.run {
+                if success { resendSent = true }
             }
         }
     }

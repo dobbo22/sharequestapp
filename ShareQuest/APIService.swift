@@ -148,28 +148,36 @@ final class APIService: @unchecked Sendable {
     private var userId: String?
     
     private init() {
-        // Load saved auth token from UserDefaults (use Keychain in production)
-        self.authToken = UserDefaults.standard.string(forKey: "auth_token")
-        self.userId = UserDefaults.standard.string(forKey: "user_id")
+        // Migrate tokens from UserDefaults to Keychain on first launch after update
+        if let legacy = UserDefaults.standard.string(forKey: "auth_token") {
+            KeychainHelper.save(legacy, for: "auth_token")
+            UserDefaults.standard.removeObject(forKey: "auth_token")
+        }
+        if let legacy = UserDefaults.standard.string(forKey: "user_id") {
+            KeychainHelper.save(legacy, for: "user_id")
+            UserDefaults.standard.removeObject(forKey: "user_id")
+        }
+        self.authToken = KeychainHelper.read("auth_token")
+        self.userId    = KeychainHelper.read("user_id")
     }
-    
+
     // MARK: - Authentication
-    
+
     func setAuthToken(_ token: String) {
         self.authToken = token
-        UserDefaults.standard.set(token, forKey: "auth_token")
+        KeychainHelper.save(token, for: "auth_token")
     }
-    
+
     func setUserId(_ id: String) {
         self.userId = id
-        UserDefaults.standard.set(id, forKey: "user_id")
+        KeychainHelper.save(id, for: "user_id")
     }
-    
+
     func clearAuth() {
         self.authToken = nil
         self.userId = nil
-        UserDefaults.standard.removeObject(forKey: "auth_token")
-        UserDefaults.standard.removeObject(forKey: "user_id")
+        KeychainHelper.delete("auth_token")
+        KeychainHelper.delete("user_id")
     }
     
     /// Public alias used by AuthManager OAuth flow
@@ -1285,6 +1293,63 @@ final class APIService: @unchecked Sendable {
             return user
         }
         return try decoder.decode(UserProfile.self, from: data)
+    }
+
+    // MARK: - Forgot Password / Email Verification / Account Deletion
+
+    func forgotPassword(email: String) async throws -> Bool {
+        // Uses the web auth endpoint — no JWT needed
+        let urlString = APIConfig.remoteBaseURL.replacingOccurrences(of: "/api", with: "") + "/api/auth/forgot-password"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["email": email])
+        let data = try await performRequest(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return json["success"] as? Bool ?? false
+        }
+        return false
+    }
+
+    func verifyEmail(email: String, code: String) async throws -> Bool {
+        let urlString = APIConfig.remoteBaseURL.replacingOccurrences(of: "/api", with: "") + "/api/auth/verify-email"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["email": email, "code": code])
+        let data = try await performRequest(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return json["success"] as? Bool ?? false
+        }
+        return false
+    }
+
+    func resendVerification(email: String) async throws -> Bool {
+        let urlString = APIConfig.remoteBaseURL.replacingOccurrences(of: "/api", with: "") + "/api/auth/resend-verification"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["email": email])
+        let data = try await performRequest(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return json["success"] as? Bool ?? false
+        }
+        return false
+    }
+
+    func deleteAccount() async throws -> Bool {
+        let url = try buildURL(path: "/mobile/auth/delete", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return json["success"] as? Bool ?? false
+        }
+        return false
     }
 
     // MARK: - Portfolio API Response (patched)

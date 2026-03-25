@@ -735,8 +735,9 @@ class ProfileViewModel: ObservableObject {
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var authManager: AuthManager
-    @State private var showChangePassword = false
     @State private var showDeleteConfirm = false
+    @State private var isDeletingAccount = false
+    @State private var deleteError: String?
     @AppStorage("push_notifications_enabled") private var pushNotifications = true
     @AppStorage("price_alerts_enabled") private var priceAlerts = true
     @AppStorage("league_alerts_enabled") private var leagueAlerts = true
@@ -761,14 +762,43 @@ struct SettingsView: View {
                         Label("Change Password", systemImage: "lock.rotation")
                             .foregroundColor(.white)
                     }
-                    Button {
-                        if let url = URL(string: "mailto:support@sharequest.co.uk?subject=Delete%20My%20Account") {
-                            UIApplication.shared.open(url)
-                        }
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
                     } label: {
-                        Label("Delete Account", systemImage: "person.crop.circle.badge.minus")
-                            .foregroundColor(.red)
+                        if isDeletingAccount {
+                            HStack {
+                                ProgressView().tint(.red)
+                                Text("Deleting Account…").foregroundColor(.red)
+                            }
+                        } else {
+                            Label("Delete Account", systemImage: "person.crop.circle.badge.minus")
+                        }
                     }
+                    if let err = deleteError {
+                        Text(err).font(.caption).foregroundColor(Theme.accentRed)
+                    }
+                }
+                .confirmationDialog(
+                    "Delete Account",
+                    isPresented: $showDeleteConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete My Account", role: .destructive) {
+                        Task {
+                            isDeletingAccount = true
+                            deleteError = nil
+                            let success = await authManager.deleteAccount()
+                            isDeletingAccount = false
+                            if success {
+                                dismiss()
+                            } else {
+                                deleteError = authManager.errorMessage ?? "Failed to delete account. Please try again."
+                            }
+                        }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This will permanently delete your account and all your data. This action cannot be undone.")
                 }
 
                 Section("Notifications") {
