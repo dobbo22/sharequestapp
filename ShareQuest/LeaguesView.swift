@@ -19,6 +19,7 @@ struct League: Identifiable, Codable {
     let creator_username: String?
     let member_count: Int?
     let max_members: Int?
+    let min_members: Int?
     let is_private: Bool?
     let join_code: String?
     let competition_type: String?
@@ -31,7 +32,7 @@ struct League: Identifiable, Codable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, description, status
-        case creator_id, creator_username, member_count, max_members
+        case creator_id, creator_username, member_count, max_members, min_members
         case competition_type, start_date, end_date, created_at
         case is_private = "isPrivate"
         case join_code = "code"

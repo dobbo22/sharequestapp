@@ -219,10 +219,14 @@ class TradeSheetViewModel: ObservableObject {
                 if subs.annual == true  { list.append(("annual",  "Annual",  "trophy")) }
             }
         } catch { /* keep practice-only list */ }
-        // Append active leagues
+        // Append active leagues that have sufficient paid members
         if let leagues = try? await APIService.shared.fetchUserLeagues() {
             for league in leagues where league.status == "active" {
-                list.append(("league_\(league.id)", league.name, "trophy.fill"))
+                let required = league.min_members ?? 1
+                let current = league.member_count ?? 0
+                if current >= required {
+                    list.append(("league_\(league.id)", league.name, "trophy.fill"))
+                }
             }
         }
         availablePortfolios = list
