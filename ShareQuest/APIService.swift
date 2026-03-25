@@ -65,6 +65,10 @@ enum APIConfig {
         selectedEnvironment == .local ? localBaseURL : remoteBaseURL
     }
 
+    /// Stock market data always uses production — live prices/fundamentals
+    /// cannot be served from a local dev server (no Infront credentials locally).
+    static var stocksURL: String { remoteBaseURL }
+
     // Legacy item endpoints remain pointed at remote API by default.
     static let baseURL = remoteBaseURL
 }
@@ -329,7 +333,7 @@ final class APIService: @unchecked Sendable {
     
     /// Fetch FTSE 100 stocks
     func fetchFTSE100(limit: Int = 100) async throws -> [StockData] {
-        let url = try buildURL(path: "/mobile/stocks/ftse100?limit=\(limit)", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/mobile/stocks/ftse100?limit=\(limit)", base: APIConfig.stocksURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
@@ -351,7 +355,7 @@ final class APIService: @unchecked Sendable {
     
     /// Fetch FTSE 250 stocks
     func fetchFTSE250(limit: Int = 250) async throws -> [StockData] {
-        let url = try buildURL(path: "/mobile/stocks/ftse250?limit=\(limit)", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/mobile/stocks/ftse250?limit=\(limit)", base: APIConfig.stocksURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
@@ -374,7 +378,7 @@ final class APIService: @unchecked Sendable {
     func searchStocks(query: String) async throws -> [StockData] {
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
         // Call main app mobile search endpoint directly
-        let url = try buildURL(path: "/mobile/stocks/search?q=\(encodedQuery)", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/mobile/stocks/search?q=\(encodedQuery)", base: APIConfig.stocksURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
@@ -407,7 +411,7 @@ final class APIService: @unchecked Sendable {
     
     /// Get stock quote
     func getStockQuote(symbol: String) async throws -> StockQuote {
-        let url = try buildURL(path: "/mobile/stocks/\(symbol)/quote", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/mobile/stocks/\(symbol)/quote", base: APIConfig.stocksURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
@@ -594,7 +598,7 @@ final class APIService: @unchecked Sendable {
             return f.string(from: Date())
         }()
         let mobilePath = "/mobile/stocks/\(symbol)/tradeticks?date=\(day)"
-        let url = try buildURL(path: mobilePath, base: APIConfig.mainAppURL)
+        let url = try buildURL(path: mobilePath, base: APIConfig.stocksURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
@@ -735,7 +739,7 @@ final class APIService: @unchecked Sendable {
     /// Lookup listing_id for a symbol from the database
     private func getListingId(for symbol: String) async throws -> String {
         // First try the dedicated listing-id endpoint (most efficient)
-        let listingIdUrl = try buildURL(path: "/stocks/\(symbol)/listing-id", base: APIConfig.mainAppURL)
+        let listingIdUrl = try buildURL(path: "/stocks/\(symbol)/listing-id", base: APIConfig.stocksURL)
         var listingIdRequest = URLRequest(url: listingIdUrl)
         listingIdRequest.httpMethod = "GET"
         addHeaders(to: &listingIdRequest)
@@ -755,7 +759,7 @@ final class APIService: @unchecked Sendable {
         }
         
         // Fallback: Try the FTSE100 endpoint which includes listing_id
-        let ftse100Url = try buildURL(path: "/mobile/stocks/ftse100?limit=200", base: APIConfig.mainAppURL)
+        let ftse100Url = try buildURL(path: "/mobile/stocks/ftse100?limit=200", base: APIConfig.stocksURL)
         var ftse100Request = URLRequest(url: ftse100Url)
         ftse100Request.httpMethod = "GET"
         addHeaders(to: &ftse100Request)
@@ -781,7 +785,7 @@ final class APIService: @unchecked Sendable {
         }
         
         // Also try FTSE250
-        let ftse250Url = try buildURL(path: "/mobile/stocks/ftse250?limit=300", base: APIConfig.mainAppURL)
+        let ftse250Url = try buildURL(path: "/mobile/stocks/ftse250?limit=300", base: APIConfig.stocksURL)
         var ftse250Request = URLRequest(url: ftse250Url)
         ftse250Request.httpMethod = "GET"
         addHeaders(to: &ftse250Request)
@@ -820,7 +824,7 @@ final class APIService: @unchecked Sendable {
         
         // Step 2: Call Infront live endpoint with listing_id and specific fields for 52-week data
         let fields = "keyfigure.common.high_price_52_week,keyfigure.common.low_price_52_week,keyfigure.common.performance_1_week,keyfigure.common.performance_1_month,keyfigure.common.performance_1_year,keyfigure.common.performance_current_year,keyfigure.equity.market_capitalization,keyfigure.equity.earnings_per_share,keyfigure.equity.price_earnings_ratio,snapquote,listing.common.name"
-        let url = try buildURL(path: "/stocks/\(symbol)/infront/live?listing_id=\(listingId)&fields=\(fields)", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/stocks/\(symbol)/infront/live?listing_id=\(listingId)&fields=\(fields)", base: APIConfig.stocksURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
@@ -921,7 +925,7 @@ final class APIService: @unchecked Sendable {
     
     /// Fetch fundamentals for a stock symbol. Returns nil if decoding fails.
     func getStockFundamentals(symbol: String) async throws -> StockFundamentals {
-        let url = try buildURL(path: "/mobile/stocks/\(symbol)/fundamentals", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/mobile/stocks/\(symbol)/fundamentals", base: APIConfig.stocksURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
@@ -1014,7 +1018,7 @@ final class APIService: @unchecked Sendable {
     
     /// Fetch all top-level sectors  GET /stocks/sectors
     func fetchSectors() async throws -> [SectorItem] {
-        let url = try buildURL(path: "/stocks/sectors", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/stocks/sectors", base: APIConfig.stocksURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
@@ -1032,7 +1036,7 @@ final class APIService: @unchecked Sendable {
     /// Fetch subsectors for a sector  GET /stocks/sectors?sector=...
     func fetchSubsectors(sector: String) async throws -> [SubsectorItem] {
         let encoded = sector.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? sector
-        let url = try buildURL(path: "/stocks/sectors?sector=\(encoded)", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/stocks/sectors?sector=\(encoded)", base: APIConfig.stocksURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
@@ -1054,7 +1058,7 @@ final class APIService: @unchecked Sendable {
 
     /// Batch stock prices  POST /mobile/stocks/batch-prices
     func fetchBatchPrices(symbols: [String]) async throws -> [String: BatchPriceData] {
-        let url = try buildURL(path: "/mobile/stocks/batch-prices", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/mobile/stocks/batch-prices", base: APIConfig.stocksURL)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1962,7 +1966,7 @@ final class APIService: @unchecked Sendable {
     }
 
     func getStockHistory(symbol: String, period: Int = 30) async throws -> [PricePoint] {
-        let url = try buildURL(path: "/mobile/stocks/\(symbol)/history?period=\(period)", base: APIConfig.mainAppURL)
+        let url = try buildURL(path: "/mobile/stocks/\(symbol)/history?period=\(period)", base: APIConfig.stocksURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
