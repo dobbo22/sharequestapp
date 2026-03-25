@@ -781,6 +781,7 @@ struct LeagueMemberPortfolioSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var portfolio: LeaderboardUserPortfolio? = nil
     @State private var isLoading = true
+    @State private var selectedHolding: LeaderboardUserPortfolio.Holding? = nil
 
     var body: some View {
         NavigationStack {
@@ -813,8 +814,12 @@ struct LeagueMemberPortfolioSheet: View {
                             if isLoading {
                                 HStack { Spacer(); ProgressView().tint(Theme.primaryBlue); Spacer() }.padding()
                             } else if let holdings = portfolio?.holdings, !holdings.isEmpty {
-                                ForEach(holdings, id: \.symbol) { holding in
-                                    holdingRow(holding: holding).padding(.horizontal)
+                                ForEach(holdings) { holding in
+                                    Button { selectedHolding = holding } label: {
+                                        holdingRow(holding: holding)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    .padding(.horizontal)
                                 }
                             } else {
                                 Text("No holdings").foregroundColor(Theme.textSecondary).padding()
@@ -834,6 +839,18 @@ struct LeagueMemberPortfolioSheet: View {
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .sheet(item: $selectedHolding) { holding in
+                StockDetailView(stock: Stock(
+                    id: holding.symbol,
+                    symbol: holding.symbol,
+                    companyName: holding.companyName ?? holding.symbol,
+                    price: holding.currentPrice / 100.0,
+                    changeAmount: 0,
+                    changePercent: 0,
+                    sector: "Portfolio",
+                    marketCap: 0
+                ))
+            }
         }
         .task { await loadPortfolio() }
     }
