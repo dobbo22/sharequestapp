@@ -513,6 +513,7 @@ extension Notification.Name {
 
 struct StockDetailView: View {
     let stock: Stock
+    var initialTab: StockDetailTabsView.Tab = .overview
     @StateObject private var vm: StockDetailViewModel
     @ObservedObject private var watchlist = WatchlistManager.shared
     @State private var showTradeSheet = false
@@ -520,8 +521,9 @@ struct StockDetailView: View {
     @State private var activeHunts: [ChallengeData] = []
     @State private var huntClaimState: HuntClaimState = .idle
 
-    init(stock: Stock) {
+    init(stock: Stock, initialTab: StockDetailTabsView.Tab = .overview) {
         self.stock = stock
+        self.initialTab = initialTab
         _vm = StateObject(wrappedValue: StockDetailViewModel(symbol: stock.symbol))
     }
 
@@ -549,7 +551,7 @@ struct StockDetailView: View {
                 }
 
                 Spacer().frame(height: 8)
-                StockDetailTabsView(vm: vm)
+                StockDetailTabsView(vm: vm, initialTab: initialTab)
                     .background(Theme.backgroundPrimary)
                 Spacer()
             }

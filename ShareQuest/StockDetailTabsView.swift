@@ -5,6 +5,7 @@ import Charts
 
 struct StockDetailTabsView: View {
     @StateObject var vm: StockDetailViewModel
+    var initialTab: Tab = .overview
     @State private var activeTab: Tab = .overview
 
     enum Tab: String, CaseIterable {
@@ -27,6 +28,7 @@ struct StockDetailTabsView: View {
             TabSelector(activeTab: $activeTab)
                 .padding(.top, 4)
                 .padding(.horizontal)
+                .onAppear { activeTab = initialTab }
 
             if activeTab == .discussion {
                 StockDiscussionView(symbol: vm.symbol)

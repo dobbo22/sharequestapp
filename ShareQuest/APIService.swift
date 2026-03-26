@@ -1775,6 +1775,17 @@ final class APIService: @unchecked Sendable {
         return []
     }
 
+    func fetchSystemAlerts() async throws -> [SystemAlert] {
+        let url = try buildURL(path: "/mobile/notifications/system-alerts", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        struct Resp: Codable { let success: Bool; let alerts: [SystemAlert] }
+        let resp = try decoder.decode(Resp.self, from: data)
+        return resp.alerts
+    }
+
     func markNotificationsRead() async throws {
         let url = try buildURL(path: "/mobile/notifications/read", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)

@@ -76,6 +76,9 @@ struct DashboardView: View {
     @State private var xpGained = 0
     @State private var showNotifications = false
     @State private var unreadNotificationCount = 0
+    @State private var marketAlertCount = 0
+    @State private var marketAlertUrgency: String? = nil // "high", "normal", or nil
+    @State private var bellPulse = false
     @State private var showProfile = false
     @State private var selectedChallenge: ChallengeData? = nil
     @State private var showStockHuntHub = false
@@ -202,6 +205,7 @@ struct DashboardView: View {
                 Task {
                     let subs = try? await APIService.shared.fetchUserSubscriptions()
                     isAnnualSubscriber = subs?.annual ?? false
+                    await refreshUnreadCount()
                 }
             }
             .onChange(of: viewModel.xpDelta) { _, newValue in
@@ -268,19 +272,34 @@ struct DashboardView: View {
                 Button(action: {
                     showNotifications = true
                     unreadNotificationCount = 0
+                    marketAlertCount = 0
+                    marketAlertUrgency = nil
+                    bellPulse = false
                 }) {
                     ZStack(alignment: .topTrailing) {
-                        Image(systemName: "bell")
-                            .foregroundColor(.white)
+                        // Bell icon — colour driven by alert state
+                        Image(systemName: marketAlertUrgency != nil ? "bell.badge.fill" : "bell")
+                            .foregroundColor(bellColor)
+                            .font(.system(size: 18, weight: .semibold))
                             .padding(8)
                             .background(Color(red: 0.067, green: 0.094, blue: 0.153))
                             .clipShape(Circle())
-                        if unreadNotificationCount > 0 {
+                            .scaleEffect(bellPulse ? 1.18 : 1.0)
+                            .animation(
+                                marketAlertUrgency != nil
+                                    ? .easeInOut(duration: 0.6).repeatForever(autoreverses: true)
+                                    : .default,
+                                value: bellPulse
+                            )
+
+                        // Badge dot
+                        let totalCount = unreadNotificationCount + marketAlertCount
+                        if totalCount > 0 {
                             ZStack {
                                 Circle()
-                                    .fill(Color.red)
+                                    .fill(badgeColor)
                                     .frame(width: 16, height: 16)
-                                Text(unreadNotificationCount > 9 ? "9+" : "\(unreadNotificationCount)")
+                                Text(totalCount > 9 ? "9+" : "\(totalCount)")
                                     .font(.system(size: scaled(9), weight: .bold))
                                     .foregroundColor(.white)
                             }
@@ -396,11 +415,50 @@ struct DashboardView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.glassBorder, lineWidth: 1))
     }
 
-    // Extracted market pill for reuse
+    // Bell colour: red if high urgency alert, gold if normal alert, blue if only user notifs
+    private var bellColor: Color {
+        switch marketAlertUrgency {
+        case "high":   return .red
+        case "normal": return Color(red: 1.0, green: 0.84, blue: 0.0)
+        default:       return unreadNotificationCount > 0 ? Theme.primaryBlue : .white
+        }
+    }
+
+    // Badge colour matches bell urgency
+    private var badgeColor: Color {
+        switch marketAlertUrgency {
+        case "high":   return .red
+        case "normal": return Color(red: 0.9, green: 0.7, blue: 0.0)
+        default:       return Theme.primaryBlue
+        }
+    }
+
     private func refreshUnreadCount() async {
+        // User notifications (today only)
         let readIds = Set(UserDefaults.standard.stringArray(forKey: "read_notification_ids") ?? [])
         let fetched = (try? await APIService.shared.fetchNotifications()) ?? []
-        unreadNotificationCount = fetched.filter { !readIds.contains($0.id) }.count
+        let today = Calendar.current.startOfDay(for: Date())
+        let fmt = ISO8601DateFormatter()
+        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let todayFetched = fetched.filter {
+            let d = fmt.date(from: $0.createdAt) ?? ISO8601DateFormatter().date(from: $0.createdAt) ?? Date.distantPast
+            return d >= today
+        }
+        unreadNotificationCount = todayFetched.filter { !readIds.contains($0.id) }.count
+
+        // Market alerts
+        let alerts = (try? await APIService.shared.fetchSystemAlerts()) ?? []
+        marketAlertCount = alerts.count
+        if alerts.contains(where: { $0.system_urgency == "high" }) {
+            marketAlertUrgency = "high"
+        } else if !alerts.isEmpty {
+            marketAlertUrgency = "normal"
+        } else {
+            marketAlertUrgency = nil
+        }
+
+        // Start/stop pulse animation
+        bellPulse = marketAlertUrgency != nil
     }
 
     private var marketPill: some View {
