@@ -48,6 +48,7 @@ struct AppNotification: Identifiable, Codable {
 struct SystemAlert: Identifiable, Codable {
     let id: Int
     let symbol: String
+    let company_name: String?
     let content: String
     let system_urgency: String?
     let created_at: String
@@ -334,58 +335,72 @@ struct NotificationsView: View {
     }
 
     private func alertRow(_ alert: SystemAlert) -> some View {
-        let accentColor: Color = alert.isUrgent ? .red : Color(red: 1.0, green: 0.84, blue: 0.0)
-        let bgColor: Color = alert.isUrgent
-            ? Color(red: 0.28, green: 0.06, blue: 0.06)
-            : Color(red: 0.18, green: 0.16, blue: 0.08)
-        let borderColor: Color = alert.isUrgent ? Color.red.opacity(0.6) : Color.yellow.opacity(0.35)
+        // Urgent = solid red pill / white text  |  Normal = solid amber pill / black text
+        let pillBg: Color     = alert.isUrgent ? Color(red: 0.88, green: 0.12, blue: 0.12)
+                                               : Color(red: 1.0,  green: 0.75, blue: 0.0)
+        let pillText: Color   = alert.isUrgent ? .white : .black
+        let cardBg: Color     = alert.isUrgent ? Color(red: 0.13, green: 0.05, blue: 0.05)
+                                               : Color(red: 0.10, green: 0.09, blue: 0.04)
+        let cardBorder: Color = alert.isUrgent ? Color.red.opacity(0.4) : Color(red: 1.0, green: 0.75, blue: 0.0).opacity(0.3)
+        let icon: String      = alert.isUrgent ? "exclamationmark.triangle.fill" : "sparkles"
+        let iconColor: Color  = alert.isUrgent ? Color(red: 1.0, green: 0.4, blue: 0.4)
+                                               : Color(red: 1.0, green: 0.75, blue: 0.0)
+        let displayName       = alert.company_name ?? alert.symbol
 
         return Button {
-            navigationTarget = .stockDiscussion(symbol: alert.symbol, companyName: alert.symbol)
+            navigationTarget = .stockDiscussion(symbol: alert.symbol, companyName: displayName)
         } label: {
-            HStack(spacing: 12) {
-                // Urgency icon
-                Image(systemName: alert.isUrgent ? "exclamationmark.triangle.fill" : "sparkles")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(accentColor)
-                    .frame(width: 24)
+            VStack(alignment: .leading, spacing: 10) {
+                // Header: icon + name pill + time + chevron
+                HStack(spacing: 8) {
+                    Image(systemName: icon)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(iconColor)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(alert.symbol)
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(accentColor)
-                        Spacer()
-                        Text(alert.timeAgo)
-                            .font(.caption2)
-                            .foregroundColor(Theme.textSecondary)
-                    }
-                    Text(alert.content)
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.9))
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Text(displayName)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(pillText)
+                        .lineLimit(1)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(pillBg)
+                        .clipShape(Capsule())
 
-                    if alert.reply_count == 0 {
-                        Label("No replies yet — be the first!", systemImage: "bubble.left")
-                            .font(.caption2)
-                            .foregroundColor(Theme.textSecondary)
-                    } else {
-                        Label("\(alert.reply_count) \(alert.reply_count == 1 ? "reply" : "replies")", systemImage: "bubble.left.fill")
-                            .font(.caption2)
-                            .foregroundColor(Theme.textSecondary)
-                    }
+                    Spacer()
+
+                    Text(alert.timeAgo)
+                        .font(.caption2)
+                        .foregroundColor(Theme.textSecondary)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Theme.textSecondary.opacity(0.5))
                 }
 
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                // Message — bright white, easy to read
+                Text(alert.content)
+                    .font(.system(size: 14))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // Reply footer
+                HStack(spacing: 4) {
+                    Image(systemName: alert.reply_count == 0 ? "bubble.left" : "bubble.left.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(Theme.textSecondary)
+                    Text(alert.reply_count == 0
+                         ? "No replies yet — be the first!"
+                         : "\(alert.reply_count) \(alert.reply_count == 1 ? "reply" : "replies")")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textSecondary)
+                }
             }
             .padding(14)
-            .background(bgColor)
+            .background(cardBg)
             .cornerRadius(14)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(borderColor, lineWidth: alert.isUrgent ? 1.5 : 1))
-            .shadow(color: alert.isUrgent ? Color.red.opacity(0.25) : .clear, radius: 6)
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(cardBorder, lineWidth: 1))
+            .shadow(color: alert.isUrgent ? Color.red.opacity(0.18) : .clear, radius: 8)
         }
         .buttonStyle(PlainButtonStyle())
     }
