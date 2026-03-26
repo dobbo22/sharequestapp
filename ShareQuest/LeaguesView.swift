@@ -84,10 +84,14 @@ struct LeaguesView: View {
                                 leagueListContent
                             }
                         } else {
-                            // Not subscribed: show Annual ShareQuest card
+                            // Not subscribed: show Annual ShareQuest card + Leagues card
                             annualShareQuestCard
                                 .padding(.horizontal)
                                 .padding(.top, 8)
+
+                            leaguesUpsellCard
+                                .padding(.horizontal)
+                                .padding(.top, 4)
                         }
 
                         Spacer(minLength: 100)
@@ -204,6 +208,68 @@ struct LeaguesView: View {
                 .padding(18)
             }
         }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    // MARK: Leagues Upsell Card (non-subscriber)
+
+    private var leaguesUpsellCard: some View {
+        let blueColor = Theme.primaryBlue
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: scaled(28)))
+                    .foregroundColor(blueColor)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Private Leagues")
+                        .font(.system(size: scaled(20), weight: .bold))
+                        .foregroundColor(.white)
+                    Text("Free to join or create")
+                        .font(.system(size: scaled(12)))
+                        .foregroundColor(blueColor.opacity(0.9))
+                }
+                Spacer()
+            }
+
+            Text("Challenge your friends in a private trading league. Create your own or join with a code.")
+                .font(.system(size: scaled(15)))
+                .foregroundColor(.white.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                Button { showCreateSheet = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Create League")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(blueColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+                Button { showJoinSheet = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.right.square.fill")
+                        Text("Join League")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Theme.glassBackground)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.glassBorder, lineWidth: 1))
+                }
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color(red: 0.08, green: 0.12, blue: 0.22))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(blueColor.opacity(0.35), lineWidth: 1))
+        )
         .buttonStyle(PlainButtonStyle())
     }
 
