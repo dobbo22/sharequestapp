@@ -18,7 +18,8 @@ private let baseHeight: CGFloat = 852   // iPhone 15/16 Pro logical height
 
 /// Returns a size scaled to the current screen width (fonts, icons).
 private var screenBounds: CGRect {
-    (UIScreen.screens.first ?? UIScreen()).bounds
+    (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.bounds
+        ?? CGRect(x: 0, y: 0, width: 390, height: 852)
 }
 
 func scaled(_ size: CGFloat) -> CGFloat {
