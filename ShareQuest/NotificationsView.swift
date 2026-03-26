@@ -51,10 +51,12 @@ struct SystemAlert: Identifiable, Codable {
     let company_name: String?
     let content: String
     let system_urgency: String?
+    let system_direction: String?
     let created_at: String
     let reply_count: Int
 
     var isUrgent: Bool { system_urgency == "high" }
+    var isUp: Bool { system_direction == "up" }
 
     var timeAgo: String {
         let fmt = ISO8601DateFormatter()
@@ -335,16 +337,25 @@ struct NotificationsView: View {
     }
 
     private func alertRow(_ alert: SystemAlert) -> some View {
-        // Urgent = solid red pill / white text  |  Normal = solid amber pill / black text
-        let pillBg: Color     = alert.isUrgent ? Color(red: 0.88, green: 0.12, blue: 0.12)
-                                               : Color(red: 1.0,  green: 0.75, blue: 0.0)
-        let pillText: Color   = alert.isUrgent ? .white : .black
-        let cardBg: Color     = alert.isUrgent ? Color(red: 0.13, green: 0.05, blue: 0.05)
-                                               : Color(red: 0.10, green: 0.09, blue: 0.04)
-        let cardBorder: Color = alert.isUrgent ? Color.red.opacity(0.4) : Color(red: 1.0, green: 0.75, blue: 0.0).opacity(0.3)
-        let icon: String      = alert.isUrgent ? "exclamationmark.triangle.fill" : "sparkles"
-        let iconColor: Color  = alert.isUrgent ? Color(red: 1.0, green: 0.4, blue: 0.4)
-                                               : Color(red: 1.0, green: 0.75, blue: 0.0)
+        // Up urgent = solid blue | Down urgent = solid red | Down normal = solid gold
+        let pillBg: Color     = alert.isUp
+                                    ? Color(red: 0.18, green: 0.42, blue: 0.78)
+                                    : (alert.isUrgent ? Color(red: 0.88, green: 0.12, blue: 0.12)
+                                                      : Color(red: 1.0,  green: 0.75, blue: 0.0))
+        let pillText: Color   = alert.isUp ? .white : (alert.isUrgent ? .white : .black)
+        let cardBg: Color     = alert.isUp
+                                    ? Color(red: 0.06, green: 0.10, blue: 0.22)
+                                    : (alert.isUrgent ? Color(red: 0.13, green: 0.05, blue: 0.05)
+                                                      : Color(red: 0.10, green: 0.09, blue: 0.04))
+        let cardBorder: Color = alert.isUp
+                                    ? Color.blue.opacity(0.4)
+                                    : (alert.isUrgent ? Color.red.opacity(0.4)
+                                                      : Color(red: 1.0, green: 0.75, blue: 0.0).opacity(0.3))
+        let icon: String      = alert.isUp ? "arrow.up.circle.fill"
+                                           : (alert.isUrgent ? "exclamationmark.triangle.fill" : "arrow.down.circle.fill")
+        let iconColor: Color  = alert.isUp ? Color(red: 0.4, green: 0.7, blue: 1.0)
+                                           : (alert.isUrgent ? Color(red: 1.0, green: 0.4, blue: 0.4)
+                                                             : Color(red: 1.0, green: 0.75, blue: 0.0))
         let displayName       = alert.company_name ?? alert.symbol
 
         return Button {
@@ -400,7 +411,7 @@ struct NotificationsView: View {
             .background(cardBg)
             .cornerRadius(14)
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(cardBorder, lineWidth: 1))
-            .shadow(color: alert.isUrgent ? Color.red.opacity(0.18) : .clear, radius: 8)
+            .shadow(color: alert.isUp ? Color.blue.opacity(0.18) : (alert.isUrgent ? Color.red.opacity(0.18) : .clear), radius: 8)
         }
         .buttonStyle(PlainButtonStyle())
     }

@@ -22,7 +22,8 @@ struct StockDiscussionMessage: Identifiable, Codable {
     let author: String
     let content: String
     let is_system: Bool
-    let system_urgency: String? // "high" = red, "normal" = gold, nil = user message
+    let system_urgency: String?   // "high" or "normal"
+    let system_direction: String? // "up" or "down"
     let created_at: String
     let is_mine: Bool
     var reactions: [DiscussionReaction] = []
@@ -251,33 +252,54 @@ private struct SystemMessageBubble: View {
     let message: StockDiscussionMessage
 
     private var isUrgent: Bool { message.system_urgency == "high" }
+    private var isUp: Bool { message.system_direction == "up" }
 
+    // Pill colour: up=blue, down urgent=red, down normal=gold
+    private var pillBg: Color {
+        if isUp { return Color(red: 0.18, green: 0.42, blue: 0.78) }
+        return isUrgent
+            ? Color(red: 0.85, green: 0.12, blue: 0.12)
+            : Color(red: 1.0,  green: 0.75, blue: 0.0)
+    }
+    private var pillText: Color { isUp ? .white : (isUrgent ? .white : .black) }
     private var bgColor: Color {
-        isUrgent
-            ? Color(red: 0.28, green: 0.06, blue: 0.06)
-            : Color(red: 0.18, green: 0.16, blue: 0.08)
+        if isUp { return Color(red: 0.06, green: 0.10, blue: 0.22) }
+        return isUrgent
+            ? Color(red: 0.14, green: 0.05, blue: 0.05)
+            : Color(red: 0.11, green: 0.10, blue: 0.04)
     }
     private var borderColor: Color {
-        isUrgent ? Color.red.opacity(0.6) : Color.yellow.opacity(0.35)
+        if isUp { return Color.blue.opacity(0.4) }
+        return isUrgent ? Color.red.opacity(0.45) : Color.yellow.opacity(0.3)
     }
     private var iconColor: Color {
-        isUrgent ? .red : .yellow
+        if isUp { return Color(red: 0.4, green: 0.7, blue: 1.0) }
+        return isUrgent ? Color(red: 1.0, green: 0.4, blue: 0.4) : Color(red: 1.0, green: 0.84, blue: 0.0)
     }
     private var icon: String {
-        isUrgent ? "exclamationmark.triangle.fill" : "sparkles"
+        isUp ? "arrow.up.circle.fill" : (isUrgent ? "exclamationmark.triangle.fill" : "arrow.down.circle.fill")
     }
 
     var body: some View {
         HStack {
             Spacer(minLength: 12)
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(iconColor)
-                    .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 8) {
+                // Header: icon + direction pill
+                HStack(spacing: 6) {
+                    Image(systemName: icon)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(iconColor)
+                    Text(isUp ? "Moving Up" : "Moving Down")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(pillText)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(pillBg)
+                        .clipShape(Capsule())
+                }
                 Text(message.content)
-                    .font(.system(size: 13, weight: isUrgent ? .semibold : .regular))
-                    .foregroundColor(.white.opacity(0.95))
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(.white)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -285,8 +307,8 @@ private struct SystemMessageBubble: View {
             .padding(.vertical, 10)
             .background(bgColor)
             .cornerRadius(14)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(borderColor, lineWidth: isUrgent ? 1.5 : 1))
-            .shadow(color: isUrgent ? Color.red.opacity(0.3) : .clear, radius: 6, x: 0, y: 0)
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(borderColor, lineWidth: 1))
+            .shadow(color: isUp ? Color.blue.opacity(0.2) : (isUrgent ? Color.red.opacity(0.2) : .clear), radius: 6)
             Spacer(minLength: 12)
         }
         .padding(.vertical, 4)
