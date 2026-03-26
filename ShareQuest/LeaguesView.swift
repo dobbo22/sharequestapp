@@ -221,7 +221,7 @@ struct LeaguesView: View {
                     .font(.system(size: scaled(28)))
                     .foregroundColor(blueColor)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Private Leagues")
+                    Text("Leagues")
                         .font(.system(size: scaled(20), weight: .bold))
                         .foregroundColor(.white)
                     Text("Free to join or create")
@@ -231,7 +231,7 @@ struct LeaguesView: View {
                 Spacer()
             }
 
-            Text("Challenge your friends in a private trading league. Create your own or join with a code.")
+            Text("Create a private league with friends or join a public league open to everyone. Compete to top the leaderboard.")
                 .font(.system(size: scaled(15)))
                 .foregroundColor(.white.opacity(0.8))
                 .fixedSize(horizontal: false, vertical: true)
