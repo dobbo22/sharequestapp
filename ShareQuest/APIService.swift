@@ -1941,22 +1941,21 @@ final class APIService: @unchecked Sendable {
         return dataObj["isPaid"] as? Bool ?? false
     }
 
-    func createSubscriptionOrder(plan: String) async throws -> RevolutOrderResponse {
-        let url = try buildURL(path: "/mobile/subscriptions/create-order", base: APIConfig.mainAppURL)
+    func createSubscriptionOrder(plan: String, amount: Int = 5000, currency: String = "GBP") async throws -> RevolutOrderResponse {
+        let url = try buildURL(path: "/mobile/payments/create-order", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         addHeaders(to: &request)
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["plan": plan])
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["plan": plan, "amount": amount, "currency": currency])
         let data = try await performRequest(request)
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let dataObj = json["data"] as? [String: Any] else {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw APIError.decodingError("Failed to decode subscription order response")
         }
-        let publicId = dataObj["publicId"] as? String ?? dataObj["public_id"] as? String ?? ""
-        let checkoutUrl = dataObj["checkoutUrl"] as? String ?? dataObj["checkout_url"] as? String ?? ""
-        let orderId = dataObj["orderId"] as? String ?? dataObj["order_id"] as? String ?? ""
-        return RevolutOrderResponse(publicId: publicId, checkoutUrl: checkoutUrl, orderId: orderId)
+        let token = json["token"] as? String ?? ""
+        let checkoutUrl = json["checkoutUrl"] as? String ?? ""
+        let orderId = json["id"] as? String ?? ""
+        if token.isEmpty { throw APIError.networkError(json["error"] as? String ?? "Failed to create payment order") }
+        return RevolutOrderResponse(publicId: token, checkoutUrl: checkoutUrl, orderId: orderId)
     }
 
     func confirmApplePayment(orderId: String, plan: String, applePayTokenData: Data) async throws -> Bool {
