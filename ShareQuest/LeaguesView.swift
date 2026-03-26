@@ -186,6 +186,25 @@ struct LeaguesView: View {
                         .foregroundColor(.white.opacity(0.8))
                         .fixedSize(horizontal: false, vertical: true)
 
+                    // Prize pool highlight
+                    HStack(spacing: 10) {
+                        Image(systemName: "sterlingsign.circle.fill")
+                            .foregroundColor(goldColor)
+                            .font(.system(size: scaled(18)))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("50% of every entry fee goes into the prize pool")
+                                .font(.system(size: scaled(13), weight: .semibold))
+                                .foregroundColor(.white)
+                            Text("Real cash prizes paid to the winner")
+                                .font(.system(size: scaled(12)))
+                                .foregroundColor(goldColor.opacity(0.85))
+                        }
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 10)
+                    .background(goldColor.opacity(0.1))
+                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(goldColor.opacity(0.25), lineWidth: 1))
+
                     // Subscribe CTA
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
