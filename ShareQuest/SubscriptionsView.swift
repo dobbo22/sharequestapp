@@ -887,19 +887,10 @@ private struct TermsRow: View {
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
         .sheet(isPresented: $showSheet) {
-            NavigationStack {
-                Group {
-                    if destination == .terms {
-                        TermsView()
-                    } else {
-                        PrivacyPolicyView()
-                    }
-                }
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Done") { showSheet = false }
-                    }
-                }
+            if destination == .terms {
+                TermsView()
+            } else {
+                PrivacyPolicyView()
             }
         }
     }
