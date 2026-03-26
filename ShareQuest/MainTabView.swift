@@ -22,7 +22,7 @@ struct MainTabView: View {
     /// Pick a Dynamic Type size based on screen width.
     /// Also caps maximum so accessibility settings don't balloon the UI.
     private var dynamicTypeSize: DynamicTypeSize {
-        let width = UIScreen.main.bounds.width
+        let width = (UIScreen.screens.first ?? UIScreen()).bounds.width
         if width >= 430 { return .large }   // Pro Max / Plus — step up one size
         return .medium                      // Pro and smaller — system default
     }
