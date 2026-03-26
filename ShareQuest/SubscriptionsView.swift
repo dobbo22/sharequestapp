@@ -159,8 +159,9 @@ final class SubscriptionsViewModel: ObservableObject {
     }
 
     func proceedToPayment() {
+        currentOrder = nil
+        paymentError = nil
         step = .payment
-        // startPayment() is called by .task on the payment view
     }
 
     func startPayment() async {
@@ -698,8 +699,30 @@ struct SubscriptionsView: View {
                     vm.paymentError = error
                 }
             )
+        } else if let error = vm.paymentError {
+            VStack(spacing: 16) {
+                Spacer()
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: 48))
+                    .foregroundColor(.red)
+                Text("Payment Error")
+                    .font(.headline).foregroundColor(.white)
+                Text(error)
+                    .font(.subheadline).foregroundColor(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                Button("Try Again") {
+                    vm.paymentError = nil
+                    Task { await vm.startPayment() }
+                }
+                .padding(.horizontal, 32).padding(.vertical, 12)
+                .background(Theme.primaryBlue).foregroundColor(.white)
+                .cornerRadius(12)
+                Spacer()
+            }
         } else {
             ProgressView().scaleEffect(1.4).tint(.white)
+                .task { await vm.startPayment() }
         }
     }
 
