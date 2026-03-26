@@ -22,6 +22,7 @@ struct StockDiscussionMessage: Identifiable, Codable {
     let author: String
     let content: String
     let is_system: Bool
+    let system_urgency: String? // "high" = red, "normal" = gold, nil = user message
     let created_at: String
     let is_mine: Bool
     var reactions: [DiscussionReaction] = []
@@ -249,24 +250,44 @@ struct StockDiscussionView: View {
 private struct SystemMessageBubble: View {
     let message: StockDiscussionMessage
 
+    private var isUrgent: Bool { message.system_urgency == "high" }
+
+    private var bgColor: Color {
+        isUrgent
+            ? Color(red: 0.28, green: 0.06, blue: 0.06)
+            : Color(red: 0.18, green: 0.16, blue: 0.08)
+    }
+    private var borderColor: Color {
+        isUrgent ? Color.red.opacity(0.6) : Color.yellow.opacity(0.35)
+    }
+    private var iconColor: Color {
+        isUrgent ? .red : .yellow
+    }
+    private var icon: String {
+        isUrgent ? "exclamationmark.triangle.fill" : "sparkles"
+    }
+
     var body: some View {
         HStack {
-            Spacer(minLength: 20)
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 13))
-                    .foregroundColor(.yellow)
+            Spacer(minLength: 12)
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(iconColor)
+                    .padding(.top, 1)
                 Text(message.content)
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.9))
-                    .multilineTextAlignment(.center)
+                    .font(.system(size: 13, weight: isUrgent ? .semibold : .regular))
+                    .foregroundColor(.white.opacity(0.95))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(Color(red: 0.18, green: 0.16, blue: 0.08))
+            .background(bgColor)
             .cornerRadius(14)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.yellow.opacity(0.3), lineWidth: 1))
-            Spacer(minLength: 20)
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(borderColor, lineWidth: isUrgent ? 1.5 : 1))
+            .shadow(color: isUrgent ? Color.red.opacity(0.3) : .clear, radius: 6, x: 0, y: 0)
+            Spacer(minLength: 12)
         }
         .padding(.vertical, 4)
     }

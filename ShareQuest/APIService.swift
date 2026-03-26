@@ -2094,6 +2094,7 @@ final class APIService: @unchecked Sendable {
                 author: author,
                 content: content,
                 is_system: dict["is_system"] as? Bool ?? false,
+                system_urgency: dict["system_urgency"] as? String,
                 created_at: createdAt,
                 is_mine: dict["is_mine"] as? Bool ?? false,
                 reactions: reactions,
@@ -2141,7 +2142,8 @@ final class APIService: @unchecked Sendable {
         return StockDiscussionMessage(
             id: id, user_id: dict["user_id"] as? String,
             author: author, content: content,
-            is_system: false, created_at: createdAt, is_mine: true
+            is_system: false, system_urgency: nil,
+            created_at: createdAt, is_mine: true
         )
     }
 
