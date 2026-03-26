@@ -162,6 +162,7 @@ final class SubscriptionsViewModel: ObservableObject {
         currentOrder = nil
         paymentError = nil
         step = .payment
+        Task { await startPayment() }
     }
 
     func startPayment() async {
@@ -712,8 +713,7 @@ struct SubscriptionsView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
                 Button("Try Again") {
-                    vm.paymentError = nil
-                    Task { await vm.startPayment() }
+                    vm.proceedToPayment()
                 }
                 .padding(.horizontal, 32).padding(.vertical, 12)
                 .background(Theme.primaryBlue).foregroundColor(.white)
@@ -722,7 +722,6 @@ struct SubscriptionsView: View {
             }
         } else {
             ProgressView().scaleEffect(1.4).tint(.white)
-                .task { await vm.startPayment() }
         }
     }
 
