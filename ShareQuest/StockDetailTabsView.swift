@@ -8,7 +8,7 @@ struct StockDetailTabsView: View {
     @State private var activeTab: Tab = .overview
 
     enum Tab: String, CaseIterable {
-        case overview, chart, price, financials, balanceSheet, trades
+        case overview, chart, price, financials, balanceSheet, trades, discussion
         var displayName: String {
             switch self {
             case .overview:     return "Overview"
@@ -17,29 +17,38 @@ struct StockDetailTabsView: View {
             case .financials:   return "Financials"
             case .balanceSheet: return "Balance Sheet"
             case .trades:       return "Trades"
+            case .discussion:   return "Discussion"
             }
         }
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                TabSelector(activeTab: $activeTab)
-                    .padding(.top, 4)
+        VStack(spacing: 0) {
+            TabSelector(activeTab: $activeTab)
+                .padding(.top, 4)
+                .padding(.horizontal)
 
-                Group {
-                    switch activeTab {
-                    case .overview:     OverviewContent(vm: vm)
-                    case .chart:        ChartContent(vm: vm)
-                    case .price:        PriceContent(vm: vm)
-                    case .financials:   FinancialsContent(vm: vm)
-                    case .balanceSheet: BalanceSheetContent(vm: vm)
-                    case .trades:       TradeContent(vm: vm)
+            if activeTab == .discussion {
+                StockDiscussionView(symbol: vm.symbol)
+            } else {
+                ScrollView {
+                    VStack(spacing: 12) {
+                        Group {
+                            switch activeTab {
+                            case .overview:     OverviewContent(vm: vm)
+                            case .chart:        ChartContent(vm: vm)
+                            case .price:        PriceContent(vm: vm)
+                            case .financials:   FinancialsContent(vm: vm)
+                            case .balanceSheet: BalanceSheetContent(vm: vm)
+                            case .trades:       TradeContent(vm: vm)
+                            case .discussion:   EmptyView()
+                            }
+                        }
                     }
+                    .padding(.horizontal)
+                    .padding(.bottom, 24)
                 }
             }
-            .padding(.horizontal)
-            .padding(.bottom, 24)
         }
         .task {
             if vm.quote == nil { await vm.fetch() }

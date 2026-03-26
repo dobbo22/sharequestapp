@@ -2061,6 +2061,53 @@ final class APIService: @unchecked Sendable {
         return LeagueMessage(id: id, user_id: userId, author: author, content: content, created_at: createdAt, is_mine: true)
     }
 
+    // MARK: - Stock Discussion
+
+    func fetchStockDiscussion(symbol: String, offset: Int) async throws -> [StockPost] {
+        let url = try buildURL(path: "/mobile/stocks/\(symbol)/discussion?limit=30&offset=\(offset)", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let arr = json["posts"] as? [[String: Any]] else { return [] }
+        return arr.compactMap { dict in
+            guard let id = dict["id"] as? Int,
+                  let userId = dict["user_id"] as? String,
+                  let author = dict["author"] as? String,
+                  let content = dict["content"] as? String,
+                  let createdAt = dict["created_at"] as? String else { return nil }
+            return StockPost(
+                id: id, user_id: userId, author: author, content: content, created_at: createdAt,
+                likes_count: dict["likes_count"] as? Int ?? 0,
+                replies_count: dict["replies_count"] as? Int ?? 0,
+                is_mine: dict["is_mine"] as? Bool ?? false
+            )
+        }
+    }
+
+    func postStockDiscussion(symbol: String, content: String) async throws -> StockPost {
+        let url = try buildURL(path: "/mobile/stocks/\(symbol)/discussion", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        addHeaders(to: &request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["content": content])
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.decodingError("Failed to decode response")
+        }
+        if let blocked = json["blocked"] as? Bool, blocked {
+            throw APIError.networkError(json["reason"] as? String ?? "Post blocked by content filter.")
+        }
+        guard let dict = json["post"] as? [String: Any],
+              let id = dict["id"] as? Int,
+              let userId = dict["user_id"] as? String,
+              let author = dict["author"] as? String,
+              let createdAt = dict["created_at"] as? String else {
+            throw APIError.decodingError("Failed to decode post")
+        }
+        return StockPost(id: id, user_id: userId, author: author, content: content, created_at: createdAt, likes_count: 0, replies_count: 0, is_mine: true)
+    }
+
     // MARK: - Daily Challenges
     /// Fetch daily challenges for the user
     func getDailyChallenges() async throws -> ChallengesResponse {
