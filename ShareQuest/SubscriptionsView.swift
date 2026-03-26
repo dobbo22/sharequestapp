@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SafariServices
+import WebKit
 import Combine
 
 // MARK: - Safari Wrapper
@@ -29,6 +30,36 @@ struct SafariView: UIViewControllerRepresentable {
         init(onDismiss: (() -> Void)?) { self.onDismiss = onDismiss }
         func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
             onDismiss?()
+        }
+    }
+}
+
+// MARK: - In-App Web View
+
+struct InAppWebView: UIViewRepresentable {
+    let url: URL
+    func makeUIView(context: Context) -> WKWebView { WKWebView() }
+    func updateUIView(_ webView: WKWebView, context: Context) {
+        webView.load(URLRequest(url: url))
+    }
+}
+
+struct InAppWebSheet: View {
+    let title: String
+    let url: URL
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            InAppWebView(url: url)
+                .ignoresSafeArea(edges: .bottom)
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") { dismiss() }
+                    }
+                }
         }
     }
 }
@@ -855,7 +886,7 @@ private struct TermsRow: View {
         .padding(.horizontal, 14).padding(.vertical, 12)
         .sheet(isPresented: $showSafari) {
             if let u = URL(string: url) {
-                SafariView(url: u).ignoresSafeArea()
+                InAppWebSheet(title: link, url: u)
             }
         }
     }
