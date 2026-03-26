@@ -2043,8 +2043,15 @@ final class APIService: @unchecked Sendable {
         addHeaders(to: &request)
         request.httpBody = try JSONSerialization.data(withJSONObject: ["content": content])
         let data = try await performRequest(request)
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let dict = json["message"] as? [String: Any],
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.decodingError("Failed to decode response")
+        }
+        // Content blocked by moderation
+        if let blocked = json["blocked"] as? Bool, blocked {
+            let reason = json["reason"] as? String ?? "Your message was blocked by our content filter."
+            throw APIError.networkError(reason)
+        }
+        guard let dict = json["message"] as? [String: Any],
               let id = dict["id"] as? Int,
               let userId = dict["user_id"] as? String,
               let author = dict["author"] as? String,

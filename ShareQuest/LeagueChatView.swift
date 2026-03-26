@@ -26,6 +26,7 @@ class LeagueChatViewModel: ObservableObject {
     @Published var isLoading = true
     @Published var isSending = false
     @Published var errorMessage: String? = nil
+    @Published var blockedMessage: String? = nil
     @Published var draft = ""
 
     let leagueId: String
@@ -85,9 +86,13 @@ class LeagueChatViewModel: ObservableObject {
             let sent = try await APIService.shared.sendLeagueMessage(leagueId: leagueId, content: text)
             messages.append(sent)
             lastTimestamp = sent.created_at
+        } catch APIError.networkError(let reason) {
+            // Could be a moderation block — surface the exact reason
+            blockedMessage = reason
+            draft = text
         } catch {
             errorMessage = "Failed to send message"
-            draft = text // restore if failed
+            draft = text
         }
     }
 }
@@ -180,6 +185,14 @@ struct LeagueChatView: View {
         }
         .onAppear { vm.start() }
         .onDisappear { vm.stop() }
+        .alert("Message Blocked", isPresented: Binding(
+            get: { vm.blockedMessage != nil },
+            set: { if !$0 { vm.blockedMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { vm.blockedMessage = nil }
+        } message: {
+            Text(vm.blockedMessage ?? "")
+        }
     }
 }
 
