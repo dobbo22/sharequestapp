@@ -647,14 +647,14 @@ struct SubscriptionsView: View {
                         isChecked: $vm.agreeTerms,
                         text: "I have read and agree to the ",
                         link: "Terms of Service",
-                        url: "https://sharequest.co.uk/terms"
+                        destination: .terms
                     )
                     Divider().background(Color.white.opacity(0.08))
                     TermsRow(
                         isChecked: $vm.agreePrivacy,
                         text: "I have read and agree to the ",
                         link: "Privacy Policy",
-                        url: "https://sharequest.co.uk/privacy"
+                        destination: .privacy
                     )
                     Divider().background(Color.white.opacity(0.08))
                     CheckRow(isChecked: $vm.agreeAge, text: "I confirm I am 18 years of age or older")
@@ -858,12 +858,14 @@ private struct OptionRow: View {
     }
 }
 
+private enum TermsDestination { case terms, privacy }
+
 private struct TermsRow: View {
     @Binding var isChecked: Bool
     let text: String
     let link: String
-    let url: String
-    @State private var showSafari = false
+    let destination: TermsDestination
+    @State private var showSheet = false
 
     private var termsAttributedString: AttributedString {
         var result = AttributedString(text)
@@ -880,13 +882,24 @@ private struct TermsRow: View {
             CheckboxButton(isChecked: $isChecked)
             Text(termsAttributedString)
                 .font(.subheadline)
-                .onTapGesture { showSafari = true }
+                .onTapGesture { showSheet = true }
             Spacer()
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
-        .sheet(isPresented: $showSafari) {
-            if let u = URL(string: url) {
-                InAppWebSheet(title: link, url: u)
+        .sheet(isPresented: $showSheet) {
+            NavigationStack {
+                Group {
+                    if destination == .terms {
+                        TermsView()
+                    } else {
+                        PrivacyPolicyView()
+                    }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") { showSheet = false }
+                    }
+                }
             }
         }
     }
