@@ -224,7 +224,7 @@ struct LeaguesView: View {
                     Text("Leagues")
                         .font(.system(size: scaled(20), weight: .bold))
                         .foregroundColor(.white)
-                    Text("Free to join or create")
+                    Text("From £5 to join or create")
                         .font(.system(size: scaled(12)))
                         .foregroundColor(blueColor.opacity(0.9))
                 }
