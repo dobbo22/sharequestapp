@@ -270,7 +270,11 @@ struct CardCheckoutSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                    if verifying {
+                        ProgressView().tint(.white)
+                    } else {
+                        Button("Done") { verifyPayment() }
+                    }
                 }
             }
             .alert("Payment Not Confirmed", isPresented: Binding(
@@ -278,7 +282,7 @@ struct CardCheckoutSheet: View {
                 set: { if !$0 { verifyError = nil } }
             )) {
                 Button("Retry") { verifyPayment() }
-                Button("Close") { dismiss() }
+                Button("Cancel", role: .cancel) { dismiss() }
             } message: {
                 Text(verifyError ?? "")
             }
