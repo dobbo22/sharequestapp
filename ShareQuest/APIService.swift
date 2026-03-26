@@ -2011,6 +2011,49 @@ final class APIService: @unchecked Sendable {
         _ = try await performRequest(request)
     }
 
+    // MARK: - League Chat
+
+    func fetchLeagueMessages(leagueId: String, since: String?) async throws -> [LeagueMessage] {
+        var path = "/mobile/leagues/\(leagueId)/messages"
+        if let since = since {
+            let encoded = since.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? since
+            path += "?since=\(encoded)"
+        }
+        let url = try buildURL(path: path, base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let arr = json["messages"] as? [[String: Any]] else { return [] }
+        return arr.compactMap { dict in
+            guard let id = dict["id"] as? Int,
+                  let userId = dict["user_id"] as? String,
+                  let author = dict["author"] as? String,
+                  let content = dict["content"] as? String,
+                  let createdAt = dict["created_at"] as? String else { return nil }
+            let isMine = dict["is_mine"] as? Bool ?? false
+            return LeagueMessage(id: id, user_id: userId, author: author, content: content, created_at: createdAt, is_mine: isMine)
+        }
+    }
+
+    func sendLeagueMessage(leagueId: String, content: String) async throws -> LeagueMessage {
+        let url = try buildURL(path: "/mobile/leagues/\(leagueId)/messages", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        addHeaders(to: &request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["content": content])
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dict = json["message"] as? [String: Any],
+              let id = dict["id"] as? Int,
+              let userId = dict["user_id"] as? String,
+              let author = dict["author"] as? String,
+              let createdAt = dict["created_at"] as? String else {
+            throw APIError.decodingError("Failed to decode sent message")
+        }
+        return LeagueMessage(id: id, user_id: userId, author: author, content: content, created_at: createdAt, is_mine: true)
+    }
+
     // MARK: - Daily Challenges
     /// Fetch daily challenges for the user
     func getDailyChallenges() async throws -> ChallengesResponse {

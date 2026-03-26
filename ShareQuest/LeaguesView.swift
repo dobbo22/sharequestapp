@@ -515,6 +515,9 @@ struct LeagueDetailSheet: View {
     @State private var justPaid: Bool = false
     @State private var paymentPollingTask: Task<Void, Never>? = nil
     @State private var selectedMember: LeagueMember? = nil
+    @State private var detailTab: LeagueDetailTab = .leaderboard
+
+    enum LeagueDetailTab { case leaderboard, chat }
 
     var body: some View {
         NavigationStack {
@@ -530,6 +533,10 @@ struct LeagueDetailSheet: View {
                         .progressViewStyle(CircularProgressViewStyle(tint: Theme.primaryBlue))
                         .scaleEffect(1.4)
                 } else {
+                    VStack(spacing: 0) {
+                    if detailTab == .chat {
+                        LeagueChatView(leagueId: league.id)
+                    } else {
                     ScrollView {
                         VStack(spacing: 16) {
                             if let errorMessage = errorMessage {
@@ -630,26 +637,12 @@ struct LeagueDetailSheet: View {
                                 .padding(.horizontal)
                             }
 
-                            // Leaderboard
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Leaderboard")
-                                    .font(.system(size: scaled(17), weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal)
-
-                                if members.isEmpty {
-                                    Text("No members yet")
-                                        .foregroundColor(Theme.textSecondary)
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                } else {
-                                    ForEach(Array(members.enumerated()), id: \.element.user_id) { index, member in
-                                        memberRow(member: member, rank: member.rank ?? (index + 1))
-                                            .onTapGesture { selectedMember = member }
-                                    }
-                                    .padding(.horizontal)
-                                }
+                            // Tab selector
+                            HStack(spacing: 10) {
+                                detailTabButton(.leaderboard, icon: "trophy", label: "Leaderboard")
+                                detailTabButton(.chat, icon: "bubble.left.and.bubble.right", label: "Chat")
                             }
+                            .padding(.horizontal)
 
                             Spacer(minLength: 40)
                         }
@@ -668,6 +661,8 @@ struct LeagueDetailSheet: View {
                             .ignoresSafeArea()
                         }
                     }
+                    } // end leaderboard tab
+                    } // end VStack tab container
                 }
             }
             .navigationTitle(league.name)
@@ -742,6 +737,22 @@ struct LeagueDetailSheet: View {
             isPaid = paid
         } catch {
             // Ignore error, keep previous state
+        }
+    }
+
+    private func detailTabButton(_ tab: LeagueDetailTab, icon: String, label: String) -> some View {
+        Button { detailTab = tab } label: {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: scaled(12)))
+                Text(label).font(.system(size: scaled(14), weight: .semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(detailTab == tab ? Theme.primaryBlue : Theme.glassBackground)
+            .foregroundColor(detailTab == tab ? .white : Theme.textSecondary)
+            .cornerRadius(12)
+            .overlay(RoundedRectangle(cornerRadius: 12)
+                .stroke(detailTab == tab ? Theme.primaryBlue : Theme.glassBorder, lineWidth: 1))
         }
     }
 
