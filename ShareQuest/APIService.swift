@@ -2063,29 +2063,63 @@ final class APIService: @unchecked Sendable {
 
     // MARK: - Stock Discussion
 
-    func fetchStockDiscussion(symbol: String, offset: Int) async throws -> [StockPost] {
-        let url = try buildURL(path: "/mobile/stocks/\(symbol)/discussion?limit=30&offset=\(offset)", base: APIConfig.mainAppURL)
+    func fetchStockDiscussion(symbol: String, before: Int?, since: String?) async throws -> [StockDiscussionMessage] {
+        var path = "/mobile/stocks/\(symbol)/discussion"
+        if let before = before {
+            path += "?before=\(before)"
+        } else if let since = since {
+            let encoded = since.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? since
+            path += "?since=\(encoded)"
+        }
+        let url = try buildURL(path: path, base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
         addHeaders(to: &request)
         let data = try await performRequest(request)
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let arr = json["posts"] as? [[String: Any]] else { return [] }
+              let arr = json["messages"] as? [[String: Any]] else { return [] }
         return arr.compactMap { dict in
             guard let id = dict["id"] as? Int,
-                  let userId = dict["user_id"] as? String,
                   let author = dict["author"] as? String,
                   let content = dict["content"] as? String,
                   let createdAt = dict["created_at"] as? String else { return nil }
-            return StockPost(
-                id: id, user_id: userId, author: author, content: content, created_at: createdAt,
-                likes_count: dict["likes_count"] as? Int ?? 0,
-                replies_count: dict["replies_count"] as? Int ?? 0,
-                is_mine: dict["is_mine"] as? Bool ?? false
+            let reactionsRaw = dict["reactions"] as? [[String: Any]] ?? []
+            let reactions = reactionsRaw.compactMap { d -> DiscussionReaction? in
+                guard let e = d["emoji"] as? String, let c = d["count"] as? Int else { return nil }
+                return DiscussionReaction(emoji: e, count: c)
+            }
+            let myReactions = dict["my_reactions"] as? [String] ?? []
+            return StockDiscussionMessage(
+                id: id,
+                user_id: dict["user_id"] as? String,
+                author: author,
+                content: content,
+                is_system: dict["is_system"] as? Bool ?? false,
+                created_at: createdAt,
+                is_mine: dict["is_mine"] as? Bool ?? false,
+                reactions: reactions,
+                my_reactions: myReactions
             )
         }
     }
 
-    func postStockDiscussion(symbol: String, content: String) async throws -> StockPost {
+    func reactToDiscussionMessage(messageId: Int, emoji: String) async throws -> ([DiscussionReaction], [String]) {
+        let url = try buildURL(path: "/mobile/stocks/discussion/\(messageId)/react", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        addHeaders(to: &request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["emoji": emoji])
+        let data = try await performRequest(request)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let arr = json["reactions"] as? [[String: Any]] else { return ([], []) }
+        let reactions = arr.compactMap { d -> DiscussionReaction? in
+            guard let e = d["emoji"] as? String, let c = d["count"] as? Int else { return nil }
+            return DiscussionReaction(emoji: e, count: c)
+        }
+        let myReactions = json["myReactions"] as? [String] ?? []
+        return (reactions, myReactions)
+    }
+
+    func postStockDiscussion(symbol: String, content: String) async throws -> StockDiscussionMessage {
         let url = try buildURL(path: "/mobile/stocks/\(symbol)/discussion", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -2098,14 +2132,17 @@ final class APIService: @unchecked Sendable {
         if let blocked = json["blocked"] as? Bool, blocked {
             throw APIError.networkError(json["reason"] as? String ?? "Post blocked by content filter.")
         }
-        guard let dict = json["post"] as? [String: Any],
+        guard let dict = json["message"] as? [String: Any],
               let id = dict["id"] as? Int,
-              let userId = dict["user_id"] as? String,
               let author = dict["author"] as? String,
               let createdAt = dict["created_at"] as? String else {
-            throw APIError.decodingError("Failed to decode post")
+            throw APIError.decodingError("Failed to decode message")
         }
-        return StockPost(id: id, user_id: userId, author: author, content: content, created_at: createdAt, likes_count: 0, replies_count: 0, is_mine: true)
+        return StockDiscussionMessage(
+            id: id, user_id: dict["user_id"] as? String,
+            author: author, content: content,
+            is_system: false, created_at: createdAt, is_mine: true
+        )
     }
 
     // MARK: - Daily Challenges

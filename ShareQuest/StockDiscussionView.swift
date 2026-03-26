@@ -2,7 +2,8 @@
 //  StockDiscussionView.swift
 //  ShareQuest
 //
-//  Chat-style stock discussion feed powered by community_posts.
+//  WhatsApp-style stock discussion chat using the stock_discussions table.
+//  System AI messages are shown as centred prompts. User messages use bubbles.
 //
 
 import SwiftUI
@@ -10,57 +11,101 @@ import Combine
 
 // MARK: - Model
 
-struct StockPost: Identifiable, Codable {
+struct DiscussionReaction: Codable {
+    let emoji: String
+    let count: Int
+}
+
+struct StockDiscussionMessage: Identifiable, Codable {
     let id: Int
-    let user_id: String
+    let user_id: String?
     let author: String
     let content: String
+    let is_system: Bool
     let created_at: String
-    let likes_count: Int
-    let replies_count: Int
     let is_mine: Bool
+    var reactions: [DiscussionReaction] = []
+    var my_reactions: [String] = []
 }
 
 // MARK: - ViewModel
 
 @MainActor
 class StockDiscussionViewModel: ObservableObject {
-    @Published var posts: [StockPost] = []
+    @Published var messages: [StockDiscussionMessage] = []
     @Published var isLoading = true
     @Published var isSending = false
     @Published var draft = ""
     @Published var blockedMessage: String? = nil
     @Published var errorMessage: String? = nil
-    @Published var hasMore = true
+    @Published var hasOlder = true
 
     let symbol: String
-    private var offset = 0
-    private let limit = 30
+    private var lastTimestamp: String? = nil
+    private var oldestId: Int? = nil
+    private var pollTask: Task<Void, Never>?
 
     init(symbol: String) {
         self.symbol = symbol
     }
 
-    func load() async {
+    func start() {
+        Task { await loadInitial() }
+        pollTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+                guard !Task.isCancelled else { break }
+                await poll()
+            }
+        }
+    }
+
+    func stop() {
+        pollTask?.cancel()
+        pollTask = nil
+    }
+
+    private func loadInitial() async {
         isLoading = true
         defer { isLoading = false }
         do {
-            let fetched = try await APIService.shared.fetchStockDiscussion(symbol: symbol, offset: 0)
-            posts = fetched
-            offset = fetched.count
-            hasMore = fetched.count == limit
+            let fetched = try await APIService.shared.fetchStockDiscussion(symbol: symbol, before: nil, since: nil)
+            messages = fetched
+            lastTimestamp = fetched.last?.created_at
+            oldestId = fetched.first?.id
+            hasOlder = fetched.count >= 40
         } catch {
             errorMessage = "Could not load discussion"
         }
     }
 
-    func loadMore() async {
-        guard hasMore, !isLoading else { return }
+    func loadOlder() async {
+        guard hasOlder, let oldest = oldestId else { return }
         do {
-            let fetched = try await APIService.shared.fetchStockDiscussion(symbol: symbol, offset: offset)
-            posts.append(contentsOf: fetched)
-            offset += fetched.count
-            hasMore = fetched.count == limit
+            let fetched = try await APIService.shared.fetchStockDiscussion(symbol: symbol, before: oldest, since: nil)
+            messages.insert(contentsOf: fetched, at: 0)
+            oldestId = fetched.first?.id
+            hasOlder = fetched.count >= 40
+        } catch {}
+    }
+
+    private func poll() async {
+        guard let since = lastTimestamp else { return }
+        do {
+            let newMessages = try await APIService.shared.fetchStockDiscussion(symbol: symbol, before: nil, since: since)
+            if !newMessages.isEmpty {
+                messages.append(contentsOf: newMessages)
+                lastTimestamp = newMessages.last?.created_at
+            }
+        } catch {}
+    }
+
+    func react(messageId: Int, emoji: String) async {
+        guard let idx = messages.firstIndex(where: { $0.id == messageId }) else { return }
+        do {
+            let (reactions, myReactions) = try await APIService.shared.reactToDiscussionMessage(messageId: messageId, emoji: emoji)
+            messages[idx].reactions = reactions
+            messages[idx].my_reactions = myReactions
         } catch {}
     }
 
@@ -71,13 +116,14 @@ class StockDiscussionViewModel: ObservableObject {
         isSending = true
         defer { isSending = false }
         do {
-            let post = try await APIService.shared.postStockDiscussion(symbol: symbol, content: text)
-            posts.insert(post, at: 0)
+            let sent = try await APIService.shared.postStockDiscussion(symbol: symbol, content: text)
+            messages.append(sent)
+            lastTimestamp = sent.created_at
         } catch APIError.networkError(let reason) {
             blockedMessage = reason
             draft = text
         } catch {
-            errorMessage = "Failed to post"
+            errorMessage = "Failed to send"
             draft = text
         }
     }
@@ -96,11 +142,11 @@ struct StockDiscussionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if vm.isLoading && vm.posts.isEmpty {
+            if vm.isLoading && vm.messages.isEmpty {
                 Spacer()
                 ProgressView().tint(.white)
                 Spacer()
-            } else if vm.posts.isEmpty {
+            } else if vm.messages.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
                     Image(systemName: "bubble.left.and.bubble.right")
@@ -113,17 +159,44 @@ struct StockDiscussionView: View {
                 }
                 Spacer()
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 1) {
-                        ForEach(vm.posts) { post in
-                            StockPostRow(post: post)
-                            Divider().background(Color.white.opacity(0.07))
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 4) {
+                            // Load older button
+                            if vm.hasOlder {
+                                Button {
+                                    Task { await vm.loadOlder() }
+                                } label: {
+                                    Text("Load earlier messages")
+                                        .font(.caption)
+                                        .foregroundColor(Theme.primaryBlue)
+                                        .padding(.vertical, 8)
+                                }
+                            }
+
+                            ForEach(vm.messages) { message in
+                                if message.is_system {
+                                    SystemMessageBubble(message: message)
+                                        .id(message.id)
+                                } else {
+                                    DiscussionBubble(message: message) { emoji in
+                                        Task { await vm.react(messageId: message.id, emoji: emoji) }
+                                    }
+                                    .id(message.id)
+                                }
+                            }
                         }
-                        if vm.hasMore {
-                            Button("Load more") { Task { await vm.loadMore() } }
-                                .font(.subheadline)
-                                .foregroundColor(Theme.primaryBlue)
-                                .padding(.vertical, 12)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                    }
+                    .onChange(of: vm.messages.count) { _, _ in
+                        if let last = vm.messages.last {
+                            withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                        }
+                    }
+                    .onAppear {
+                        if let last = vm.messages.last {
+                            proxy.scrollTo(last.id, anchor: .bottom)
                         }
                     }
                 }
@@ -135,7 +208,7 @@ struct StockDiscussionView: View {
 
             // Input bar
             HStack(spacing: 10) {
-                TextField("Share your thoughts on \(symbol)…", text: $vm.draft, axis: .vertical)
+                TextField("Comment on \(symbol)…", text: $vm.draft, axis: .vertical)
                     .lineLimit(1...4)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
@@ -158,7 +231,8 @@ struct StockDiscussionView: View {
             .padding(.vertical, 8)
             .background(Color(red: 0.08, green: 0.1, blue: 0.16))
         }
-        .task { await vm.load() }
+        .onAppear { vm.start() }
+        .onDisappear { vm.stop() }
         .alert("Post Blocked", isPresented: Binding(
             get: { vm.blockedMessage != nil },
             set: { if !$0 { vm.blockedMessage = nil } }
@@ -170,72 +244,146 @@ struct StockDiscussionView: View {
     }
 }
 
-// MARK: - Post Row
+// MARK: - System message (centred prompt card)
 
-private struct StockPostRow: View {
-    let post: StockPost
+private struct SystemMessageBubble: View {
+    let message: StockDiscussionMessage
 
-    private var timeAgo: String {
+    var body: some View {
+        HStack {
+            Spacer(minLength: 20)
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 13))
+                    .foregroundColor(.yellow)
+                Text(message.content)
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.9))
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Color(red: 0.18, green: 0.16, blue: 0.08))
+            .cornerRadius(14)
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.yellow.opacity(0.3), lineWidth: 1))
+            Spacer(minLength: 20)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - User message bubble (WhatsApp style, with reactions)
+
+private struct DiscussionBubble: View {
+    let message: StockDiscussionMessage
+    let onReact: (String) -> Void
+
+    private let availableEmojis = ["👍", "🔥", "📈", "📉", "🤔", "😂"]
+    @State private var showEmojiPicker = false
+
+    private var timeString: String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = formatter.date(from: post.created_at)
-            ?? ISO8601DateFormatter().date(from: post.created_at)
+        let date = formatter.date(from: message.created_at)
+            ?? ISO8601DateFormatter().date(from: message.created_at)
             ?? Date()
-        let secs = Int(-date.timeIntervalSinceNow)
-        if secs < 60 { return "just now" }
-        if secs < 3600 { return "\(secs / 60)m ago" }
-        if secs < 86400 { return "\(secs / 3600)h ago" }
-        return "\(secs / 86400)d ago"
+        let display = DateFormatter()
+        display.timeStyle = .short
+        return display.string(from: date)
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Avatar
-            ZStack {
-                Circle()
-                    .fill(post.is_mine ? Theme.primaryBlue : Color(red: 0.2, green: 0.25, blue: 0.35))
-                    .frame(width: 36, height: 36)
-                Text(String(post.author.prefix(1)).uppercased())
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
-            }
+        HStack(alignment: .bottom, spacing: 6) {
+            if message.is_mine { Spacer(minLength: 50) }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(post.is_mine ? "You" : post.author)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(post.is_mine ? Theme.primaryBlue : .white)
-                    Text("·")
-                        .foregroundColor(Theme.textSecondary)
-                    Text(timeAgo)
-                        .font(.system(size: 12))
-                        .foregroundColor(Theme.textSecondary)
+            VStack(alignment: message.is_mine ? .trailing : .leading, spacing: 3) {
+                // Author name (others only)
+                if !message.is_mine {
+                    Text(message.author)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Theme.primaryBlue)
+                        .padding(.leading, 4)
                 }
 
-                Text(post.content)
-                    .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.9))
-                    .fixedSize(horizontal: false, vertical: true)
+                // Message bubble
+                Text(message.content)
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        message.is_mine
+                            ? Theme.primaryBlue
+                            : Color(red: 0.15, green: 0.19, blue: 0.28)
+                    )
+                    .cornerRadius(18, corners: message.is_mine
+                        ? [.topLeft, .topRight, .bottomLeft]
+                        : [.topLeft, .topRight, .bottomRight]
+                    )
+                    .onLongPressGesture { showEmojiPicker = true }
 
-                if post.replies_count > 0 || post.likes_count > 0 {
-                    HStack(spacing: 14) {
-                        if post.likes_count > 0 {
-                            Label("\(post.likes_count)", systemImage: "heart")
-                                .font(.caption)
-                                .foregroundColor(Theme.textSecondary)
+                // Emoji picker popover
+                if showEmojiPicker {
+                    HStack(spacing: 8) {
+                        ForEach(availableEmojis, id: \.self) { emoji in
+                            Button {
+                                onReact(emoji)
+                                showEmojiPicker = false
+                            } label: {
+                                Text(emoji).font(.title3)
+                            }
                         }
-                        if post.replies_count > 0 {
-                            Label("\(post.replies_count)", systemImage: "bubble.right")
-                                .font(.caption)
+                        Button {
+                            showEmojiPicker = false
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(Theme.textSecondary)
+                                .font(.title3)
                         }
                     }
-                    .padding(.top, 2)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color(red: 0.12, green: 0.15, blue: 0.22))
+                    .cornerRadius(20)
+                    .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.glassBorder, lineWidth: 1))
+                    .transition(.scale.combined(with: .opacity))
                 }
+
+                // Reaction counts
+                if !message.reactions.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(message.reactions, id: \.emoji) { reaction in
+                            Button { onReact(reaction.emoji) } label: {
+                                HStack(spacing: 3) {
+                                    Text(reaction.emoji).font(.system(size: 13))
+                                    Text("\(reaction.count)")
+                                        .font(.caption2)
+                                        .foregroundColor(message.my_reactions.contains(reaction.emoji)
+                                            ? Theme.primaryBlue : Theme.textSecondary)
+                                }
+                                .padding(.horizontal, 7).padding(.vertical, 3)
+                                .background(message.my_reactions.contains(reaction.emoji)
+                                    ? Theme.primaryBlue.opacity(0.15) : Color.white.opacity(0.07))
+                                .cornerRadius(10)
+                                .overlay(RoundedRectangle(cornerRadius: 10)
+                                    .stroke(message.my_reactions.contains(reaction.emoji)
+                                        ? Theme.primaryBlue.opacity(0.4) : Color.clear, lineWidth: 1))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+
+                Text(timeString)
+                    .font(.caption2)
+                    .foregroundColor(Theme.textSecondary)
+                    .padding(.horizontal, 4)
             }
-            Spacer()
+
+            if !message.is_mine { Spacer(minLength: 50) }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 2)
+        .animation(.easeInOut(duration: 0.15), value: showEmojiPicker)
     }
 }
