@@ -57,11 +57,15 @@ struct PortfolioView: View {
                 }
             }
         }
-        .task {
-            let done = await APIService.shared.postChallengeProgress(criteriaType: "portfolio_check")
-            postCompletionNotification(done)
-            let pnlDone = await APIService.shared.postChallengeProgress(criteriaType: "pnl_check")
-            postCompletionNotification(pnlDone)
+        .onDisappear {
+            Task {
+                // Small delay so user has clearly visited before awarding XP
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                let done = await APIService.shared.postChallengeProgress(criteriaType: "portfolio_check")
+                postCompletionNotification(done)
+                let pnlDone = await APIService.shared.postChallengeProgress(criteriaType: "pnl_check")
+                postCompletionNotification(pnlDone)
+            }
         }
         .task(id: selectedPortfolioType) {
             await reloadPortfolios()

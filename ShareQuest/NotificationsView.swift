@@ -45,6 +45,24 @@ struct AppNotification: Identifiable, Codable {
     }
 }
 
+struct DiscussionChallenge: Identifiable, Codable {
+    let alert_id: Int
+    let symbol: String
+    let company_name: String?
+    let system_urgency: String?
+    let system_direction: String?
+    let created_at: String
+    let comment_count: Int
+    let user_commented: Bool
+    let is_full: Bool
+    let xp_available: Int
+
+    var id: Int { alert_id }
+    var isUp: Bool { system_direction == "up" }
+    var isUrgent: Bool { system_urgency == "high" }
+    var displayName: String { company_name ?? symbol }
+}
+
 struct SystemAlert: Identifiable, Codable {
     let id: Int
     let symbol: String

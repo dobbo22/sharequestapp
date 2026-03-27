@@ -568,13 +568,18 @@ struct StockDetailView: View {
             }
         }
         .task {
-            let done = await APIService.shared.postChallengeProgress(criteriaType: "stock_view")
-            postCompletionNotification(done)
             // Load active stock hunt challenges
             if let response = try? await APIService.shared.getDailyChallenges() {
                 activeHunts = response.allChallenges.filter {
                     ($0.criteria_type ?? $0.type ?? "") == "stock_hunt" && !$0.isCompleted
                 }
+            }
+        }
+        .onDisappear {
+            Task {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                let done = await APIService.shared.postChallengeProgress(criteriaType: "stock_view")
+                postCompletionNotification(done)
             }
         }
         .sheet(isPresented: $showTradeSheet) {

@@ -1786,6 +1786,17 @@ final class APIService: @unchecked Sendable {
         return resp.alerts
     }
 
+    func fetchDiscussionChallenges() async throws -> [DiscussionChallenge] {
+        let url = try buildURL(path: "/mobile/gamification/discussion-challenges", base: APIConfig.mainAppURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        struct Resp: Codable { let success: Bool; let challenges: [DiscussionChallenge] }
+        let resp = try decoder.decode(Resp.self, from: data)
+        return resp.challenges
+    }
+
     func markNotificationsRead() async throws {
         let url = try buildURL(path: "/mobile/notifications/read", base: APIConfig.mainAppURL)
         var request = URLRequest(url: url)
@@ -2106,6 +2117,7 @@ final class APIService: @unchecked Sendable {
                 content: content,
                 is_system: dict["is_system"] as? Bool ?? false,
                 system_urgency: dict["system_urgency"] as? String,
+                system_direction: dict["system_direction"] as? String,
                 created_at: createdAt,
                 is_mine: dict["is_mine"] as? Bool ?? false,
                 reactions: reactions,
@@ -2153,7 +2165,7 @@ final class APIService: @unchecked Sendable {
         return StockDiscussionMessage(
             id: id, user_id: dict["user_id"] as? String,
             author: author, content: content,
-            is_system: false, system_urgency: nil,
+            is_system: false, system_urgency: nil, system_direction: nil,
             created_at: createdAt, is_mine: true
         )
     }
