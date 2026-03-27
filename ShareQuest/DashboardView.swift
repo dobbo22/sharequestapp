@@ -74,6 +74,7 @@ struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var showXPToast = false
     @State private var xpGained = 0
+    @State private var xpReason = ""
     @State private var showNotifications = false
     @State private var unreadNotificationCount = 0
     @State private var marketAlertCount = 0
@@ -86,12 +87,15 @@ struct DashboardView: View {
     @State private var isAnnualSubscriber: Bool? = nil
     @State private var showSubscriptions = false
     @State private var promoCardIndex = 0
+    @State private var discussionChallenges: [DiscussionChallenge] = []
+    @State private var discussionNavTarget: (symbol: String, companyName: String)? = nil
     // Global challenge completion popup
     @State private var pendingCompletions: [ChallengeCompletion] = []
     @State private var showCompletionPopup = false
     // Auto-scroll state for ticker — timer stored as stable let so it doesn't recreate on re-renders
     @State private var tickerScrollIndex: Int = 0
     private let tickerTimer = Timer.publish(every: 3.5, on: .main, in: .common).autoconnect()
+    private let discussionRefreshTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     // Computed safe display name: prefer firstName when present and non-empty
     private var displayFirstName: String {
         if let user = authManager.currentUser {
@@ -314,6 +318,21 @@ struct DashboardView: View {
         .sheet(isPresented: $showNotifications) {
             NotificationsView()
         }
+        .sheet(isPresented: Binding(
+            get: { discussionNavTarget != nil },
+            set: { if !$0 { discussionNavTarget = nil } }
+        )) {
+            if let target = discussionNavTarget {
+                StockDetailView(
+                    stock: Stock(id: target.symbol, symbol: target.symbol, companyName: target.companyName,
+                                 price: 0, changeAmount: 0, changePercent: 0, sector: "", marketCap: 0),
+                    initialTab: .discussion
+                )
+                .onDisappear {
+                    Task { await refreshUnreadCount() }
+                }
+            }
+        }
         .sheet(isPresented: $showProfile) {
             ProfileView(selectedTab: $selectedTab)
                 .environmentObject(authManager)
@@ -459,6 +478,9 @@ struct DashboardView: View {
 
         // Start/stop pulse animation
         bellPulse = marketAlertUrgency != nil
+
+        // Discussion challenges
+        discussionChallenges = (try? await APIService.shared.fetchDiscussionChallenges()) ?? []
     }
 
     private var marketPill: some View {
@@ -528,6 +550,14 @@ struct DashboardView: View {
                         }
                     }
                     .padding(.horizontal)
+                }
+                .onReceive(discussionRefreshTimer) { _ in
+                    Task {
+                        let fresh = (try? await APIService.shared.fetchDiscussionChallenges()) ?? []
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            discussionChallenges = fresh.filter { !$0.is_full || !$0.user_commented }
+                        }
+                    }
                 }
                 .onReceive(tickerTimer) { _ in
                     guard !viewModel.tickerStocks.isEmpty else { return }
@@ -858,9 +888,96 @@ struct DashboardView: View {
                     }
                 }
             }
+
+            // Market Discussion Challenges
+            if !discussionChallenges.isEmpty {
+                discussionChallengesSection
+            }
         }
     }
-    
+
+    // MARK: - Market Discussion Challenges
+
+    private var discussionChallengesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Theme.primaryBlue)
+                Text("Market Discussion")
+                    .font(.system(size: scaled(14), weight: .semibold))
+                    .foregroundColor(.white)
+                Spacer()
+                Text("Earn XP by discussing moves")
+                    .font(.caption2)
+                    .foregroundColor(Theme.textSecondary)
+            }
+
+            ForEach(discussionChallenges.prefix(5)) { challenge in
+                Button {
+                    discussionNavTarget = (symbol: challenge.symbol, companyName: challenge.displayName)
+                } label: {
+                    discussionChallengeRow(challenge)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func discussionChallengeRow(_ challenge: DiscussionChallenge) -> some View {
+        let dirColor: Color = challenge.isUp
+            ? Color(red: 0.18, green: 0.42, blue: 0.78)
+            : (challenge.isUrgent ? Color(red: 0.88, green: 0.12, blue: 0.12) : Color(red: 0.85, green: 0.65, blue: 0.0))
+        let dirIcon = challenge.isUp ? "arrow.up.circle.fill" : (challenge.isUrgent ? "exclamationmark.triangle.fill" : "arrow.down.circle.fill")
+
+        return HStack(spacing: 12) {
+            Image(systemName: dirIcon)
+                .font(.system(size: 18))
+                .foregroundColor(dirColor)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(challenge.displayName)
+                    .font(.system(size: scaled(13), weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                Text(challenge.user_commented ? "You've commented" : "\(challenge.comment_count)/2 comments")
+                    .font(.caption2)
+                    .foregroundColor(Theme.textSecondary)
+            }
+
+            Spacer()
+
+            if challenge.is_full {
+                Text("FULL")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Theme.textSecondary)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(Capsule())
+            } else if challenge.user_commented {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(Theme.accentGreen)
+            } else {
+                Text("+\(challenge.xp_available) XP")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(challenge.xp_available == 50 ? Theme.accentYellow : Theme.accentGreen.opacity(0.85))
+                    .clipShape(Capsule())
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11))
+                .foregroundColor(Theme.textSecondary.opacity(0.5))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(dirColor.opacity(0.25), lineWidth: 1))
+    }
+
     // MARK: - Market Sentiment Section
     private var marketSentimentSection: some View {
         VStack(alignment: .leading, spacing: 12) {

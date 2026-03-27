@@ -299,7 +299,7 @@ private struct SystemMessageBubble: View {
                 }
                 Text(message.content)
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(.white)
+                    .foregroundColor(Color(white: 0.95))
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -352,12 +352,12 @@ private struct DiscussionBubble: View {
                 // Message bubble
                 Text(message.content)
                     .font(.system(size: 15))
-                    .foregroundColor(.white)
+                    .foregroundColor(message.is_mine ? .white : Color(white: 0.95))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(
                         message.is_mine
-                            ? Theme.primaryBlue
+                            ? Color(red: 0.10, green: 0.42, blue: 0.72)
                             : Color(red: 0.15, green: 0.19, blue: 0.28)
                     )
                     .cornerRadius(18, corners: message.is_mine
