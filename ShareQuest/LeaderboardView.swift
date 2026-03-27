@@ -118,9 +118,14 @@ struct LeaderboardView: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
         .task {
-            let done = await APIService.shared.postChallengeProgress(criteriaType: "leaderboard")
-            postCompletionNotification(done)
             await viewModel.loadAll()
+        }
+        .onDisappear {
+            Task {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                let done = await APIService.shared.postChallengeProgress(criteriaType: "leaderboard")
+                postCompletionNotification(done)
+            }
         }
         .sheet(item: $selectedUser) { user in
             UserPortfolioSheet(
@@ -403,7 +408,7 @@ struct UserPortfolioSheet: View {
                         // Stats available immediately from entry — no waiting
                         HStack(spacing: 10) {
                             statBox(label: "Rank", value: "\(entry.rank)")
-                            statBox(label: "Total Value", value: entry.formattedValue)
+                            statBox(label: "Total Value", value: entry.formattedValueFull)
                             statBox(label: "Return", value: entry.formattedReturn)
                         }
                         .padding(.horizontal)
@@ -411,7 +416,7 @@ struct UserPortfolioSheet: View {
                         // Cash only available after load — show inline
                         if let p = portfolio {
                             HStack(spacing: 10) {
-                                statBox(label: "Cash", value: formatPounds(p.cashBalance / 100))
+                                statBox(label: "Cash", value: formatPoundsFull(p.cashBalance / 100))
                                 statBox(label: "Holdings", value: "\(p.holdings.count)")
                                 Spacer().frame(maxWidth: .infinity)
                             }
@@ -480,6 +485,15 @@ struct UserPortfolioSheet: View {
         return String(format: "£%.0f", value)
     }
 
+    private func formatPoundsFull(_ value: Double) -> String {
+        let fmt = NumberFormatter()
+        fmt.numberStyle = .decimal
+        fmt.minimumFractionDigits = 2
+        fmt.maximumFractionDigits = 2
+        let s = fmt.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)
+        return "£\(s)"
+    }
+
     private func statBox(label: String, value: String) -> some View {
         VStack(spacing: 4) {
             Text(label).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
@@ -506,7 +520,7 @@ struct UserPortfolioSheet: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(formatPounds(value / 100)).font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white)
+                Text(formatPoundsFull(value / 100)).font(.system(size: scaled(15), weight: .semibold)).foregroundColor(.white)
                 ChangePill(percent: plPercent, compact: true)
             }
         }

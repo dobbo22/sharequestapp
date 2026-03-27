@@ -953,8 +953,12 @@ struct LeagueMemberPortfolioSheet: View {
 
     private func formattedPounds(_ pence: Double) -> String {
         let pounds = pence / 100.0
-        if pounds >= 1_000 { return String(format: "£%.1fK", pounds / 1_000) }
-        return String(format: "£%.2f", pounds)
+        let fmt = NumberFormatter()
+        fmt.numberStyle = .decimal
+        fmt.minimumFractionDigits = 2
+        fmt.maximumFractionDigits = 2
+        let s = fmt.string(from: NSNumber(value: pounds)) ?? String(format: "%.2f", pounds)
+        return "£\(s)"
     }
 
     private func statBox(label: String, value: String) -> some View {
