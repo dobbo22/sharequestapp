@@ -273,6 +273,7 @@ struct DashboardView: View {
                 if let sentiment = viewModel.marketSentiment {
                     marketSentimentPill(sentiment: sentiment)
                 }
+                Spacer()
                 Button(action: {
                     showNotifications = true
                     unreadNotificationCount = 0
@@ -281,17 +282,17 @@ struct DashboardView: View {
                     bellPulse = false
                 }) {
                     ZStack(alignment: .topTrailing) {
-                        // Bell icon — colour driven by alert state
-                        Image(systemName: marketAlertUrgency != nil ? "bell.badge.fill" : "bell")
+                        // Bell icon — solid fill, opacity pulse when alerting
+                        Image(systemName: marketAlertUrgency != nil ? "bell.badge.fill" : "bell.fill")
                             .foregroundColor(bellColor)
                             .font(.system(size: 18, weight: .semibold))
                             .padding(8)
                             .background(Color(red: 0.067, green: 0.094, blue: 0.153))
                             .clipShape(Circle())
-                            .scaleEffect(bellPulse ? 1.18 : 1.0)
+                            .opacity(bellPulse ? 0.55 : 1.0)
                             .animation(
                                 marketAlertUrgency != nil
-                                    ? .easeInOut(duration: 0.6).repeatForever(autoreverses: true)
+                                    ? .easeInOut(duration: 0.7).repeatForever(autoreverses: true)
                                     : .default,
                                 value: bellPulse
                             )
@@ -314,6 +315,7 @@ struct DashboardView: View {
             }
         }
         .padding(.top, vscaled(6))
+        .padding(.trailing, 4)
         // Present notifications sheet when bell tapped
         .sheet(isPresented: $showNotifications) {
             NotificationsView()
