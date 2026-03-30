@@ -392,16 +392,16 @@ struct ProfileView: View {
                 ProfileSettingsRow(icon: "bell.fill", title: "Push Notifications", color: Theme.primaryBlue, trailing: .toggle($viewModel.notificationsEnabled))
                 ProfileSettingsRow(icon: "faceid", title: "Face ID / Touch ID", color: Theme.accentGreen, trailing: .toggle($viewModel.biometricsEnabled))
             }
-            .sheet(isPresented: $showSubscriptions) {
+            .adaptiveSheet(isPresented: $showSubscriptions) {
                 SubscriptionsView(selectedTab: selectedTab, onNavigateAway: { dismiss() })
             }
-            .sheet(isPresented: $showHelp) {
+            .adaptiveSheet(isPresented: $showHelp) {
                 HelpCenterView()
             }
-            .sheet(isPresented: $showTerms) {
+            .adaptiveSheet(isPresented: $showTerms) {
                 TermsView()
             }
-            .sheet(isPresented: $showPrivacy) {
+            .adaptiveSheet(isPresented: $showPrivacy) {
                 PrivacyPolicyView()
             }
 
