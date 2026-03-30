@@ -127,7 +127,7 @@ struct LeaderboardView: View {
                 postCompletionNotification(done)
             }
         }
-        .sheet(item: $selectedUser) { user in
+        .adaptiveSheet(item: $selectedUser) { user in
             UserPortfolioSheet(
                 entry: user,
                 competitionType: viewModel.selectedType
@@ -464,7 +464,7 @@ struct UserPortfolioSheet: View {
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
-            .sheet(item: $selectedHolding) { holding in
+            .adaptiveSheet(item: $selectedHolding) { holding in
                 StockDetailView(stock: Stock(
                     id: holding.symbol,
                     symbol: holding.symbol,

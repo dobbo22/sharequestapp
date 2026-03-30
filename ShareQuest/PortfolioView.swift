@@ -79,7 +79,7 @@ struct PortfolioView: View {
         .onChange(of: selectedPortfolioType) { _, newType in
             Task { await viewModel.fetchPortfolio(type: newType) }
         }
-        .sheet(item: $selectedHolding) { holding in
+        .adaptiveSheet(item: $selectedHolding) { holding in
             StockTradeSheet(
                 stock: holding.toStock(),
                 portfolioType: selectedPortfolioType,
@@ -90,7 +90,7 @@ struct PortfolioView: View {
                 }
             )
         }
-        .sheet(item: $selectedLeague) { league in
+        .adaptiveSheet(item: $selectedLeague) { league in
             LeaguePortfolioView(league: league)
         }
     }
@@ -453,7 +453,7 @@ struct LeaguePortfolioView: View {
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
-            .sheet(item: $tradingHolding) { holding in
+            .adaptiveSheet(item: $tradingHolding) { holding in
                 StockTradeSheet(
                     stock: Stock(
                         id: holding.symbol,

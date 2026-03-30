@@ -126,12 +126,12 @@ struct LeaguesView: View {
             }
         }
         .task { await loadData() }
-        .sheet(isPresented: $showSubscriptions, onDismiss: {
+        .adaptiveSheet(isPresented: $showSubscriptions, onDismiss: {
             Task { await refreshSubscription() }
         }) {
             SubscriptionsView()
         }
-        .sheet(isPresented: $showCreateSheet) {
+        .adaptiveSheet(isPresented: $showCreateSheet) {
             CreateLeagueSheet(viewModel: viewModel) { url, leagueId in
                 leaguePaymentURL = url
                 leaguePaymentId = leagueId
@@ -157,10 +157,10 @@ struct LeaguesView: View {
         } message: {
             Text("Your league has been created and your entry fee paid. Good luck!")
         }
-        .sheet(isPresented: $showJoinSheet) {
+        .adaptiveSheet(isPresented: $showJoinSheet) {
             JoinLeagueSheet(viewModel: viewModel)
         }
-        .sheet(item: $selectedLeague) { league in
+        .adaptiveSheet(item: $selectedLeague) { league in
             LeagueDetailSheet(league: league)
         }
     }

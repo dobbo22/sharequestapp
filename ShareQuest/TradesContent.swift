@@ -33,7 +33,7 @@ struct TradesContent: View {
                         .cornerRadius(10)
                 }
                 .padding(.top, 8)
-                .sheet(isPresented: $showSubscriptions) {
+                .adaptiveSheet(isPresented: $showSubscriptions) {
                     SubscriptionsView()
                 }
             }

@@ -37,6 +37,46 @@ func vscaled(_ size: CGFloat) -> CGFloat {
 /// True on compact-height devices (iPhone SE, 16 Pro etc.) — use tighter layouts.
 var isCompactHeight: Bool { screenBounds.height < 900 }
 
+/// True when running on iPad (regular horizontal size class).
+var isIPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+
+// MARK: - iPad-aware sheet modifier
+//
+// On iPad, sheets present as small floating cards. Use this modifier instead of
+// .sheet() to automatically use fullScreenCover on iPad and sheet on iPhone.
+
+extension View {
+    /// Presents content as fullScreenCover on iPad, sheet on iPhone.
+    func adaptiveSheet<Content: View>(
+        isPresented: Binding<Bool>,
+        onDismiss: (() -> Void)? = nil,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        Group {
+            if isIPad {
+                self.fullScreenCover(isPresented: isPresented, onDismiss: onDismiss, content: content)
+            } else {
+                self.sheet(isPresented: isPresented, onDismiss: onDismiss, content: content)
+            }
+        }
+    }
+
+    /// Presents item-based content as fullScreenCover on iPad, sheet on iPhone.
+    func adaptiveSheet<Item: Identifiable, Content: View>(
+        item: Binding<Item?>,
+        onDismiss: (() -> Void)? = nil,
+        @ViewBuilder content: @escaping (Item) -> Content
+    ) -> some View {
+        Group {
+            if isIPad {
+                self.fullScreenCover(item: item, onDismiss: onDismiss, content: content)
+            } else {
+                self.sheet(item: item, onDismiss: onDismiss, content: content)
+            }
+        }
+    }
+}
+
 // MARK: - App Theme
 
 /// App theme colors - matches React Native theme
