@@ -68,7 +68,7 @@ struct ProfileView: View {
         .task {
             await viewModel.loadAll(user: authManager.currentUser)
         }
-        .confirmationDialog("Sign Out", isPresented: $showSignOutConfirm, titleVisibility: .visible) {
+        .alert("Sign Out", isPresented: $showSignOutConfirm) {
             Button("Sign Out", role: .destructive) {
                 authManager.signOut()
             }
