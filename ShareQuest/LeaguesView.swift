@@ -62,6 +62,9 @@ struct LeaguesView: View {
     @State private var showSubscriptions = false
     @State private var isAnnualSubscriber: Bool = false
     @State private var isLoadingSubscription = true
+    @State private var leaguePaymentURL: URL? = nil
+    @State private var leaguePaymentId: String? = nil
+    @State private var showPaymentConfirmation = false
 
     enum LeagueTab { case myLeagues, discover }
 
@@ -123,12 +126,36 @@ struct LeaguesView: View {
             }
         }
         .task { await loadData() }
-        .sheet(isPresented: $showSubscriptions) {
+        .sheet(isPresented: $showSubscriptions, onDismiss: {
+            Task { await refreshSubscription() }
+        }) {
             SubscriptionsView()
-                .onDisappear { Task { await refreshSubscription() } }
         }
         .sheet(isPresented: $showCreateSheet) {
-            CreateLeagueSheet(viewModel: viewModel)
+            CreateLeagueSheet(viewModel: viewModel) { url, leagueId in
+                leaguePaymentURL = url
+                leaguePaymentId = leagueId
+            }
+        }
+        .sheet(item: Binding(
+            get: { leaguePaymentURL.map { IdentifiableURL(url: $0) } },
+            set: { if $0 == nil { leaguePaymentURL = nil } }
+        )) { identifiable in
+            SafariView(url: identifiable.url) {
+                leaguePaymentURL = nil
+                Task {
+                    guard let id = leaguePaymentId else { return }
+                    let paid = (try? await APIService.shared.checkLeaguePaymentStatus(leagueId: id)) ?? false
+                    await viewModel.fetchLeagues()
+                    if paid { showPaymentConfirmation = true }
+                }
+            }
+            .ignoresSafeArea()
+        }
+        .alert("Payment Confirmed", isPresented: $showPaymentConfirmation) {
+            Button("OK") { showPaymentConfirmation = false }
+        } message: {
+            Text("Your league has been created and your entry fee paid. Good luck!")
         }
         .sheet(isPresented: $showJoinSheet) {
             JoinLeagueSheet(viewModel: viewModel)
@@ -398,9 +425,9 @@ struct LeaguesView: View {
     @MainActor
     private func refreshSubscription() async {
         isLoadingSubscription = true
+        defer { isLoadingSubscription = false }
         let subs = try? await APIService.shared.fetchUserSubscriptions()
         isAnnualSubscriber = subs?.annual ?? false
-        isLoadingSubscription = false
     }
 }
 
@@ -1067,6 +1094,7 @@ struct LeagueMemberPortfolioSheet: View {
 
 struct CreateLeagueSheet: View {
     @ObservedObject var viewModel: LeaguesViewModel
+    var onRequiresPayment: ((URL, String) -> Void)? = nil  // (checkoutURL, leagueId)
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var description = ""
@@ -1075,9 +1103,6 @@ struct CreateLeagueSheet: View {
     @State private var endDate = Self.defaultEndDate(for: "annual")
     @State private var isCreating = false
     @State private var errorMessage: String?
-    @State private var checkoutURL: URL?
-    @State private var pendingLeagueId: String?
-    @State private var showPaymentConfirmation = false
 
     private let competitionTypes = [
         ("annual",  "Annual",  "star.circle.fill",    Color(red: 0.95, green: 0.65, blue: 0.15)),
@@ -1249,21 +1274,6 @@ struct CreateLeagueSheet: View {
             .onChange(of: competitionType) { _, newType in
                 endDate = Self.defaultEndDate(for: newType)
             }
-            .sheet(item: Binding(
-                get: { checkoutURL.map { IdentifiableURL(url: $0) } },
-                set: { if $0 == nil { handlePaymentReturn() } }
-            )) { identifiable in
-                SafariView(url: identifiable.url) { handlePaymentReturn() }
-                    .ignoresSafeArea()
-            }
-            .alert("Payment Confirmed", isPresented: $showPaymentConfirmation) {
-                Button("OK") {
-                    Task { await viewModel.fetchLeagues() }
-                    dismiss()
-                }
-            } message: {
-                Text("Your league has been created and your entry fee paid. Good luck!")
-            }
         }
     }
 
@@ -1299,20 +1309,6 @@ struct CreateLeagueSheet: View {
         }
     }
 
-    private func handlePaymentReturn() {
-        checkoutURL = nil
-        guard let leagueId = pendingLeagueId else { return }
-        Task {
-            let paid = (try? await APIService.shared.checkLeaguePaymentStatus(leagueId: leagueId)) ?? false
-            if paid {
-                showPaymentConfirmation = true
-            } else {
-                errorMessage = "Payment not confirmed yet. Your league is saved — you can pay later from the Leagues screen."
-                await viewModel.fetchLeagues()
-                dismiss()
-            }
-        }
-    }
 
     private func create() async {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
@@ -1328,10 +1324,10 @@ struct CreateLeagueSheet: View {
                 endDate: endDate
             )
             if result.requiresPayment {
-                pendingLeagueId = result.id
                 let payment = try await APIService.shared.createLeaguePayment(leagueId: result.id)
                 if let url = URL(string: payment.checkoutUrl) {
-                    checkoutURL = url
+                    dismiss()
+                    onRequiresPayment?(url, result.id)
                 } else {
                     errorMessage = "Could not open payment page. League saved — pay from Leagues screen."
                     await viewModel.fetchLeagues()
