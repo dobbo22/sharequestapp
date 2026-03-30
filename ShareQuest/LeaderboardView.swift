@@ -566,7 +566,7 @@ class LeaderboardViewModel: ObservableObject {
     func loadAll() async {
         isLoading = true
         errorMessage = nil
-        currentUserId = UserDefaults.standard.string(forKey: "user_id") ?? ""
+        currentUserId = KeychainHelper.read("user_id") ?? ""
         cache.removeAll()
 
         var active: [LeaderboardType] = []
@@ -620,7 +620,7 @@ class LeaderboardViewModel: ObservableObject {
                              profitLoss: d.profit_loss ?? 0,
                              playerLevel: nil, rank: d.rank)
         }
-        currentUserId = UserDefaults.standard.string(forKey: "user_id") ?? ""
+        currentUserId = KeychainHelper.read("user_id") ?? ""
         currentUserEntry = entries.first { $0.userId == currentUserId }
         if let comp = response.competition {
             competitionInfo = CompetitionInfo(

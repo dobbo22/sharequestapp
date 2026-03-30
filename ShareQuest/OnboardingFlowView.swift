@@ -32,7 +32,7 @@ class OnboardingFlowViewModel: ObservableObject {
     
     func addXP(_ amount: Int) {
         xp += amount
-        UserDefaults.standard.set(xp, forKey: "onboarding_xp")
+        KeychainHelper.save(String(xp), for: "onboarding_xp")
         // Surface a short-lived XP gain indicator
         lastXPGain = amount
     }
@@ -42,7 +42,7 @@ class OnboardingFlowViewModel: ObservableObject {
     }
     func deductXP(_ amount: Int) {
         xp = max(0, xp - amount)
-        UserDefaults.standard.set(xp, forKey: "onboarding_xp")
+        KeychainHelper.save(String(xp), for: "onboarding_xp")
     }
     
     func nextStep() {

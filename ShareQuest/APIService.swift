@@ -2749,7 +2749,7 @@ struct SectorItem: Codable, Identifiable {
     var stockCount: Int { stock_count ?? count ?? 0 }
 }
 
-struct SubsectorItem: Codable, Identifiable {
+struct SubsectorItem: Codable, Identifiable, Equatable {
     var id: String { subsector }
     let subsector: String
     let count: Int?
@@ -2758,7 +2758,7 @@ struct SubsectorItem: Codable, Identifiable {
     var stockCount: Int { stock_count ?? count ?? stocks?.count ?? 0 }
 }
 
-struct SubsectorStock: Codable {
+struct SubsectorStock: Codable, Equatable {
     let symbol: String
     let companyname: String?
     let listing_id: String?

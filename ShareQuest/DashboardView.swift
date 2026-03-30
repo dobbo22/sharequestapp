@@ -110,7 +110,7 @@ struct DashboardView: View {
             }
         }
         // Try persisted first name from UserDefaults (set during signIn/loadUserProfile)
-        if let persisted = UserDefaults.standard.string(forKey: "user_first_name"), !persisted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let persisted = KeychainHelper.read("user_first_name"), !persisted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return persisted
         }
         return viewModel.username
@@ -227,7 +227,7 @@ struct DashboardView: View {
             }
             .onChange(of: viewModel.displayedXP) { _, newXP in
                 let newLevelInfo = sqLevelInfo(totalXP: newXP)
-                let userId = UserDefaults.standard.string(forKey: "user_id") ?? "unknown"
+                let userId = KeychainHelper.read("user_id") ?? "unknown"
                 let shownKey = "levelUpShownForLevel_\(userId)"
                 let lastShownLevel = UserDefaults.standard.integer(forKey: shownKey)
                 // Only show once per level — never re-show on login/reload
@@ -285,7 +285,7 @@ struct DashboardView: View {
                         // Bell icon — solid fill, opacity pulse when alerting
                         Image(systemName: marketAlertUrgency != nil ? "bell.badge.fill" : "bell.fill")
                             .foregroundColor(bellColor)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.system(size: scaled(18), weight: .semibold))
                             .padding(8)
                             .background(Color(red: 0.067, green: 0.094, blue: 0.153))
                             .clipShape(Circle())
@@ -904,7 +904,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: scaled(13), weight: .semibold))
                     .foregroundColor(Theme.primaryBlue)
                 Text("Market Discussion")
                     .font(.system(size: scaled(14), weight: .semibold))
@@ -935,7 +935,7 @@ struct DashboardView: View {
 
         return HStack(spacing: 12) {
             Image(systemName: dirIcon)
-                .font(.system(size: 18))
+                .font(.system(size: scaled(18)))
                 .foregroundColor(dirColor)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -952,7 +952,7 @@ struct DashboardView: View {
 
             if challenge.is_full {
                 Text("FULL")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: scaled(11), weight: .bold))
                     .foregroundColor(Theme.textSecondary)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Color.white.opacity(0.08))
@@ -962,7 +962,7 @@ struct DashboardView: View {
                     .foregroundColor(Theme.accentGreen)
             } else {
                 Text("+\(challenge.xp_available) XP")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: scaled(11), weight: .bold))
                     .foregroundColor(.black)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(challenge.xp_available == 50 ? Theme.accentYellow : Theme.accentGreen.opacity(0.85))
@@ -970,7 +970,7 @@ struct DashboardView: View {
             }
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11))
+                .font(.system(size: scaled(11)))
                 .foregroundColor(Theme.textSecondary.opacity(0.5))
         }
         .padding(.horizontal, 12)
@@ -2051,7 +2051,7 @@ class DashboardViewModel: ObservableObject {
                 gamProfile = response
                 recentXP = response.xpActivities
                 // Account for any local onboarding XP that might not yet be reflected on the server.
-                let localOnboardingXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
+                let localOnboardingXP = Int(KeychainHelper.read("onboarding_xp") ?? "0") ?? 0
                 if response.xp < localOnboardingXP {
                     displayedXP = response.xp + localOnboardingXP
                 } else {

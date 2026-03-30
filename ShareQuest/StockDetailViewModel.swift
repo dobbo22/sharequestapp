@@ -13,7 +13,7 @@ final class StockDetailViewModel: ObservableObject {
     @Published var requiresSubscriptionForTrades: Bool = false
     @Published var priceHistory: [PricePoint] = []
     @Published var isLoadingHistory: Bool = false
-    @Published var selectedHistoryPeriod: Int = 30
+    @Published var selectedHistoryPeriod: Int = 365
     @Published var selectedBSYear: String? = nil
 
     private let api = APIService.shared

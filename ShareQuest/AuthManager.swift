@@ -28,10 +28,25 @@ class AuthManager: ObservableObject {
     private init() {
         // Check if user has completed onboarding
         hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
-        
+
+        // --- MIGRATION LOGIC: Move sensitive data from UserDefaults to Keychain if present ---
+        if let legacyFirstName = UserDefaults.standard.string(forKey: "user_first_name"), !legacyFirstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            KeychainHelper.save(legacyFirstName, for: "user_first_name")
+            UserDefaults.standard.removeObject(forKey: "user_first_name")
+        }
+        if UserDefaults.standard.object(forKey: "onboarding_xp") != nil {
+            let legacyXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
+            KeychainHelper.save(String(legacyXP), for: "onboarding_xp")
+            UserDefaults.standard.removeObject(forKey: "onboarding_xp")
+        }
+
         // Load any saved onboarding XP
-        onboardingXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
-        
+        if let xpString = KeychainHelper.read("onboarding_xp"), let xp = Int(xpString) {
+            onboardingXP = xp
+        } else {
+            onboardingXP = 0
+        }
+
         // Check if we have a saved auth token
         if let _ = KeychainHelper.read("auth_token") {
             isAuthenticated = true
@@ -46,12 +61,12 @@ class AuthManager: ObservableObject {
     
     func setOnboardingXP(_ xp: Int) {
         onboardingXP = xp
-        UserDefaults.standard.set(xp, forKey: "onboarding_xp")
+        KeychainHelper.save(String(xp), for: "onboarding_xp")
     }
     
     func clearOnboardingXP() {
         onboardingXP = 0
-        UserDefaults.standard.removeObject(forKey: "onboarding_xp")
+        KeychainHelper.delete("onboarding_xp")
     }
     
     // MARK: - Authentication
@@ -74,7 +89,7 @@ class AuthManager: ObservableObject {
                 )
                 // Persist first name locally for immediate UI reads
                 if let fn = user.first_name, !fn.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    UserDefaults.standard.set(fn, forKey: "user_first_name")
+                    KeychainHelper.save(fn, for: "user_first_name")
                 }
                 isAuthenticated = true
                 isLoading = false
@@ -90,7 +105,7 @@ class AuthManager: ObservableObject {
                 isAuthenticated = true
                  // After authenticating, attempt to sync any locally-stored onboarding XP to the server
                  Task {
-                     let localXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
+                     let localXP = Int(KeychainHelper.read("onboarding_xp") ?? "0") ?? 0
                      if localXP > 0 {
                          // persist in manager and best-effort sync
                          await MainActor.run { self.setOnboardingXP(localXP) }
@@ -123,7 +138,7 @@ class AuthManager: ObservableObject {
             isAuthenticated = true
              // After authenticating, attempt to sync any locally-stored onboarding XP to the server
              Task {
-                 let localXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
+                 let localXP = Int(KeychainHelper.read("onboarding_xp") ?? "0") ?? 0
                  if localXP > 0 {
                      await MainActor.run { self.setOnboardingXP(localXP) }
                      do {
@@ -206,7 +221,7 @@ class AuthManager: ObservableObject {
                 _ = handleOAuthResult(result)
                 pendingVerificationEmail = nil
                 // Complete onboarding and sync XP
-                let localXP = UserDefaults.standard.integer(forKey: "onboarding_xp")
+                let localXP = Int(KeychainHelper.read("onboarding_xp") ?? "0") ?? 0
                 if !hasCompletedOnboarding {
                     completeOnboarding(withXP: localXP > 0 ? localXP : onboardingXP)
                 }
@@ -279,7 +294,7 @@ class AuthManager: ObservableObject {
                 lastName: profile.last_name
             )
             if let fn = profile.first_name, !fn.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                UserDefaults.standard.set(fn, forKey: "user_first_name")
+                KeychainHelper.save(fn, for: "user_first_name")
             }
         } catch {
             // If profile load fails, user might need to re-authenticate
@@ -296,7 +311,7 @@ class AuthManager: ObservableObject {
     
     func completeOnboarding(withXP xp: Int) {
         onboardingXP = xp
-        UserDefaults.standard.set(xp, forKey: "onboarding_xp")
+        KeychainHelper.save(String(xp), for: "onboarding_xp")
         hasCompletedOnboarding = true
         UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
     }
@@ -305,7 +320,7 @@ class AuthManager: ObservableObject {
         hasCompletedOnboarding = false
         UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
         onboardingXP = 0
-        UserDefaults.standard.removeObject(forKey: "onboarding_xp")
+        KeychainHelper.delete("onboarding_xp")
     }
     
     /// Reset all app state - useful for testing
@@ -385,7 +400,7 @@ class AuthManager: ObservableObject {
             lastName: result.lastName
         )
         if let fn = result.firstName, !fn.isEmpty {
-            UserDefaults.standard.set(fn, forKey: "user_first_name")
+            KeychainHelper.save(fn, for: "user_first_name")
         }
         isAuthenticated = true
         isLoading = false

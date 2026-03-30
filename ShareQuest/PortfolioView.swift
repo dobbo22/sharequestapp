@@ -314,7 +314,7 @@ struct PortfolioView: View {
     private func reloadLeagues() async {
         leaguesLoading = true
         if let leagues = try? await APIService.shared.fetchUserLeagues() {
-            let userId = UserDefaults.standard.string(forKey: "user_id") ?? ""
+            let userId = KeychainHelper.read("user_id") ?? ""
             var states = leagues.map { LeaguePortfolioState(league: $0) }
             // Load summary values for each league concurrently
             await withTaskGroup(of: (Int, LeaderboardUserPortfolio?).self) { group in
@@ -604,7 +604,7 @@ struct LeaguePortfolioView: View {
 
     private func loadPortfolio() async {
         isLoading = true
-        let userId = UserDefaults.standard.string(forKey: "user_id") ?? ""
+        let userId = KeychainHelper.read("user_id") ?? ""
         if let p = try? await APIService.shared.fetchLeagueMemberPortfolio(
             leagueId: league.id, memberId: userId) {
             holdings = p.holdings

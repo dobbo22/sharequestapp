@@ -516,6 +516,7 @@ struct LeagueDetailSheet: View {
     @State private var paymentPollingTask: Task<Void, Never>? = nil
     @State private var selectedMember: LeagueMember? = nil
     @State private var detailTab: LeagueDetailTab = .leaderboard
+    @State private var showResultsReveal = false
 
     enum LeagueDetailTab { case leaderboard, chat }
 
@@ -644,7 +645,49 @@ struct LeagueDetailSheet: View {
                             }
                             .padding(.horizontal)
 
-                            Spacer(minLength: 40)
+                            // Leaderboard member list
+                            if !members.isEmpty {
+                                VStack(spacing: 0) {
+                                    // Section header with Results pill for completed leagues
+                                    HStack(spacing: 8) {
+                                        Text("Standings")
+                                            .font(.system(size: scaled(13), weight: .semibold))
+                                            .foregroundColor(Theme.textSecondary)
+                                        if league.status == "completed" {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "checkmark.seal.fill")
+                                                    .font(.system(size: scaled(9), weight: .bold))
+                                                Text("Final Results")
+                                                    .font(.system(size: scaled(10), weight: .bold))
+                                            }
+                                            .foregroundColor(.black)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(Theme.accentYellow)
+                                            .clipShape(Capsule())
+                                        }
+                                        Spacer()
+                                        Text("\(members.count) players")
+                                            .font(.system(size: scaled(12)))
+                                            .foregroundColor(Theme.textMuted)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.bottom, 8)
+
+                                    VStack(spacing: 6) {
+                                        ForEach(Array(members.enumerated()), id: \.element.user_id) { i, member in
+                                            Button { selectedMember = member } label: {
+                                                memberRow(member: member, rank: member.rank ?? (i + 1))
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
+                                        }
+                                    }
+                                    .padding(.horizontal, 12)
+                                }
+                                .padding(.top, 4)
+                            }
+
+                            Spacer(minLength: 24)
                         }
                         .padding(.top)
                     }
@@ -679,9 +722,20 @@ struct LeagueDetailSheet: View {
                 LeagueMemberPortfolioSheet(member: member, league: league)
             }
         }
+        .fullScreenCover(isPresented: $showResultsReveal) {
+            LeagueResultsRevealView(league: league, members: members) {
+                showResultsReveal = false
+            }
+        }
         .task {
             await loadMembers()
             await refreshPaymentStatus()
+            // Show results reveal once for completed leagues
+            if league.status == "completed" && shouldShowResultsReveal(for: league.id) && !members.isEmpty {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    showResultsReveal = true
+                }
+            }
         }
         .onChange(of: paymentURL) { _, newURL in
             if newURL != nil {
@@ -768,7 +822,7 @@ struct LeagueDetailSheet: View {
     }
 
     private func memberRow(member: LeagueMember, rank: Int) -> some View {
-        let currentUserId = UserDefaults.standard.string(forKey: "user_id") ?? ""
+        let currentUserId = KeychainHelper.read("user_id") ?? ""
         let isUser = member.user_id == currentUserId
         let isMedal = rank <= 3
 

@@ -915,6 +915,7 @@ class SectorsViewModel: ObservableObject {
 
 struct SectorsView: View {
     @StateObject private var vm = SectorsViewModel()
+    @State private var sortOrder: StockSortOrder = .defaultOrder
 
     var body: some View {
         ZStack {
@@ -1001,12 +1002,41 @@ struct SectorsView: View {
         }
     }
 
+    private var sortedSubsectorStocks: [SectorsViewModel.SubsectorStockDisplay] {
+        switch sortOrder {
+        case .defaultOrder: return vm.subsectorStocks
+        case .topGainers:   return vm.subsectorStocks.sorted { ($0.changePercent ?? 0) > ($1.changePercent ?? 0) }
+        case .topLosers:    return vm.subsectorStocks.sorted { ($0.changePercent ?? 0) < ($1.changePercent ?? 0) }
+        }
+    }
+
     private var stocksGrid: some View {
         VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(vm.selectedSector ?? "").font(.system(size: scaled(12))).foregroundColor(Theme.textMuted)
-                Text(vm.selectedSubsector?.subsector ?? "")
-                    .font(.system(size: scaled(22), weight: .bold)).foregroundColor(.white)
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(vm.selectedSector ?? "").font(.system(size: scaled(12))).foregroundColor(Theme.textMuted)
+                    Text(vm.selectedSubsector?.subsector ?? "")
+                        .font(.system(size: scaled(22), weight: .bold)).foregroundColor(.white)
+                }
+                Spacer()
+                Menu {
+                    ForEach(StockSortOrder.allCases, id: \.self) { order in
+                        Button { sortOrder = order } label: {
+                            Label(order.rawValue, systemImage: order.icon)
+                        }
+                    }
+                } label: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(sortOrder == .defaultOrder ? Theme.glassBackground : sortOrder.color.opacity(0.2))
+                            .frame(width: 36, height: 36)
+                            .overlay(RoundedRectangle(cornerRadius: 10)
+                                .stroke(sortOrder == .defaultOrder ? Theme.glassBorder : sortOrder.color.opacity(0.6), lineWidth: 1))
+                        Image(systemName: sortOrder.icon)
+                            .font(.system(size: scaled(14), weight: .semibold))
+                            .foregroundColor(sortOrder.color)
+                    }
+                }
             }
             .padding(.bottom, 4)
             if vm.subsectorStocks.isEmpty && !vm.isLoading {
@@ -1014,7 +1044,7 @@ struct SectorsView: View {
                     .padding(.top, 20).frame(maxWidth: .infinity, alignment: .center)
             } else {
                 LazyVStack(spacing: 10) {
-                    ForEach(vm.subsectorStocks) { s in
+                    ForEach(sortedSubsectorStocks) { s in
                         StockRowView(stock: Stock(
                             id: s.symbol, symbol: s.symbol, companyName: s.companyName,
                             price: (s.price ?? 0) / 100.0, changeAmount: s.change ?? 0,
@@ -1024,6 +1054,7 @@ struct SectorsView: View {
                 }
             }
         }
+        .onChange(of: vm.selectedSubsector) { _, _ in sortOrder = .defaultOrder }
     }
 }
 

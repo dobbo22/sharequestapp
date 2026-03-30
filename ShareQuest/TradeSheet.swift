@@ -249,7 +249,7 @@ class TradeSheetViewModel: ObservableObject {
     }
 
     private func loadLeaguePortfolio(leagueId: String) async {
-        let userId = UserDefaults.standard.string(forKey: "user_id") ?? ""
+        let userId = KeychainHelper.read("user_id") ?? ""
         do {
             let p = try await APIService.shared.fetchLeagueMemberPortfolio(leagueId: leagueId, memberId: userId)
             cashPounds = p.cashBalance / 100.0

@@ -166,7 +166,7 @@ struct ChartContent: View {
     @ObservedObject var vm: StockDetailViewModel
 
     private let periods: [(label: String, days: Int)] = [
-        ("1W", 7), ("1M", 30), ("3M", 90), ("6M", 180), ("1Y", 365)
+        ("1W", 7), ("1M", 30), ("3M", 90), ("6M", 180), ("1Y", 365), ("5Y", 1825), ("10Y", 3650)
     ]
 
     var body: some View {
