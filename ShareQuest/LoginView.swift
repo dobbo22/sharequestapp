@@ -88,7 +88,7 @@ struct LoginView: View {
                 }
             }
         }
-        .sheet(isPresented: $showManualSignIn) {
+        .adaptiveSheet(isPresented: $showManualSignIn) {
             ManualSignInView()
                 .environmentObject(authManager)
         }
@@ -481,7 +481,7 @@ struct ManualSignInView: View {
                         .foregroundColor(Theme.primaryBlue)
                 }
             }
-            .sheet(isPresented: $showForgotPassword) {
+            .adaptiveSheet(isPresented: $showForgotPassword) {
                 ForgotPasswordView()
                     .environmentObject(authManager)
             }
@@ -908,7 +908,7 @@ struct RegisterView: View {
         }
         .navigationTitle("Register")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showDatePicker) {
+        .adaptiveSheet(isPresented: $showDatePicker) {
             DatePickerSheet(selectedDate: $selectedDate, dateString: $dateOfBirth, isPresented: $showDatePicker)
         }
     }
