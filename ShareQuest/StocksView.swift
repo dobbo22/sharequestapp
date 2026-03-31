@@ -107,7 +107,7 @@ class StocksViewModel: ObservableObject {
                 stockData = try await apiService.fetchFTSE100()
             case .top250:
                 stockData = try await apiService.fetchFTSE250()
-            case .sectors, .watchlist:
+            case .sectors, .watchlist, .sqIndex:
                 stockData = []
             }
             stocks = stockData.map { sd in
