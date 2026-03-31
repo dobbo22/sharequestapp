@@ -389,6 +389,16 @@ final class APIService: @unchecked Sendable {
         return try decoder.decode(AIERTIndexResponse.self, from: data)
     }
 
+    /// Fetch SQ Index vs FTSE 100 comparison data — requires an active subscription.
+    func fetchAIERTComparison() async throws -> AIERTComparisonResponse {
+        let url = try buildURL(path: "/mobile/aiert-index/comparison", base: APIConfig.stocksURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        return try decoder.decode(AIERTComparisonResponse.self, from: data)
+    }
+
     /// Search stocks
     func searchStocks(query: String) async throws -> [StockData] {
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
@@ -3017,6 +3027,41 @@ struct AIERTFundamentals: Codable {
         case pe, pb, roe
         case dividendYield = "dividendYield"
         case debtEquity = "debtEquity"
+    }
+}
+
+struct AIERTComparisonResponse: Codable {
+    let success: Bool
+    let ftse100: FTSEPerformance?
+    let tracker: TrackerPerformance?
+    let history: [ComparisonHistoryPoint]?
+}
+
+struct FTSEPerformance: Codable {
+    let ytd: Double?
+    let perf1m: Double?
+    let perf3m: Double?
+    let perf1y: Double?
+    let perf3y: Double?
+    let currentPrice: Double?
+}
+
+struct TrackerPerformance: Codable {
+    let ytd: Double?
+    let totalValue: Double?
+    let initialValue: Double?
+}
+
+struct ComparisonHistoryPoint: Codable, Identifiable {
+    var id: String { date }
+    let date: String
+    let ftse100Ytd: Double?
+    let sharequestYtd: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case date
+        case ftse100Ytd = "ftse100_ytd"
+        case sharequestYtd = "sharequest_ytd"
     }
 }
 

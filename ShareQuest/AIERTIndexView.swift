@@ -339,29 +339,53 @@ struct SQTrackerView: View {
 
 // MARK: - Comparison Chart View
 
+@MainActor
+class SQComparisonViewModel: ObservableObject {
+    @Published var data: AIERTComparisonResponse? = nil
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+
+    func fetch() async {
+        isLoading = true
+        errorMessage = nil
+        do {
+            data = try await APIService.shared.fetchAIERTComparison()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+}
+
 struct SQComparisonView: View {
     let stocks: [AIERTStock]
+    @StateObject private var vm = SQComparisonViewModel()
 
-    // Build simple bar data: average performance per period
     private struct PerfBar: Identifiable {
         let id = UUID()
         let period: String
         let sqIndex: Double
-        let ftse100: Double  // approximate benchmark values
+        let ftse100: Double
+    }
+
+    private func avg(_ values: [Double?]) -> Double {
+        let v = values.compactMap { $0 }
+        return v.isEmpty ? 0 : v.reduce(0, +) / Double(v.count)
     }
 
     private var bars: [PerfBar] {
-        func avg(_ values: [Double?]) -> Double {
-            let v = values.compactMap { $0 }
-            return v.isEmpty ? 0 : v.reduce(0, +) / Double(v.count)
-        }
+        let ftse = vm.data?.ftse100
         return [
-            PerfBar(period: "YTD",  sqIndex: avg(stocks.map(\.infrontYtd)), ftse100: 3.2),
-            PerfBar(period: "1M",   sqIndex: avg(stocks.map(\.infront1m)),  ftse100: 1.1),
-            PerfBar(period: "3M",   sqIndex: avg(stocks.map(\.infront3m)),  ftse100: 2.4),
-            PerfBar(period: "1Y",   sqIndex: avg(stocks.map(\.infront1y)),  ftse100: 8.5),
-            PerfBar(period: "3Y",   sqIndex: avg(stocks.map(\.infront3y)),  ftse100: 18.2),
+            PerfBar(period: "YTD", sqIndex: avg(stocks.map(\.infrontYtd)), ftse100: ftse?.ytd   ?? 0),
+            PerfBar(period: "1M",  sqIndex: avg(stocks.map(\.infront1m)),  ftse100: ftse?.perf1m ?? 0),
+            PerfBar(period: "3M",  sqIndex: avg(stocks.map(\.infront3m)),  ftse100: ftse?.perf3m ?? 0),
+            PerfBar(period: "1Y",  sqIndex: avg(stocks.map(\.infront1y)),  ftse100: ftse?.perf1y ?? 0),
+            PerfBar(period: "3Y",  sqIndex: avg(stocks.map(\.infront3y)),  ftse100: ftse?.perf3y ?? 0),
         ]
+    }
+
+    private var historyPoints: [ComparisonHistoryPoint] {
+        vm.data?.history ?? []
     }
 
     var body: some View {
@@ -371,105 +395,158 @@ struct SQComparisonView: View {
                     Text("SQ Index vs FTSE 100")
                         .font(.system(size: scaled(20), weight: .bold))
                         .foregroundColor(Theme.textPrimary)
-                    Text("Average return comparison by period")
+                    Text("Live performance comparison")
                         .font(.system(size: scaled(13)))
                         .foregroundColor(Theme.textMuted)
                 }
                 .padding(.top, 16)
 
-                // Legend
-                HStack(spacing: 20) {
-                    legendDot(color: Theme.primaryBlue, label: "SQ Index")
-                    legendDot(color: Theme.textMuted, label: "FTSE 100 (est.)")
-                }
-
-                // Bar chart
-                Chart {
-                    ForEach(bars) { bar in
-                        BarMark(
-                            x: .value("Period", bar.period),
-                            y: .value("Return", bar.sqIndex),
-                            width: .fixed(16)
-                        )
-                        .foregroundStyle(Theme.primaryBlue)
-                        .position(by: .value("Series", "SQ Index"))
-
-                        BarMark(
-                            x: .value("Period", bar.period),
-                            y: .value("Return", bar.ftse100),
-                            width: .fixed(16)
-                        )
-                        .foregroundStyle(Theme.textMuted.opacity(0.5))
-                        .position(by: .value("Series", "FTSE 100"))
+                if vm.isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Theme.primaryBlue))
+                        .padding(.vertical, 20)
+                } else if let error = vm.errorMessage {
+                    Text(error)
+                        .font(.system(size: scaled(13)))
+                        .foregroundColor(Theme.textMuted)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                } else {
+                    // Legend
+                    HStack(spacing: 20) {
+                        legendDot(color: Theme.primaryBlue, label: "SQ Index")
+                        legendDot(color: Theme.textMuted.opacity(0.6), label: "FTSE 100")
                     }
-                    RuleMark(y: .value("Zero", 0))
-                        .foregroundStyle(Theme.glassBorder)
-                        .lineStyle(StrokeStyle(lineWidth: 1))
-                }
-                .chartYAxis {
-                    AxisMarks { value in
-                        AxisGridLine().foregroundStyle(Theme.glassBorder.opacity(0.4))
-                        AxisValueLabel {
-                            if let v = value.as(Double.self) {
-                                Text(String(format: "%.0f%%", v))
-                                    .font(.system(size: scaled(10)))
-                                    .foregroundColor(Theme.textMuted)
+
+                    // YTD line chart from history
+                    if !historyPoints.isEmpty {
+                        ytdLineChart
+                            .padding(.horizontal)
+                    }
+
+                    // Bar chart by period
+                    Chart {
+                        ForEach(bars) { bar in
+                            BarMark(x: .value("Period", bar.period), y: .value("Return", bar.sqIndex), width: .fixed(16))
+                                .foregroundStyle(Theme.primaryBlue)
+                                .position(by: .value("Series", "SQ Index"))
+                            BarMark(x: .value("Period", bar.period), y: .value("Return", bar.ftse100), width: .fixed(16))
+                                .foregroundStyle(Theme.textMuted.opacity(0.5))
+                                .position(by: .value("Series", "FTSE 100"))
+                        }
+                        RuleMark(y: .value("Zero", 0))
+                            .foregroundStyle(Theme.glassBorder)
+                            .lineStyle(StrokeStyle(lineWidth: 1))
+                    }
+                    .chartYAxis {
+                        AxisMarks { value in
+                            AxisGridLine().foregroundStyle(Theme.glassBorder.opacity(0.4))
+                            AxisValueLabel {
+                                if let v = value.as(Double.self) {
+                                    Text(String(format: "%.0f%%", v))
+                                        .font(.system(size: scaled(10)))
+                                        .foregroundColor(Theme.textMuted)
+                                }
                             }
                         }
                     }
-                }
-                .frame(height: 240)
-                .padding(.horizontal)
-
-                // Table
-                VStack(spacing: 0) {
-                    HStack {
-                        Text("Period").frame(width: 60, alignment: .leading)
-                        Spacer()
-                        Text("SQ Index").frame(width: 80, alignment: .trailing)
-                        Text("FTSE 100").frame(width: 80, alignment: .trailing)
-                        Text("Delta").frame(width: 70, alignment: .trailing)
-                    }
-                    .font(.system(size: scaled(11), weight: .semibold))
-                    .foregroundColor(Theme.textMuted)
+                    .frame(height: 200)
                     .padding(.horizontal)
-                    .padding(.vertical, 8)
-                    .background(Theme.glassBackground)
 
-                    ForEach(bars) { bar in
-                        let delta = bar.sqIndex - bar.ftse100
-                        HStack {
-                            Text(bar.period).frame(width: 60, alignment: .leading)
-                            Spacer()
-                            Text(String(format: "%+.1f%%", bar.sqIndex))
-                                .foregroundColor(bar.sqIndex >= 0 ? Theme.accentGreen : Color(red: 0.94, green: 0.27, blue: 0.27))
-                                .frame(width: 80, alignment: .trailing)
-                            Text(String(format: "%+.1f%%", bar.ftse100))
-                                .foregroundColor(Theme.textSecondary)
-                                .frame(width: 80, alignment: .trailing)
-                            Text(String(format: "%+.1f%%", delta))
-                                .foregroundColor(delta >= 0 ? Theme.accentGreen : Color(red: 0.94, green: 0.27, blue: 0.27))
-                                .frame(width: 70, alignment: .trailing)
-                        }
-                        .font(.system(size: scaled(13), weight: .medium))
-                        .foregroundColor(Theme.textPrimary)
+                    // Table
+                    comparisonTable
                         .padding(.horizontal)
-                        .padding(.vertical, 10)
-                        Divider().background(Theme.glassBorder).padding(.horizontal)
+                }
+            }
+            .padding(.bottom, 24)
+        }
+        .task { await vm.fetch() }
+        .refreshable { await vm.fetch() }
+    }
+
+    // YTD line chart showing history
+    private var ytdLineChart: some View {
+        Chart {
+            ForEach(Array(historyPoints.enumerated()), id: \.element.id) { i, point in
+                LineMark(
+                    x: .value("Date", i),
+                    y: .value("SQ", point.sharequestYtd ?? 0)
+                )
+                .foregroundStyle(Theme.primaryBlue)
+                .interpolationMethod(.catmullRom)
+
+                LineMark(
+                    x: .value("Date", i),
+                    y: .value("FTSE", point.ftse100Ytd ?? 0)
+                )
+                .foregroundStyle(Theme.textMuted.opacity(0.6))
+                .interpolationMethod(.catmullRom)
+            }
+            RuleMark(y: .value("Zero", 0))
+                .foregroundStyle(Theme.glassBorder)
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+        }
+        .chartXAxis(.hidden)
+        .chartYAxis {
+            AxisMarks { value in
+                AxisGridLine().foregroundStyle(Theme.glassBorder.opacity(0.3))
+                AxisValueLabel {
+                    if let v = value.as(Double.self) {
+                        Text(String(format: "%.0f%%", v))
+                            .font(.system(size: scaled(10)))
+                            .foregroundColor(Theme.textMuted)
                     }
                 }
-                .background(Theme.glassBackground)
-                .cornerRadius(14)
-                .padding(.horizontal)
-
-                Text("FTSE 100 figures are approximate benchmarks. SQ Index values are equal-weight averages of constituent performance.")
-                    .font(.system(size: scaled(11)))
-                    .foregroundColor(Theme.textMuted)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
             }
         }
+        .frame(height: 160)
+        .overlay(alignment: .topLeading) {
+            Text("YTD History")
+                .font(.system(size: scaled(11), weight: .semibold))
+                .foregroundColor(Theme.textMuted)
+                .padding(6)
+        }
+    }
+
+    private var comparisonTable: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Period").frame(width: 52, alignment: .leading)
+                Spacer()
+                Text("SQ Index").frame(width: 76, alignment: .trailing)
+                Text("FTSE 100").frame(width: 76, alignment: .trailing)
+                Text("Delta").frame(width: 64, alignment: .trailing)
+            }
+            .font(.system(size: scaled(11), weight: .semibold))
+            .foregroundColor(Theme.textMuted)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .background(Theme.glassBackground)
+
+            ForEach(bars) { bar in
+                let delta = bar.sqIndex - bar.ftse100
+                HStack {
+                    Text(bar.period).frame(width: 52, alignment: .leading)
+                    Spacer()
+                    Text(String(format: "%+.1f%%", bar.sqIndex))
+                        .foregroundColor(bar.sqIndex >= 0 ? Theme.accentGreen : Color(red: 0.94, green: 0.27, blue: 0.27))
+                        .frame(width: 76, alignment: .trailing)
+                    Text(String(format: "%+.1f%%", bar.ftse100))
+                        .foregroundColor(Theme.textSecondary)
+                        .frame(width: 76, alignment: .trailing)
+                    Text(String(format: "%+.1f%%", delta))
+                        .foregroundColor(delta >= 0 ? Theme.accentGreen : Color(red: 0.94, green: 0.27, blue: 0.27))
+                        .frame(width: 64, alignment: .trailing)
+                }
+                .font(.system(size: scaled(13), weight: .medium))
+                .foregroundColor(Theme.textPrimary)
+                .padding(.horizontal)
+                .padding(.vertical, 10)
+                Divider().background(Theme.glassBorder).padding(.horizontal)
+            }
+        }
+        .background(Theme.glassBackground)
+        .cornerRadius(14)
     }
 
     private func legendDot(color: Color, label: String) -> some View {
