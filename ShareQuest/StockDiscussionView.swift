@@ -119,6 +119,8 @@ class StockDiscussionViewModel: ObservableObject {
         defer { isSending = false }
         do {
             let sent = try await APIService.shared.postStockDiscussion(symbol: symbol, content: text)
+            // After successful comment, update challenge progress for stock_comment
+            let _ = await APIService.shared.postChallengeProgress(criteriaType: "stock_comment")
             messages.append(sent)
             lastTimestamp = sent.created_at
         } catch APIError.networkError(let reason) {

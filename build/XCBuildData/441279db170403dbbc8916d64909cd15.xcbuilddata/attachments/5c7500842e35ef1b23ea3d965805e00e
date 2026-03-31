@@ -1,0 +1,186 @@
+{
+  "" : {
+    "const-values" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ShareQuest-primary.swiftconstvalues",
+    "dependencies" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ShareQuest-primary.d",
+    "diagnostics" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ShareQuest-primary.dia",
+    "emit-module-dependencies" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ShareQuest-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ShareQuest-primary-emit-module.dia",
+    "pch" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ShareQuest-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ShareQuest-primary.swiftdeps"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/APIService.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/APIService.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/APIService.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/APIService.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/AuthManager.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/AuthManager.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/AuthManager.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/AuthManager.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/CompletionPopupView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/CompletionPopupView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/CompletionPopupView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/CompletionPopupView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/ContentView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ContentView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/DashboardView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/DashboardView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/DashboardView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/DashboardView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/Formatters.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/Formatters.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/Formatters.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/Formatters.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/HelpCenterView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/HelpCenterView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/HelpCenterView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/HelpCenterView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/Item.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/Item.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/Item.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/Item.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/ItemListViewModel.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ItemListViewModel.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ItemListViewModel.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ItemListViewModel.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/KeychainHelper.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/KeychainHelper.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/KeychainHelper.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/KeychainHelper.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/LeaderboardView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeaderboardView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeaderboardView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeaderboardView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/LeagueChatView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeagueChatView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeagueChatView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeagueChatView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/LeagueResultsReveal.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeagueResultsReveal.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeagueResultsReveal.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeagueResultsReveal.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/LeaguesView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeaguesView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeaguesView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LeaguesView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/LevelUpOverlay.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LevelUpOverlay.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LevelUpOverlay.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LevelUpOverlay.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/LoginView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LoginView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LoginView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/LoginView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/MainTabView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/MainTabView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/MainTabView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/MainTabView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/NativePaymentSheet.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/NativePaymentSheet.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/NativePaymentSheet.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/NativePaymentSheet.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/NotificationsView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/NotificationsView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/NotificationsView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/NotificationsView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/OnboardingFlowView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/OnboardingFlowView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/OnboardingFlowView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/OnboardingFlowView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/PortfolioView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/PortfolioView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/PortfolioView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/PortfolioView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/PrivacyPolicyView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/PrivacyPolicyView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/PrivacyPolicyView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/PrivacyPolicyView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/ProfileView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ProfileView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ProfileView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ProfileView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/ShareQuestApp.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ShareQuestApp.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ShareQuestApp.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/ShareQuestApp.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/SplashScreenView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/SplashScreenView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/SplashScreenView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/SplashScreenView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/StockDetailTabsView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StockDetailTabsView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StockDetailTabsView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StockDetailTabsView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/StockDetailViewModel.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StockDetailViewModel.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StockDetailViewModel.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StockDetailViewModel.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/StockDiscussionView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StockDiscussionView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StockDiscussionView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StockDiscussionView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/StocksView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StocksView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StocksView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/StocksView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/SubscriptionsView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/SubscriptionsView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/SubscriptionsView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/SubscriptionsView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/TermsView.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/TermsView.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/TermsView.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/TermsView.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/Theme.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/Theme.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/Theme.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/Theme.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/TradeSheet.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/TradeSheet.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/TradeSheet.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/TradeSheet.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/ShareQuest/TradesContent.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/TradesContent.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/TradesContent.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/TradesContent.o"
+  },
+  "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/martin/Desktop/ShareQuest/build/ShareQuest.build/Release/ShareQuest.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  }
+}

@@ -317,11 +317,35 @@ struct DashboardView: View {
         .padding(.top, vscaled(6))
         .padding(.trailing, 4)
         // Present notifications sheet when bell tapped
-        .sheet(isPresented: $showNotifications) {
-            NotificationsView()
+        // Notifications — fullScreenCover on iPad, sheet on iPhone
+        .fullScreenCover(isPresented: Binding(
+            get: { showNotifications && hSizeClass == .regular },
+            set: { if !$0 { showNotifications = false } }
+        )) { NotificationsView() }
+        .sheet(isPresented: Binding(
+            get: { showNotifications && hSizeClass != .regular },
+            set: { if !$0 { showNotifications = false } }
+        )) {
+            NotificationsView().presentationDetents([.medium, .large])
+        }
+        // Discussion nav — fullScreenCover on iPad, sheet on iPhone
+        .fullScreenCover(isPresented: Binding(
+            get: { discussionNavTarget != nil && hSizeClass == .regular },
+            set: { if !$0 { discussionNavTarget = nil } }
+        )) {
+            if let target = discussionNavTarget {
+                NavigationStack {
+                    StockDetailView(
+                        stock: Stock(id: target.symbol, symbol: target.symbol, companyName: target.companyName,
+                                     price: 0, changeAmount: 0, changePercent: 0, sector: "", marketCap: 0),
+                        initialTab: .discussion
+                    )
+                    .onDisappear { Task { await refreshUnreadCount() } }
+                }
+            }
         }
         .sheet(isPresented: Binding(
-            get: { discussionNavTarget != nil },
+            get: { discussionNavTarget != nil && hSizeClass != .regular },
             set: { if !$0 { discussionNavTarget = nil } }
         )) {
             if let target = discussionNavTarget {
@@ -330,14 +354,21 @@ struct DashboardView: View {
                                  price: 0, changeAmount: 0, changePercent: 0, sector: "", marketCap: 0),
                     initialTab: .discussion
                 )
-                .onDisappear {
-                    Task { await refreshUnreadCount() }
-                }
+                .onDisappear { Task { await refreshUnreadCount() } }
             }
         }
-        .sheet(isPresented: $showProfile) {
-            ProfileView(selectedTab: $selectedTab)
-                .environmentObject(authManager)
+        // Profile — fullScreenCover on iPad, sheet on iPhone
+        .fullScreenCover(isPresented: Binding(
+            get: { showProfile && hSizeClass == .regular },
+            set: { if !$0 { showProfile = false } }
+        )) {
+            ProfileView(selectedTab: $selectedTab).environmentObject(authManager)
+        }
+        .sheet(isPresented: Binding(
+            get: { showProfile && hSizeClass != .regular },
+            set: { if !$0 { showProfile = false } }
+        )) {
+            ProfileView(selectedTab: $selectedTab).environmentObject(authManager)
         }
         .sheet(item: $selectedChallenge) { challenge in
             DailyTaskDetailSheet(challenge: challenge) {

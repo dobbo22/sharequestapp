@@ -28,7 +28,8 @@
       "Bash(xargs -I {} basename {} .swift)",
       "Bash(xargs basename:*)",
       "Bash(/tmp/mobile_endpoints.txt:*)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(xcodebuild -workspace /Users/martin/Desktop/ShareQuest/ShareQuest.xcworkspace -scheme ShareQuest -destination 'generic/platform=iOS Simulator' build)"
     ],
     "additionalDirectories": [
       "/Users/martin/Desktop/ShareQuest/STA/trading-app/app/api/mobile/leagues/[id]"

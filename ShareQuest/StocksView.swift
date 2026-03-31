@@ -517,6 +517,7 @@ struct StockDetailView: View {
     @StateObject private var vm: StockDetailViewModel
     @ObservedObject private var watchlist = WatchlistManager.shared
     @State private var showTradeSheet = false
+    @Environment(\.dismiss) private var dismiss
     // Stock Hunt
     @State private var activeHunts: [ChallengeData] = []
     @State private var huntClaimState: HuntClaimState = .idle
@@ -558,6 +559,12 @@ struct StockDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .foregroundColor(.white)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     watchlist.toggle(stock: stock)
