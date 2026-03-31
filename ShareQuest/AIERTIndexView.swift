@@ -7,12 +7,11 @@
 //
 
 import SwiftUI
-import Combine
 
 // MARK: - ViewModel
 
 @MainActor
-final class AIERTIndexViewModel: ObservableObject {
+class AIERTIndexViewModel: ObservableObject {
     @Published var stocks: [AIERTStock] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
