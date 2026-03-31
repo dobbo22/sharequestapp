@@ -7,6 +7,15 @@
 //
 
 import SwiftUI
+import Charts
+
+// MARK: - Sub-tab
+
+enum SQIndexTab: String, CaseIterable {
+    case rankings = "Rankings"
+    case tracker  = "Tracker Fund"
+    case chart    = "Comparison"
+}
 
 // MARK: - ViewModel
 
@@ -33,45 +42,95 @@ class AIERTIndexViewModel: ObservableObject {
 
 struct AIERTIndexView: View {
     @StateObject private var vm = AIERTIndexViewModel()
+    @State private var selectedTab: SQIndexTab = .rankings
 
     var body: some View {
         ZStack {
             Theme.backgroundPrimary.ignoresSafeArea()
 
-            if vm.isLoading && vm.stocks.isEmpty {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: Theme.primaryBlue))
-            } else if let error = vm.errorMessage {
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: scaled(40)))
-                        .foregroundColor(Theme.textMuted)
-                    Text(error)
-                        .font(.system(size: scaled(14)))
-                        .foregroundColor(Theme.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                    Button("Retry") { Task { await vm.fetch() } }
-                        .font(.system(size: scaled(15), weight: .semibold))
-                        .foregroundColor(Theme.primaryBlue)
-                }
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        headerRow
-                        ForEach(Array(vm.stocks.enumerated()), id: \.element.id) { index, stock in
-                            AIERTRowView(rank: index + 1, stock: stock)
-                            Divider()
-                                .background(Theme.glassBorder)
-                                .padding(.horizontal)
-                        }
+            VStack(spacing: 0) {
+                subTabSelector
+
+                if vm.isLoading && vm.stocks.isEmpty {
+                    Spacer()
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Theme.primaryBlue))
+                    Spacer()
+                } else if let error = vm.errorMessage {
+                    Spacer()
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: scaled(40)))
+                            .foregroundColor(Theme.textMuted)
+                        Text(error)
+                            .font(.system(size: scaled(14)))
+                            .foregroundColor(Theme.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                        Button("Retry") { Task { await vm.fetch() } }
+                            .font(.system(size: scaled(15), weight: .semibold))
+                            .foregroundColor(Theme.primaryBlue)
                     }
-                    .padding(.bottom, 20)
+                    Spacer()
+                } else {
+                    switch selectedTab {
+                    case .rankings:
+                        rankingsContent
+                    case .tracker:
+                        SQTrackerView(stocks: vm.stocks)
+                    case .chart:
+                        SQComparisonView(stocks: vm.stocks)
+                    }
                 }
-                .refreshable { await vm.fetch() }
             }
         }
         .task { await vm.fetch() }
+    }
+
+    // MARK: Sub-tab selector
+
+    private var subTabSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(SQIndexTab.allCases, id: \.self) { tab in
+                    Button {
+                        selectedTab = tab
+                    } label: {
+                        Text(tab.rawValue)
+                            .font(.system(size: scaled(14), weight: .medium))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(selectedTab == tab ? Theme.primaryBlue.opacity(0.25) : Theme.glassBackground)
+                            .foregroundColor(selectedTab == tab ? Theme.primaryBlue : Theme.textSecondary)
+                            .cornerRadius(18)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18)
+                                    .stroke(selectedTab == tab ? Theme.primaryBlue : Theme.glassBorder, lineWidth: 1)
+                            )
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+        .padding(.vertical, 10)
+    }
+
+    // MARK: Rankings list
+
+    private var rankingsContent: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                headerRow
+                ForEach(Array(vm.stocks.enumerated()), id: \.element.id) { index, stock in
+                    AIERTRowView(rank: index + 1, stock: stock)
+                    Divider()
+                        .background(Theme.glassBorder)
+                        .padding(.horizontal)
+                }
+            }
+            .padding(.bottom, 20)
+        }
+        .refreshable { await vm.fetch() }
     }
 
     private var headerRow: some View {
@@ -116,17 +175,15 @@ struct AIERTRowView: View {
                 .foregroundColor(rank <= 3 ? Theme.primaryBlue : Theme.textMuted)
                 .frame(width: 36, alignment: .center)
 
-            // Name + symbol
+            // Name (bold) on top, symbol below
             VStack(alignment: .leading, spacing: 2) {
-                Text(stock.symbol)
-                    .font(.system(size: scaled(14), weight: .semibold))
+                Text(stock.name ?? stock.symbol)
+                    .font(.system(size: scaled(14), weight: .bold))
                     .foregroundColor(Theme.textPrimary)
-                if let name = stock.name {
-                    Text(name)
-                        .font(.system(size: scaled(11)))
-                        .foregroundColor(Theme.textMuted)
-                        .lineLimit(1)
-                }
+                    .lineLimit(1)
+                Text(stock.symbol)
+                    .font(.system(size: scaled(11)))
+                    .foregroundColor(Theme.textMuted)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -169,6 +226,262 @@ struct AIERTRowView: View {
     }
 }
 
+// MARK: - Tracker Fund View
+
+struct SQTrackerView: View {
+    let stocks: [AIERTStock]
+
+    // Equal-weight average of 1Y performance across index members
+    private var avg1y: Double? {
+        let vals = stocks.compactMap { $0.infront1y }
+        guard !vals.isEmpty else { return nil }
+        return vals.reduce(0, +) / Double(vals.count)
+    }
+
+    private var avgYtd: Double? {
+        let vals = stocks.compactMap { $0.infrontYtd }
+        guard !vals.isEmpty else { return nil }
+        return vals.reduce(0, +) / Double(vals.count)
+    }
+
+    private var avg3y: Double? {
+        let vals = stocks.compactMap { $0.infront3y }
+        guard !vals.isEmpty else { return nil }
+        return vals.reduce(0, +) / Double(vals.count)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                // Header card
+                VStack(spacing: 6) {
+                    Text("SQ Tracker Fund")
+                        .font(.system(size: scaled(20), weight: .bold))
+                        .foregroundColor(Theme.textPrimary)
+                    Text("Equal-weight index of top 100 AIERT stocks")
+                        .font(.system(size: scaled(13)))
+                        .foregroundColor(Theme.textMuted)
+                }
+                .padding(.top, 16)
+
+                // Performance cards
+                HStack(spacing: 12) {
+                    trackerCard(title: "YTD", value: avgYtd)
+                    trackerCard(title: "1 Year", value: avg1y)
+                    trackerCard(title: "3 Year", value: avg3y)
+                }
+                .padding(.horizontal)
+
+                // Top holdings
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Top 10 Holdings")
+                        .font(.system(size: scaled(14), weight: .semibold))
+                        .foregroundColor(Theme.textSecondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 10)
+
+                    ForEach(Array(stocks.prefix(10).enumerated()), id: \.element.id) { index, stock in
+                        HStack {
+                            Text("\(index + 1)")
+                                .font(.system(size: scaled(12)))
+                                .foregroundColor(Theme.textMuted)
+                                .frame(width: 24)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(stock.name ?? stock.symbol)
+                                    .font(.system(size: scaled(14), weight: .semibold))
+                                    .foregroundColor(Theme.textPrimary)
+                                    .lineLimit(1)
+                                Text(stock.symbol)
+                                    .font(.system(size: scaled(11)))
+                                    .foregroundColor(Theme.textMuted)
+                            }
+                            Spacer()
+                            Text("1%")
+                                .font(.system(size: scaled(13)))
+                                .foregroundColor(Theme.textSecondary)
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 8)
+                        Divider().background(Theme.glassBorder).padding(.horizontal)
+                    }
+                }
+                .padding(.top, 8)
+                .background(Theme.glassBackground)
+                .cornerRadius(14)
+                .padding(.horizontal)
+            }
+            .padding(.bottom, 24)
+        }
+    }
+
+    private func trackerCard(title: String, value: Double?) -> some View {
+        VStack(spacing: 6) {
+            Text(title)
+                .font(.system(size: scaled(12)))
+                .foregroundColor(Theme.textMuted)
+            if let v = value {
+                Text(String(format: "%+.1f%%", v))
+                    .font(.system(size: scaled(18), weight: .bold))
+                    .foregroundColor(v >= 0 ? Theme.accentGreen : Color(red: 0.94, green: 0.27, blue: 0.27))
+            } else {
+                Text("—")
+                    .font(.system(size: scaled(18), weight: .bold))
+                    .foregroundColor(Theme.textMuted)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(Theme.glassBackground)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.glassBorder, lineWidth: 1))
+    }
+}
+
+// MARK: - Comparison Chart View
+
+struct SQComparisonView: View {
+    let stocks: [AIERTStock]
+
+    // Build simple bar data: average performance per period
+    private struct PerfBar: Identifiable {
+        let id = UUID()
+        let period: String
+        let sqIndex: Double
+        let ftse100: Double  // approximate benchmark values
+    }
+
+    private var bars: [PerfBar] {
+        func avg(_ values: [Double?]) -> Double {
+            let v = values.compactMap { $0 }
+            return v.isEmpty ? 0 : v.reduce(0, +) / Double(v.count)
+        }
+        return [
+            PerfBar(period: "YTD",  sqIndex: avg(stocks.map(\.infrontYtd)), ftse100: 3.2),
+            PerfBar(period: "1M",   sqIndex: avg(stocks.map(\.infront1m)),  ftse100: 1.1),
+            PerfBar(period: "3M",   sqIndex: avg(stocks.map(\.infront3m)),  ftse100: 2.4),
+            PerfBar(period: "1Y",   sqIndex: avg(stocks.map(\.infront1y)),  ftse100: 8.5),
+            PerfBar(period: "3Y",   sqIndex: avg(stocks.map(\.infront3y)),  ftse100: 18.2),
+        ]
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                VStack(spacing: 6) {
+                    Text("SQ Index vs FTSE 100")
+                        .font(.system(size: scaled(20), weight: .bold))
+                        .foregroundColor(Theme.textPrimary)
+                    Text("Average return comparison by period")
+                        .font(.system(size: scaled(13)))
+                        .foregroundColor(Theme.textMuted)
+                }
+                .padding(.top, 16)
+
+                // Legend
+                HStack(spacing: 20) {
+                    legendDot(color: Theme.primaryBlue, label: "SQ Index")
+                    legendDot(color: Theme.textMuted, label: "FTSE 100 (est.)")
+                }
+
+                // Bar chart
+                Chart {
+                    ForEach(bars) { bar in
+                        BarMark(
+                            x: .value("Period", bar.period),
+                            y: .value("Return", bar.sqIndex),
+                            width: .fixed(16)
+                        )
+                        .foregroundStyle(Theme.primaryBlue)
+                        .position(by: .value("Series", "SQ Index"))
+
+                        BarMark(
+                            x: .value("Period", bar.period),
+                            y: .value("Return", bar.ftse100),
+                            width: .fixed(16)
+                        )
+                        .foregroundStyle(Theme.textMuted.opacity(0.5))
+                        .position(by: .value("Series", "FTSE 100"))
+                    }
+                    RuleMark(y: .value("Zero", 0))
+                        .foregroundStyle(Theme.glassBorder)
+                        .lineStyle(StrokeStyle(lineWidth: 1))
+                }
+                .chartYAxis {
+                    AxisMarks { value in
+                        AxisGridLine().foregroundStyle(Theme.glassBorder.opacity(0.4))
+                        AxisValueLabel {
+                            if let v = value.as(Double.self) {
+                                Text(String(format: "%.0f%%", v))
+                                    .font(.system(size: scaled(10)))
+                                    .foregroundColor(Theme.textMuted)
+                            }
+                        }
+                    }
+                }
+                .frame(height: 240)
+                .padding(.horizontal)
+
+                // Table
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("Period").frame(width: 60, alignment: .leading)
+                        Spacer()
+                        Text("SQ Index").frame(width: 80, alignment: .trailing)
+                        Text("FTSE 100").frame(width: 80, alignment: .trailing)
+                        Text("Delta").frame(width: 70, alignment: .trailing)
+                    }
+                    .font(.system(size: scaled(11), weight: .semibold))
+                    .foregroundColor(Theme.textMuted)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Theme.glassBackground)
+
+                    ForEach(bars) { bar in
+                        let delta = bar.sqIndex - bar.ftse100
+                        HStack {
+                            Text(bar.period).frame(width: 60, alignment: .leading)
+                            Spacer()
+                            Text(String(format: "%+.1f%%", bar.sqIndex))
+                                .foregroundColor(bar.sqIndex >= 0 ? Theme.accentGreen : Color(red: 0.94, green: 0.27, blue: 0.27))
+                                .frame(width: 80, alignment: .trailing)
+                            Text(String(format: "%+.1f%%", bar.ftse100))
+                                .foregroundColor(Theme.textSecondary)
+                                .frame(width: 80, alignment: .trailing)
+                            Text(String(format: "%+.1f%%", delta))
+                                .foregroundColor(delta >= 0 ? Theme.accentGreen : Color(red: 0.94, green: 0.27, blue: 0.27))
+                                .frame(width: 70, alignment: .trailing)
+                        }
+                        .font(.system(size: scaled(13), weight: .medium))
+                        .foregroundColor(Theme.textPrimary)
+                        .padding(.horizontal)
+                        .padding(.vertical, 10)
+                        Divider().background(Theme.glassBorder).padding(.horizontal)
+                    }
+                }
+                .background(Theme.glassBackground)
+                .cornerRadius(14)
+                .padding(.horizontal)
+
+                Text("FTSE 100 figures are approximate benchmarks. SQ Index values are equal-weight averages of constituent performance.")
+                    .font(.system(size: scaled(11)))
+                    .foregroundColor(Theme.textMuted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+            }
+        }
+    }
+
+    private func legendDot(color: Color, label: String) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(color).frame(width: 10, height: 10)
+            Text(label)
+                .font(.system(size: scaled(12)))
+                .foregroundColor(Theme.textSecondary)
+        }
+    }
+}
+
 // MARK: - Paywall
 
 struct AIERTPaywallView: View {
@@ -193,6 +506,8 @@ struct AIERTPaywallView: View {
                     featureRow(icon: "chart.line.uptrend.xyaxis", text: "AIERT composite score for every stock")
                     featureRow(icon: "gauge.medium", text: "Liquidity, technical & fundamental breakdown")
                     featureRow(icon: "arrow.up.right", text: "Performance figures: YTD, 1M, 3M, 1Y, 3Y")
+                    featureRow(icon: "building.columns", text: "Tracker fund view with equal-weight returns")
+                    featureRow(icon: "chart.bar.fill", text: "Comparison chart vs FTSE 100")
                 }
                 .padding(.horizontal, 24)
 
