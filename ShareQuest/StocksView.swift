@@ -257,8 +257,8 @@ struct StocksView: View {
         }
         .task {
             guard !subChecked else { return }
-            let subs = try? await APIService.shared.fetchUserSubscriptions()
-            hasSubscription = (subs?.annual ?? false) || (subs?.weekly ?? false) || (subs?.monthly ?? false)
+            // Decode subscription status from the stored JWT — no network call needed.
+            hasSubscription = APIService.shared.hasActiveSubscriptionFromToken()
             subChecked = true
         }
         .onChange(of: searchText) { _, newValue in

@@ -232,6 +232,26 @@ final class APIService: @unchecked Sendable {
         return authToken?.isEmpty == false
     }
 
+    /// Decode the stored JWT locally and return whether the user has any active subscription.
+    /// No network call — safe to call without risking a 401 sign-out.
+    func hasActiveSubscriptionFromToken() -> Bool {
+        guard let token = authToken, !token.isEmpty else { return false }
+        // JWT is three base64url parts separated by dots; the payload is the second part.
+        let parts = token.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 3 else { return false }
+        var base64 = String(parts[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        // Pad to a multiple of 4
+        while base64.count % 4 != 0 { base64 += "=" }
+        guard let data = Data(base64Encoded: base64),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let subs = json["subscriptions"] as? [String: Any] else { return false }
+        return (subs["annual"] as? Bool == true)
+            || (subs["weekly"] as? Bool == true)
+            || (subs["monthly"] as? Bool == true)
+    }
+
     var currentEnvironment: APIConfig.Environment {
         APIConfig.selectedEnvironment
     }
