@@ -560,6 +560,40 @@ struct SQComparisonView: View {
     }
 }
 
+// MARK: - Session Expired
+
+struct SQSessionExpiredView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "lock.rotation")
+                .font(.system(size: scaled(48)))
+                .foregroundColor(Theme.textMuted)
+            Text("Session Expired")
+                .font(.system(size: scaled(20), weight: .bold))
+                .foregroundColor(Theme.textPrimary)
+            Text("Please log out and log back in to access the SQ Index.")
+                .font(.system(size: scaled(14)))
+                .foregroundColor(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Button {
+                AuthManager.shared.signOut()
+            } label: {
+                Text("Log In Again")
+                    .font(.system(size: scaled(16), weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Theme.primaryBlue)
+                    .cornerRadius(14)
+                    .padding(.horizontal, 40)
+            }
+            Spacer()
+        }
+    }
+}
+
 // MARK: - Paywall
 
 struct AIERTPaywallView: View {
