@@ -393,7 +393,7 @@ struct SQComparisonView: View {
         ScrollView {
             VStack(spacing: 20) {
                 VStack(spacing: 6) {
-                    Text("SQ Index vs FTSE 100")
+                    Text("SQ Index vs Top 100")
                         .font(.system(size: scaled(20), weight: .bold))
                         .foregroundColor(Theme.textPrimary)
                     Text("Live performance comparison")
@@ -416,7 +416,7 @@ struct SQComparisonView: View {
                     // Legend
                     HStack(spacing: 20) {
                         legendDot(color: Theme.primaryBlue, label: "SQ Index")
-                        legendDot(color: Theme.textMuted.opacity(0.6), label: "FTSE 100")
+                        legendDot(color: Theme.textMuted.opacity(0.6), label: "Top 100")
                     }
 
                     // YTD line chart from history
@@ -515,7 +515,7 @@ struct SQComparisonView: View {
                 Text("Period").frame(width: 52, alignment: .leading)
                 Spacer()
                 Text("SQ Index").frame(width: 76, alignment: .trailing)
-                Text("FTSE 100").frame(width: 76, alignment: .trailing)
+                Text("Top 100").frame(width: 76, alignment: .trailing)
                 Text("Delta").frame(width: 64, alignment: .trailing)
             }
             .font(.system(size: scaled(11), weight: .semibold))
@@ -585,7 +585,7 @@ struct AIERTPaywallView: View {
                     featureRow(icon: "gauge.medium", text: "Liquidity, technical & fundamental breakdown")
                     featureRow(icon: "arrow.up.right", text: "Performance figures: YTD, 1M, 3M, 1Y, 3Y")
                     featureRow(icon: "building.columns", text: "Tracker fund view with equal-weight returns")
-                    featureRow(icon: "chart.bar.fill", text: "Comparison chart vs FTSE 100")
+                    featureRow(icon: "chart.bar.fill", text: "Comparison chart vs Top 100")
                 }
                 .padding(.horizontal, 24)
 
