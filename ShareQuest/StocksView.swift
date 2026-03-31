@@ -217,8 +217,8 @@ struct StocksView: View {
     @State private var searchText = ""
     @State private var searchTask: Task<Void, Never>? = nil
     @State private var sortOrder: StockSortOrder = .defaultOrder
-    @State private var hasSubscription: Bool = false
-    @State private var subChecked: Bool = false
+    @State private var hasSubscription: Bool = APIService.shared.hasActiveSubscriptionFromToken()
+    @State private var subChecked: Bool = true
 
     private var displayedStocks: [Stock] {
         switch sortOrder {
@@ -254,12 +254,6 @@ struct StocksView: View {
             }
             .navigationTitle("Stocks")
             .navigationBarTitleDisplayMode(.inline)
-        }
-        .task {
-            guard !subChecked else { return }
-            // Decode subscription status from the stored JWT — no network call needed.
-            hasSubscription = APIService.shared.hasActiveSubscriptionFromToken()
-            subChecked = true
         }
         .onChange(of: searchText) { _, newValue in
             searchTask?.cancel()
