@@ -70,6 +70,7 @@ enum StockTab: String, CaseIterable {
     case top250 = "top250"
     case sectors = "sectors"
     case watchlist = "watchlist"
+    case sqIndex = "sqIndex"
 
     var displayName: String {
         switch self {
@@ -77,6 +78,7 @@ enum StockTab: String, CaseIterable {
         case .top250: return "Top 250"
         case .sectors: return "Sectors"
         case .watchlist: return "Watchlist"
+        case .sqIndex: return "SQ Index"
         }
     }
 }
@@ -215,6 +217,8 @@ struct StocksView: View {
     @State private var searchText = ""
     @State private var searchTask: Task<Void, Never>? = nil
     @State private var sortOrder: StockSortOrder = .defaultOrder
+    @State private var hasSubscription: Bool = false
+    @State private var subChecked: Bool = false
 
     private var displayedStocks: [Stock] {
         switch sortOrder {
@@ -231,12 +235,18 @@ struct StocksView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    if selectedTab != .sectors {
+                    if selectedTab != .sectors && selectedTab != .sqIndex {
                         searchBar
                     }
                     tabSelector
                     if selectedTab == .sectors {
                         SectorsView()
+                    } else if selectedTab == .sqIndex {
+                        if subChecked && !hasSubscription {
+                            AIERTPaywallView()
+                        } else {
+                            AIERTIndexView()
+                        }
                     } else {
                         stocksList
                     }
@@ -244,6 +254,12 @@ struct StocksView: View {
             }
             .navigationTitle("Stocks")
             .navigationBarTitleDisplayMode(.inline)
+        }
+        .task {
+            guard !subChecked else { return }
+            let subs = try? await APIService.shared.fetchUserSubscriptions()
+            hasSubscription = (subs?.annual ?? false) || (subs?.weekly ?? false) || (subs?.monthly ?? false)
+            subChecked = true
         }
         .onChange(of: searchText) { _, newValue in
             searchTask?.cancel()
@@ -336,10 +352,10 @@ struct StocksView: View {
                         selectedTab = tab
                         if tab == .watchlist {
                             searchTask = Task { await viewModel.fetchWatchlistStocks(items: WatchlistManager.shared.items) }
-                        } else if tab != .sectors {
-                            searchTask = Task { await viewModel.fetchStocks(tab: tab) }
-                        } else {
+                        } else if tab == .sectors || tab == .sqIndex {
                             viewModel.clearStocks()
+                        } else {
+                            searchTask = Task { await viewModel.fetchStocks(tab: tab) }
                         }
                     }
                 }
@@ -398,8 +414,12 @@ struct StocksView: View {
             .padding()
         }
         .refreshable {
-            if let tab = selectedTab {
-                await viewModel.fetchStocks(tab: tab)
+            if let tab = selectedTab, tab != .sqIndex, tab != .sectors {
+                if tab == .watchlist {
+                    await viewModel.fetchWatchlistStocks(items: WatchlistManager.shared.items)
+                } else {
+                    await viewModel.fetchStocks(tab: tab)
+                }
             } else if !searchText.isEmpty {
                 await viewModel.searchStocks(query: searchText)
             }

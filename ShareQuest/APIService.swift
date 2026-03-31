@@ -377,6 +377,18 @@ final class APIService: @unchecked Sendable {
         }
     }
     
+    // MARK: - SQ Index (AIERT)
+
+    /// Fetch the SQ Index (AIERT top 100) — requires an active subscription.
+    func fetchAIERTIndex() async throws -> AIERTIndexResponse {
+        let url = try buildURL(path: "/mobile/aiert-index", base: APIConfig.stocksURL)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let data = try await performRequest(request)
+        return try decoder.decode(AIERTIndexResponse.self, from: data)
+    }
+
     /// Search stocks
     func searchStocks(query: String) async throws -> [StockData] {
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
@@ -2947,6 +2959,65 @@ struct UserSubscriptionsResponse: Codable {
     let monthly: Bool?
     let annual: Bool?
     let `default`: Bool? // always true for practice
+}
+
+// MARK: - AIERT Index Models
+
+struct AIERTIndexResponse: Codable {
+    let success: Bool
+    let count: Int?
+    let stocks: [AIERTStock]?
+}
+
+struct AIERTStock: Codable, Identifiable {
+    var id: String { symbol }
+    let symbol: String
+    let name: String?
+    let isin: String?
+    let infrontYtd: Double?
+    let infront1m: Double?
+    let infront3m: Double?
+    let infront1y: Double?
+    let infront3y: Double?
+    let infront5y: Double?
+    let liquidityScore: Double?
+    let aiert_score: AIERTScoreDetail?
+    let fundamentals: AIERTFundamentals?
+
+    enum CodingKeys: String, CodingKey {
+        case symbol, name, isin
+        case infrontYtd = "infront_ytd"
+        case infront1m = "infront_1m"
+        case infront3m = "infront_3m"
+        case infront1y = "infront_1y"
+        case infront3y = "infront_3y"
+        case infront5y = "infront_5y"
+        case liquidityScore = "liquidity_score"
+        case aiert_score
+        case fundamentals
+    }
+}
+
+struct AIERTScoreDetail: Codable {
+    let score: Double?
+    let technical: Double?
+    let fundamental: Double?
+    let performance: Double?
+    let liquidity: Double?
+}
+
+struct AIERTFundamentals: Codable {
+    let pe: Double?
+    let pb: Double?
+    let roe: Double?
+    let dividendYield: Double?
+    let debtEquity: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case pe, pb, roe
+        case dividendYield = "dividendYield"
+        case debtEquity = "debtEquity"
+    }
 }
 
 struct MinimalDashboardResponse: Codable {
