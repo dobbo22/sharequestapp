@@ -174,15 +174,6 @@ struct ChartContent: View {
             // Period selector + price change header
             VStack(spacing: 10) {
                 HStack {
-                    if let chg = vm.chartPriceChange {
-                        HStack(spacing: 4) {
-                            Image(systemName: chg >= 0 ? "arrow.up.right" : "arrow.down.right")
-                                .font(.system(size: scaled(12)))
-                            Text(String(format: "%+.2f%%", chg))
-                                .font(.system(size: scaled(15), weight: .semibold))
-                        }
-                        .foregroundColor(chg >= 0 ? Color(red: 0.2, green: 0.8, blue: 0.5) : Color(red: 0.9, green: 0.3, blue: 0.3))
-                    }
                     Spacer()
                     // Period pills
                     HStack(spacing: scaled(4)) {
@@ -215,9 +206,25 @@ struct ChartContent: View {
                         .font(.system(size: scaled(15))).foregroundColor(.white.opacity(0.4))
                         .frame(height: 180)
                 } else {
-                    priceLineChart
-                        .frame(height: 200)
-                        .padding(.horizontal, 8)
+                    ZStack(alignment: .topLeading) {
+                        priceLineChart
+                            .frame(height: 200)
+
+                        if let chg = vm.chartPriceChange {
+                            HStack(spacing: 4) {
+                                Image(systemName: chg >= 0 ? "arrow.up.right" : "arrow.down.right")
+                                    .font(.system(size: scaled(11), weight: .semibold))
+                                Text(String(format: "%+.2f%%", chg))
+                                    .font(.system(size: scaled(13), weight: .bold))
+                            }
+                            .foregroundColor(chg >= 0 ? Color(red: 0.2, green: 0.8, blue: 0.5) : Color(red: 0.9, green: 0.3, blue: 0.3))
+                            .padding(.horizontal, 8).padding(.vertical, 5)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(8)
+                            .padding(.leading, 12).padding(.top, 8)
+                        }
+                    }
+                    .padding(.horizontal, 8)
 
                     volumeBarChart
                         .frame(height: 50)
