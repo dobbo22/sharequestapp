@@ -182,22 +182,25 @@ struct ChartContent: View {
                                 .font(.system(size: scaled(15), weight: .semibold))
                         }
                         .foregroundColor(chg >= 0 ? Color(red: 0.2, green: 0.8, blue: 0.5) : Color(red: 0.9, green: 0.3, blue: 0.3))
-                        Text("over period")
-                            .font(.system(size: scaled(12))).foregroundColor(.white.opacity(0.5))
                     }
                     Spacer()
                     // Period pills
-                    HStack(spacing: scaled(5)) {
+                    HStack(spacing: scaled(4)) {
                         ForEach(periods, id: \.days) { p in
+                            let isSelected = vm.selectedHistoryPeriod == p.days
                             Button {
                                 Task { await vm.loadHistory(period: p.days) }
                             } label: {
                                 Text(p.label)
-                                    .font(.system(size: scaled(12), weight: .semibold))
-                                    .foregroundColor(vm.selectedHistoryPeriod == p.days ? .white : .white.opacity(0.5))
-                                    .padding(.horizontal, scaled(8)).padding(.vertical, vscaled(4))
-                                    .background(vm.selectedHistoryPeriod == p.days ? Theme.primaryBlue : Color.white.opacity(0.08))
-                                    .cornerRadius(10)
+                                    .font(.system(size: scaled(11), weight: isSelected ? .bold : .medium))
+                                    .foregroundColor(isSelected ? .white : Color(white: 0.72))
+                                    .padding(.horizontal, scaled(7)).padding(.vertical, vscaled(4))
+                                    .background(isSelected ? Theme.primaryBlue : Color.white.opacity(0.12))
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(isSelected ? Theme.primaryBlue : Color.white.opacity(0.25), lineWidth: 1)
+                                    )
                             }
                         }
                     }
