@@ -60,6 +60,7 @@ struct LeaguesView: View {
     @State private var showJoinSheet = false
     @State private var selectedLeague: League? = nil
     @State private var showSubscriptions = false
+    @State private var showContestRules = false
     @State private var isAnnualSubscriber: Bool = false
     @State private var isLoadingSubscription = true
     @State private var leaguePaymentURL: URL? = nil
@@ -130,6 +131,9 @@ struct LeaguesView: View {
             Task { await refreshSubscription() }
         }) {
             SubscriptionsView()
+        }
+        .sheet(isPresented: $showContestRules) {
+            ContestRulesView()
         }
         .adaptiveSheet(isPresented: $showCreateSheet) {
             CreateLeagueSheet(viewModel: viewModel) { url, leagueId in
@@ -250,6 +254,16 @@ struct LeaguesView: View {
                     .background(goldColor.opacity(0.12))
                     .cornerRadius(10)
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(goldColor.opacity(0.3), lineWidth: 1))
+
+                    Button {
+                        showContestRules = true
+                    } label: {
+                        Text("Official Rules")
+                            .font(.system(size: scaled(11)))
+                            .foregroundColor(goldColor.opacity(0.7))
+                            .underline()
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
                 .padding(18)
             }
@@ -309,6 +323,16 @@ struct LeaguesView: View {
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.glassBorder, lineWidth: 1))
                 }
             }
+
+            Button {
+                showContestRules = true
+            } label: {
+                Text("Official Rules")
+                    .font(.system(size: scaled(11)))
+                    .foregroundColor(blueColor.opacity(0.7))
+                    .underline()
+            }
+            .buttonStyle(PlainButtonStyle())
         }
         .padding(18)
         .background(

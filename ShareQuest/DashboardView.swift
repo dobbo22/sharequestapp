@@ -86,6 +86,7 @@ struct DashboardView: View {
     @State private var taskSectionTab = 0
     @State private var isAnnualSubscriber: Bool? = nil
     @State private var showSubscriptions = false
+    @State private var showContestRules = false
     @State private var promoCardIndex = 0
     @State private var discussionChallenges: [DiscussionChallenge] = []
     @State private var discussionNavTarget: (symbol: String, companyName: String)? = nil
@@ -776,6 +777,9 @@ struct DashboardView: View {
         }) {
             SubscriptionsView(selectedTab: $selectedTab)
         }
+        .sheet(isPresented: $showContestRules) {
+            ContestRulesView()
+        }
     }
 
     private var annualShareQuestPromoCard: some View {
@@ -820,6 +824,15 @@ struct DashboardView: View {
                     }
                     .padding(.horizontal, 12).padding(.vertical, vscaled(7))
                     .background(gold.opacity(0.12)).cornerRadius(10)
+
+                    Button {
+                        showContestRules = true
+                    } label: {
+                        Text("Official Rules")
+                            .font(.system(size: scaled(11))).foregroundColor(gold.opacity(0.7))
+                            .underline()
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
                 .padding(16)
             }
