@@ -194,7 +194,7 @@ struct ChartContent: View {
                                 Text(p.label)
                                     .font(.system(size: scaled(11), weight: isSelected ? .bold : .medium))
                                     .foregroundColor(isSelected ? .white : Color(white: 0.72))
-                                    .padding(.horizontal, scaled(7)).padding(.vertical, vscaled(4))
+                                    .frame(width: scaled(34), height: vscaled(26))
                                     .background(isSelected ? Theme.primaryBlue : Color.white.opacity(0.12))
                                     .cornerRadius(8)
                                     .overlay(
