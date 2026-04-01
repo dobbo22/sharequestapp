@@ -817,11 +817,12 @@ class PortfolioViewModel: ObservableObject {
         isLoading = false
     }
 
-    func executeTrade(portfolioType: PortfolioType, symbol: String, companyName: String,
+    func executeTrade(portfolioType: PortfolioType, symbol: String, companyName: String?,
                       price: Double, action: String, quantity: Int) async throws {
         let pricePence = Int(round(price * 100))
+        let realCompanyName = (companyName?.isEmpty == false) ? companyName! : symbol
         let _ = try await apiService.executeMobileTrade(
-            portfolioType: portfolioType.rawValue, symbol: symbol, companyName: companyName,
+            portfolioType: portfolioType.rawValue, symbol: symbol, companyName: realCompanyName,
             action: action, quantity: quantity, price: Double(pricePence))
         await fetchPortfolio(type: portfolioType)
     }

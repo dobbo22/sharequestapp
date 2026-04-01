@@ -27,12 +27,15 @@ class AIERTIndexViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     func fetch() async {
+        print("[DEBUG] AIERTIndexViewModel.fetch() called")
         isLoading = true
         errorMessage = nil
         do {
             let response = try await APIService.shared.fetchAIERTIndex()
+            print("[DEBUG] AIERTIndexViewModel.fetch() success: \(response.stocks?.count ?? 0) stocks")
             stocks = response.stocks ?? []
         } catch {
+            print("[DEBUG] AIERTIndexViewModel.fetch() error: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
         }
         isLoading = false
@@ -44,6 +47,7 @@ class AIERTIndexViewModel: ObservableObject {
 struct AIERTIndexView: View {
     @StateObject private var vm = AIERTIndexViewModel()
     @State private var selectedTab: SQIndexTab = .rankings
+    @State private var selectedStock: Stock? = nil
 
     var body: some View {
         ZStack {
@@ -123,7 +127,10 @@ struct AIERTIndexView: View {
             LazyVStack(spacing: 0) {
                 headerRow
                 ForEach(Array(vm.stocks.enumerated()), id: \.element.id) { index, stock in
-                    AIERTRowView(rank: index + 1, stock: stock)
+                    NavigationLink(destination: StockDetailView(stock: stock.asStock)) {
+                        AIERTRowView(rank: index + 1, stock: stock)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                     Divider()
                         .background(Theme.glassBorder)
                         .padding(.horizontal)
@@ -193,11 +200,14 @@ struct AIERTRowView: View {
                 Text(String(format: "%.1f", score))
                     .font(.system(size: scaled(14), weight: .bold))
                     .foregroundColor(scoreColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .frame(width: 56, alignment: .trailing)
             } else {
                 Text("—")
                     .font(.system(size: scaled(14)))
                     .foregroundColor(Theme.textMuted)
+                    .lineLimit(1)
                     .frame(width: 56, alignment: .trailing)
             }
 
@@ -219,10 +229,13 @@ struct AIERTRowView: View {
             Text(String(format: "%+.1f%%", v))
                 .font(.system(size: scaled(12), weight: .medium))
                 .foregroundColor(v >= 0 ? Theme.accentGreen : Color(red: 0.94, green: 0.27, blue: 0.27))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
         } else {
             Text("—")
                 .font(.system(size: scaled(12)))
                 .foregroundColor(Theme.textMuted)
+                .lineLimit(1)
         }
     }
 }
@@ -572,7 +585,7 @@ struct SQSessionExpiredView: View {
             Text("Session Expired")
                 .font(.system(size: scaled(20), weight: .bold))
                 .foregroundColor(Theme.textPrimary)
-            Text("Please log out and log back in to access the SQ Index.")
+            Text("Unauthorised – please log in again to access the SQ Index.")
                 .font(.system(size: scaled(14)))
                 .foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center)

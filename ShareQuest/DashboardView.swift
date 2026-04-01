@@ -512,8 +512,24 @@ struct DashboardView: View {
         // Start/stop pulse animation
         bellPulse = marketAlertUrgency != nil
 
-        // Discussion challenges
-        discussionChallenges = (try? await APIService.shared.fetchDiscussionChallenges()) ?? []
+        // Discussion challenges — deduplicate by symbol, preferring uncommented entries
+        let rawChallenges = (try? await APIService.shared.fetchDiscussionChallenges()) ?? []
+        discussionChallenges = deduplicateChallenges(rawChallenges)
+    }
+
+    /// One entry per symbol: prefer the first uncommented challenge, fall back to first overall.
+    private func deduplicateChallenges(_ challenges: [DiscussionChallenge]) -> [DiscussionChallenge] {
+        var seen = Set<String>()
+        var result: [DiscussionChallenge] = []
+        // First pass: pick uncommented entries
+        for c in challenges where !c.user_commented {
+            if seen.insert(c.symbol).inserted { result.append(c) }
+        }
+        // Second pass: fill in symbols that only have commented entries
+        for c in challenges where !seen.contains(c.symbol) {
+            if seen.insert(c.symbol).inserted { result.append(c) }
+        }
+        return result
     }
 
     private var marketPill: some View {
@@ -588,7 +604,7 @@ struct DashboardView: View {
                     Task {
                         let fresh = (try? await APIService.shared.fetchDiscussionChallenges()) ?? []
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            discussionChallenges = fresh.filter { !$0.is_full || !$0.user_commented }
+                            discussionChallenges = deduplicateChallenges(fresh)
                         }
                     }
                 }

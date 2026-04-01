@@ -970,6 +970,14 @@ class ApiService {
       }
     }
     // Use mobile trade endpoint
+    // Fetch the real company name for the symbol
+    let companyName = symbol;
+    try {
+      const stockResponse = await this.getStock(symbol);
+      if (stockResponse.success && stockResponse.data?.profile?.longName) {
+        companyName = stockResponse.data.profile.longName;
+      }
+    } catch {}
     return this.request<any>(`/mobile/trade`, {
       method: 'POST',
       body: JSON.stringify({
@@ -978,7 +986,7 @@ class ApiService {
         price: tradePrice,
         action,
         portfolioType: type,
-        companyName: symbol,
+        companyName,
       }),
     });
   }

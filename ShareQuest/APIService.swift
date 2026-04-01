@@ -91,7 +91,7 @@ enum APIError: LocalizedError, Sendable {
         case .invalidResponse:
             return "Invalid response from server"
         case .unauthorized:
-            return "Unauthorized - please login again"
+            return "Unauthorised – please log in again"
         case .serverError(let code):
             return "Server error: \(code)"
         case .serverErrorWithMessage(let code, let message):
@@ -417,6 +417,12 @@ final class APIService: @unchecked Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request)
+    #if DEBUG
+        print("[DEBUG] fetchAIERTIndex: authToken=\(authToken ?? "<nil>") userId=\(userId ?? "<nil>")")
+        if let headers = request.allHTTPHeaderFields {
+            print("[DEBUG] fetchAIERTIndex: headers=\(headers)")
+        }
+    #endif
         let data = try await performRequest(request)
         return try decoder.decode(AIERTIndexResponse.self, from: data)
     }
@@ -723,7 +729,7 @@ final class APIService: @unchecked Sendable {
                 throw APIError.decodingError("Unable to decode /api/tradeticks response")
             } catch {
                 lastError = error
-                // If unauthorized, perform Infront fallback (no retries)
+                // If unauthorised, perform Infront fallback (no retries)
                 if let apiErr = error as? APIError, case .unauthorized = apiErr {
                     print("[APIService] /tradeticks returned 401 for \(symbol). Attempting Infront fallback via listing_id...")
                     do {
@@ -2332,7 +2338,7 @@ final class APIService: @unchecked Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     }
     
-    private func performRequest(_ request: URLRequest) async throws -> Data {
+    private func performRequest(_ request: URLRequest, suppressSignOut: Bool = false) async throws -> Data {
 #if DEBUG
         if let method = request.httpMethod, let url = request.url?.absoluteString {
             print("[APIService] \(method) \(url) env=\(APIConfig.selectedEnvironment.rawValue)")
@@ -2361,10 +2367,12 @@ final class APIService: @unchecked Sendable {
         case 200...299:
             return data
         case 401:
-            // Token expired or invalid — sign out automatically
-            DispatchQueue.main.async {
-                AuthManager.shared.signOut()
-            }
+            // Prevent auto sign-out on 401 errors (for subscription-protected endpoints)
+            // if !suppressSignOut {
+            //     DispatchQueue.main.async {
+            //         AuthManager.shared.signOut()
+            //     }
+            // }
             throw APIError.unauthorized
         default:
             let serverMessage = extractServerMessage(from: data)
@@ -3037,6 +3045,14 @@ struct AIERTStock: Codable, Identifiable {
         case liquidityScore = "liquidity_score"
         case aiert_score
         case fundamentals
+    }
+
+    /// Convert to the Stock type used by StockDetailView.
+    /// Price/change/sector are zero/empty — StockDetailView loads live data itself.
+    var asStock: Stock {
+        Stock(id: symbol, symbol: symbol, companyName: name,
+              price: 0, changeAmount: 0, changePercent: 0,
+              sector: "", marketCap: 0)
     }
 }
 

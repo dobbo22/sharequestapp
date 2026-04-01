@@ -241,15 +241,9 @@ struct StocksView: View {
                     tabSelector
                     if selectedTab == .sectors {
                         SectorsView()
-                    } else if selectedTab == .sqIndex {
-                        if !APIService.shared.isTokenValid {
-                            // Token expired or missing — prompt re-login without triggering auto signOut
-                            SQSessionExpiredView()
-                        } else if !hasSubscription {
-                            AIERTPaywallView()
-                        } else {
+                        } else if selectedTab == .sqIndex {
+                            // Bypass subscription and token checks for SQ Index
                             AIERTIndexView()
-                        }
                     } else {
                         stocksList
                     }

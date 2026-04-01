@@ -40,10 +40,10 @@ struct Stock: Identifiable {
         return "£\(String(format: "%.0f", marketCap))"
     }
 
-    init(id: String, symbol: String, companyName: String, price: Double, changeAmount: Double, changePercent: Double, sector: String, marketCap: Double) {
+    init(id: String, symbol: String, companyName: String?, price: Double, changeAmount: Double, changePercent: Double, sector: String, marketCap: Double) {
         self.id = id
         self.symbol = symbol
-        self.companyName = companyName
+        self.companyName = companyName ?? symbol
         self.price = price
         self.changeAmount = changeAmount
         self.changePercent = changePercent
