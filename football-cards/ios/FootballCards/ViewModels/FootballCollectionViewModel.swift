@@ -65,13 +65,14 @@ final class FootballCollectionViewModel: ObservableObject {
         static let swapQueue = "football_swap_queue"
         static let discardedCards = "football_discarded_cards"
         static let generatedSwapRewards = "football_generated_swap_rewards"
-        static let swapsUsedToday = "football_swaps_used_today"
-        static let swapUsageDate = "football_swap_usage_date"
+        static let swapsUsedInWindow = "football_swaps_used_in_window"
+        static let swapWindowExhaustedAt = "football_swap_window_exhausted_at"
     }
 
     let maxTradeQueueCount = 10
     let maxSwapQueueCount = 5
-    let maxSwapsPerDay = 5
+    let maxSwapsPerWindow = 5
+    let swapWindowDuration: TimeInterval = 2 * 3600 // 2 hours
 
     let leagueOrder = ["Premier League", "Championship", "League One", "League Two"]
     let formationOptions = ["4-4-2", "4-3-3", "4-2-3-1", "3-5-2", "3-4-3"]
@@ -173,7 +174,9 @@ final class FootballCollectionViewModel: ObservableObject {
     @Published private(set) var queuedSwapCardIds: Set<String> = []
     @Published private(set) var discardedCardIds: Set<String> = []
     @Published private(set) var generatedSwapRewardCards: [FootballOwnedCard] = []
-    @Published private(set) var swapsUsedToday = 0
+    @Published private(set) var swapsUsedInWindow = 0
+    @Published private(set) var swapWindowExhaustedAt: Date? = nil
+    @Published private(set) var swapWindowResetsAt: Date? = nil
 
     private var baseCollectionCards: [FootballOwnedCard] = []
 
@@ -183,7 +186,7 @@ final class FootballCollectionViewModel: ObservableObject {
         restoreActionQueues()
         restoreDiscardedCards()
         restoreGeneratedSwapRewards()
-        restoreDailySwapUsage()
+        restoreSwapWindow()
     }
 
     func reloadPersistedState() {
@@ -192,7 +195,7 @@ final class FootballCollectionViewModel: ObservableObject {
         restoreActionQueues()
         restoreDiscardedCards()
         restoreGeneratedSwapRewards()
-        restoreDailySwapUsage()
+        restoreSwapWindow()
     }
 
     func loadCollection() async {
@@ -726,16 +729,21 @@ final class FootballCollectionViewModel: ObservableObject {
         queuedSwapCardIds.contains(card.userCardId) || queuedSwapCardIds.count < maxSwapQueueCount
     }
 
-    var swapsRemainingToday: Int {
-        max(0, maxSwapsPerDay - swapsUsedToday)
+    var swapsRemainingInWindow: Int {
+        max(0, maxSwapsPerWindow - swapsUsedInWindow)
+    }
+
+    /// True when all 5 swaps are used and the 2-hour reset hasn't fired yet
+    var swapWindowLocked: Bool {
+        swapsUsedInWindow >= maxSwapsPerWindow && swapWindowResetsAt != nil
     }
 
     var swapUsageDisplay: String {
-        "\(swapsUsedToday)/\(maxSwapsPerDay)"
+        "\(swapsUsedInWindow)/\(maxSwapsPerWindow)"
     }
 
     var canExecuteQueuedSwap: Bool {
-        return !queuedSwapCardIds.isEmpty && swapsUsedToday < maxSwapsPerDay
+        return !queuedSwapCardIds.isEmpty && !swapWindowLocked
     }
 
     func queueForTrade(_ card: FootballOwnedCard) {
@@ -797,8 +805,8 @@ final class FootballCollectionViewModel: ObservableObject {
     @discardableResult
     func executeSwap() async -> [FootballOwnedCard] {
         errorMessage = nil
-        refreshDailySwapUsageIfNeeded()
-        guard swapsUsedToday < maxSwapsPerDay else { return [] }
+        refreshSwapWindowIfNeeded()
+        guard !swapWindowLocked else { return [] }
 
         guard let queuedCard = cards
             .sorted(by: draftCardSort(lhs:rhs:))
@@ -814,9 +822,15 @@ final class FootballCollectionViewModel: ObservableObject {
             )
 
             queuedSwapCardIds.remove(queuedCard.userCardId)
-            swapsUsedToday += 1
+            swapsUsedInWindow += 1
+            // Start the 2-hour timer only when all 5 swaps are used
+            if swapsUsedInWindow >= maxSwapsPerWindow {
+                let exhausted = Date()
+                swapWindowExhaustedAt = exhausted
+                swapWindowResetsAt = exhausted.addingTimeInterval(swapWindowDuration)
+            }
             persistActionQueues()
-            persistDailySwapUsage()
+            persistSwapWindow()
             await loadCollection()
             reloadPersistedState()
             sanitizeDuplicateAssignments()
@@ -926,34 +940,42 @@ final class FootballCollectionViewModel: ObservableObject {
         }
     }
 
-    private func restoreDailySwapUsage() {
-        refreshDailySwapUsageIfNeeded()
-        swapsUsedToday = UserDefaults.standard.integer(forKey: StorageKey.swapsUsedToday)
+    private func restoreSwapWindow() {
+        refreshSwapWindowIfNeeded()
     }
 
-    private func persistDailySwapUsage() {
-        UserDefaults.standard.set(swapsUsedToday, forKey: StorageKey.swapsUsedToday)
-        UserDefaults.standard.set(todaySwapUsageKey, forKey: StorageKey.swapUsageDate)
-    }
-
-    private func refreshDailySwapUsageIfNeeded() {
-        let storedDay = UserDefaults.standard.string(forKey: StorageKey.swapUsageDate)
-        guard storedDay == todaySwapUsageKey else {
-            swapsUsedToday = 0
-            persistDailySwapUsage()
-            return
+    private func persistSwapWindow() {
+        UserDefaults.standard.set(swapsUsedInWindow, forKey: StorageKey.swapsUsedInWindow)
+        if let exhausted = swapWindowExhaustedAt {
+            UserDefaults.standard.set(exhausted.timeIntervalSince1970, forKey: StorageKey.swapWindowExhaustedAt)
+        } else {
+            UserDefaults.standard.removeObject(forKey: StorageKey.swapWindowExhaustedAt)
         }
-
-        swapsUsedToday = UserDefaults.standard.integer(forKey: StorageKey.swapsUsedToday)
     }
 
-    private var todaySwapUsageKey: String {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_GB")
-        formatter.timeZone = .current
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: Date())
+    func refreshSwapWindowIfNeeded() {
+        let usedRaw = UserDefaults.standard.integer(forKey: StorageKey.swapsUsedInWindow)
+        let exhaustedRaw = UserDefaults.standard.double(forKey: StorageKey.swapWindowExhaustedAt)
+
+        if exhaustedRaw > 0 {
+            let exhaustedDate = Date(timeIntervalSince1970: exhaustedRaw)
+            let resetDate = exhaustedDate.addingTimeInterval(swapWindowDuration)
+            if Date() >= resetDate {
+                // Window has elapsed — reset
+                swapsUsedInWindow = 0
+                swapWindowExhaustedAt = nil
+                swapWindowResetsAt = nil
+                persistSwapWindow()
+            } else {
+                swapsUsedInWindow = usedRaw
+                swapWindowExhaustedAt = exhaustedDate
+                swapWindowResetsAt = resetDate
+            }
+        } else {
+            swapsUsedInWindow = usedRaw
+            swapWindowExhaustedAt = nil
+            swapWindowResetsAt = nil
+        }
     }
 
     private func normalizedRating(for card: FootballOwnedCard) -> Double {

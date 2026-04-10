@@ -284,14 +284,59 @@ struct FootballDashboardView: View {
                 accent: Color(red: 0.99, green: 0.78, blue: 0.36),
                 isDisabled: collectionDashboardViewModel.queuedTradeCardIds.count >= collectionDashboardViewModel.maxTradeQueueCount && collectionDashboardViewModel.queuedTradeCardIds.isEmpty == false
             )
-            sectionTile(
-                section: .swap,
-                label: "Swap",
-                value: collectionDashboardViewModel.swapUsageDisplay,
-                accent: Color(red: 0.97, green: 0.49, blue: 0.50),
-                isDisabled: collectionDashboardViewModel.swapsRemainingToday == 0 && collectionDashboardViewModel.queuedSwapCardIds.isEmpty
-            )
+            swapTile
         }
+    }
+
+    @ViewBuilder
+    private var swapTile: some View {
+        let vm = collectionDashboardViewModel
+        let locked = vm.swapWindowLocked
+        let accent = Color(red: 0.97, green: 0.49, blue: 0.50)
+        let isActive = activeSection == .swap
+        let activeForeground = tileActiveForegroundColor(for: .swap)
+
+        Button {
+            withAnimation(.easeInOut(duration: 0.18)) { activeSection = .swap }
+        } label: {
+            VStack(spacing: 8) {
+                HStack {
+                    Text("Swap")
+                        .font(.system(size: 16, weight: .black, design: .rounded))
+                        .foregroundStyle(locked ? Color.white.opacity(0.42) : (isActive ? activeForeground.opacity(0.96) : .white.opacity(0.86)))
+                    Spacer()
+                    Image(systemName: isActive ? "largecircle.fill.circle" : "circle")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(locked ? Color.white.opacity(0.32) : (isActive ? activeForeground.opacity(0.92) : .white.opacity(0.72)))
+                }
+
+                Text(vm.swapUsageDisplay)
+                    .font(.system(size: 30, weight: .black, design: .rounded))
+                    .foregroundStyle(locked ? Color.white.opacity(0.48) : (isActive ? activeForeground : .white))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if locked, let resetsAt = vm.swapWindowResetsAt {
+                    Text("Resets \(resetsAt, style: .timer)")
+                        .font(.system(size: 11, weight: .black, design: .rounded))
+                        .foregroundStyle(Color.white)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .monospacedDigit()
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(locked ? AnyShapeStyle(Color.kcCard.opacity(0.55)) : (isActive ? AnyShapeStyle(tileActiveBackground(for: .swap, accent: accent)) : AnyShapeStyle(accent.opacity(0.30))))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(locked ? Color.white.opacity(0.06) : (isActive ? tileActiveStrokeColor(for: .swap, accent: accent) : accent.opacity(0.38)), lineWidth: 1.2)
+                    )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(locked && vm.queuedSwapCardIds.isEmpty)
     }
 
     @ViewBuilder
@@ -613,7 +658,7 @@ struct FootballDashboardView: View {
     }
 
     private var swapDashboardButtonLabel: String {
-        if collectionDashboardViewModel.swapsRemainingToday == 0 {
+        if collectionDashboardViewModel.swapWindowLocked {
             return "Swap Locked"
         }
 
@@ -641,7 +686,7 @@ struct FootballDashboardView: View {
         let swapEnabled = isSwapEligible(card) && swapQueueHasCapacity(for: card)
         let tradeQueueFull = !collectionDashboardViewModel.isQueuedForTrade(card) && !tradeQueueHasCapacity(for: card)
         let swapQueueFull = !collectionDashboardViewModel.isQueuedForSwap(card) && !swapQueueHasCapacity(for: card)
-        let swapDailyLimitReached = !collectionDashboardViewModel.isQueuedForSwap(card) && collectionDashboardViewModel.swapsRemainingToday == 0
+        let swapDailyLimitReached = !collectionDashboardViewModel.isQueuedForSwap(card) && collectionDashboardViewModel.swapWindowLocked
 
         guard let leagueName = collectionDashboardViewModel.matchingLockedLeague(for: card) else {
             return FootballCardActionContext(
