@@ -32,6 +32,7 @@
 		A1B2C3D4E5F6000000000060 /* FootballPlayerProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000061 /* FootballPlayerProfileView.swift */; };
 		A1B2C3D4E5F6000000000062 /* FootballDevResetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000063 /* FootballDevResetView.swift */; };
 		A1B2C3D4E5F6000000000064 /* FootballCardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000065 /* FootballCardDetailView.swift */; };
+		A1B2C3D4E5F6000000000066 /* FootballCardExchangeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000067 /* FootballCardExchangeView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -61,6 +62,7 @@
 		A1B2C3D4E5F6000000000061 /* FootballPlayerProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballPlayerProfileView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000063 /* FootballDevResetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballDevResetView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000065 /* FootballCardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballCardDetailView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000067 /* FootballCardExchangeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballCardExchangeView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -147,6 +149,7 @@
 				A1B2C3D4E5F6000000000061 /* FootballPlayerProfileView.swift */,
 				A1B2C3D4E5F6000000000063 /* FootballDevResetView.swift */,
 				A1B2C3D4E5F6000000000065 /* FootballCardDetailView.swift */,
+				A1B2C3D4E5F6000000000067 /* FootballCardExchangeView.swift */,
 				A1B2C3D4E5F6000000000019 /* FootballRootView.swift */,
 				A1B2C3D4E5F600000000004B /* FootballSettingsView.swift */,
 			);
@@ -238,6 +241,7 @@
 				A1B2C3D4E5F6000000000060 /* FootballPlayerProfileView.swift in Sources */,
 				A1B2C3D4E5F6000000000062 /* FootballDevResetView.swift in Sources */,
 				A1B2C3D4E5F6000000000064 /* FootballCardDetailView.swift in Sources */,
+				A1B2C3D4E5F6000000000066 /* FootballCardExchangeView.swift in Sources */,
 				A1B2C3D4E5F600000000001F /* FootballBootstrapViewModel.swift in Sources */,
 				A1B2C3D4E5F6000000000040 /* FootballProfile.swift in Sources */,
 				A1B2C3D4E5F6000000000042 /* FootballProfileViewModel.swift in Sources */,

@@ -196,8 +196,6 @@ struct FootballDashboardView: View {
     private func selectionTiles(profileData: FootballProfileData) -> some View {
         let selectedCount = collectionDashboardViewModel.totalAssignedCount
         let availableCards = dashboardAvailableCards(fallback: profileData.starterPackCards)
-        let tradeCards = dashboardTradeCards(fallback: profileData.starterPackCards)
-
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             sectionTile(
                 section: .collection,
