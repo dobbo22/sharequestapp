@@ -135,7 +135,7 @@ final class FootballAPIClient {
             let (data, httpResponse) = try await makeRequest(url: primaryURL, method: method, token: token, body: body)
             guard (200 ... 299).contains(httpResponse.statusCode) else {
                 let payload = try? decoder.decode(FootballAPIErrorResponse.self, from: data)
-                let message = payload?.error ?? payload?.message ?? payload?.details
+                let message = payload?.details ?? payload?.message ?? payload?.error
                 throw FootballAPIError.serverError(httpResponse.statusCode, message)
             }
 
@@ -271,6 +271,30 @@ final class FootballAPIClient {
         } catch {
             if let raw = String(data: data, encoding: .utf8) {
                 print("⚠️ completeOnboarding decode error: \(error)")
+                print("⚠️ Raw response: \(raw.prefix(2000))")
+            }
+            throw FootballAPIError.decodingError
+        }
+    }
+
+    func executeSwap(swappedOutUserCardId: String, excludedPlayerIds: [String]) async throws -> FootballSwapResult {
+        guard let token = authToken else {
+            throw FootballAPIError.missingAuthToken
+        }
+
+        let body = try encoder.encode(
+            FootballSwapRequest(
+                swappedOutUserCardId: swappedOutUserCardId,
+                excludedPlayerIds: excludedPlayerIds
+            )
+        )
+
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/swap", method: "POST", token: token, body: body)
+        do {
+            return try decoder.decode(FootballSwapResponse.self, from: data).data
+        } catch {
+            if let raw = String(data: data, encoding: .utf8) {
+                print("⚠️ executeSwap decode error: \(error)")
                 print("⚠️ Raw response: \(raw.prefix(2000))")
             }
             throw FootballAPIError.decodingError

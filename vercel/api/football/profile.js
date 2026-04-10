@@ -68,6 +68,7 @@ async function buildProfileResponse(client, userId) {
       FROM sq.football_user_cards uc
       INNER JOIN sq.football_players p ON p.id = uc.player_id
       WHERE uc.user_id = $1
+        AND uc.ownership_status = 'owned'
         AND ${playerEligibilityFilter}
     `,
     [userId]
@@ -113,6 +114,7 @@ async function buildProfileResponse(client, userId) {
       LEFT JOIN sq.football_clubs c ON c.id = p.club_id
       LEFT JOIN sq.football_leagues l ON l.id = p.league_id
       WHERE uc.user_id = $1
+        AND uc.ownership_status = 'owned'
         AND ${playerEligibilityFilter}
       ORDER BY uc.acquired_at ASC, uc.starter_slot_code ASC, uc.starter_slot_copy ASC
       LIMIT 30

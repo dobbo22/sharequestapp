@@ -14,7 +14,6 @@ struct FootballCardDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isFlipped = false
     @State private var showsBackStats = false
-    @State private var pendingConfirmationAction: FootballCardActionItem?
 
     init(
         card: FootballOwnedCard,
@@ -74,25 +73,6 @@ struct FootballCardDetailView: View {
                 }
 
                 Spacer(minLength: 0)
-            }
-        }
-        .confirmationDialog(
-            confirmationTitle,
-            isPresented: pendingConfirmationBinding,
-            titleVisibility: .visible
-        ) {
-            if let action = pendingConfirmationAction {
-                Button(confirmationButtonTitle(for: action), role: confirmationRole(for: action)) {
-                    confirmPendingAction(action)
-                }
-            }
-
-            Button("Cancel", role: .cancel) {
-                pendingConfirmationAction = nil
-            }
-        } message: {
-            if let action = pendingConfirmationAction {
-                Text(confirmationMessage(for: action))
             }
         }
     }
@@ -296,15 +276,16 @@ struct FootballCardDetailView: View {
     private var identityTile: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(card.playerName)
-                .font(.system(size: 25, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
+                .font(.system(size: 27, weight: .black, design: .rounded))
+                .foregroundStyle(primaryInfoTextColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
+                .shadow(color: Color.black.opacity(0.18), radius: 1, y: 1)
 
             HStack(alignment: .center, spacing: 10) {
                 Text(card.clubName ?? "Unknown Club")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.92))
+                    .font(.system(size: 16, weight: .black, design: .rounded))
+                    .foregroundStyle(secondaryInfoTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
 
@@ -313,18 +294,24 @@ struct FootballCardDetailView: View {
                 if let leagueName = card.leagueName {
                     Text(leagueName)
                         .font(.system(size: 13, weight: .black, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.82))
+                        .foregroundStyle(secondaryInfoTextColor.opacity(0.96))
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.black.opacity(0.18))
+                        )
                 }
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 13)
         .background(infoTileBackground)
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+                .strokeBorder(infoTileStrokeColor, lineWidth: 1.1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -346,13 +333,13 @@ struct FootballCardDetailView: View {
             Text(title.uppercased())
                 .font(.system(size: 12, weight: .black, design: .rounded))
                 .tracking(0.5)
-                .foregroundStyle(.white)
+                .foregroundStyle(secondaryInfoTextColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
 
             Text(value)
                 .font(.system(size: 20, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(primaryInfoTextColor)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
@@ -360,23 +347,31 @@ struct FootballCardDetailView: View {
         .background(infoTileBackground)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+                .strokeBorder(infoTileStrokeColor, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var infoTileBackground: some ShapeStyle {
-        Color.black.opacity(0.34)
+        detailInfoPanelBackground
+    }
+
+    private var infoTileStrokeColor: Color {
+        detailInfoPanelStrokeColor
     }
 
     private var positionPill: some View {
         Text(positionDisplayName.uppercased())
             .font(.system(size: 11, weight: .black, design: .rounded))
-            .tracking(0.9)
-            .foregroundStyle(.white)
+            .tracking(1.0)
+            .foregroundStyle(secondaryInfoTextColor)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(Color.black.opacity(0.32))
+            .background(detailInfoPanelBackground)
+            .overlay(
+                Capsule()
+                    .strokeBorder(detailInfoPanelStrokeColor, lineWidth: 1)
+            )
             .clipShape(Capsule())
     }
 
@@ -476,6 +471,74 @@ struct FootballCardDetailView: View {
     private func formattedRating(_ value: Double?) -> String {
         guard let value else { return "-" }
         return String(format: "%.1f", value)
+    }
+
+    private var normalizedTier: String {
+        (card.ratingTier ?? "standard").lowercased()
+    }
+
+    private var detailInfoPanelBackground: Color {
+        switch normalizedTier {
+        case "elite":
+            return Color(red: 0.24, green: 0.19, blue: 0.05).opacity(0.88)
+        case "gold":
+            return Color(red: 0.29, green: 0.19, blue: 0.03).opacity(0.86)
+        case "silver":
+            return Color(red: 0.21, green: 0.25, blue: 0.31).opacity(0.88)
+        case "bronze":
+            return Color(red: 0.24, green: 0.12, blue: 0.08).opacity(0.88)
+        case "unscouted":
+            return Color(red: 0.17, green: 0.12, blue: 0.27).opacity(0.88)
+        default:
+            return Color.kcNavy.opacity(0.80)
+        }
+    }
+
+    private var detailInfoPanelStrokeColor: Color {
+        switch normalizedTier {
+        case "elite":
+            return Color(red: 0.98, green: 0.90, blue: 0.62).opacity(0.55)
+        case "gold":
+            return Color(red: 1.00, green: 0.86, blue: 0.33).opacity(0.55)
+        case "silver":
+            return Color(red: 0.90, green: 0.94, blue: 0.99).opacity(0.45)
+        case "bronze":
+            return Color(red: 0.88, green: 0.58, blue: 0.33).opacity(0.45)
+        case "unscouted":
+            return Color(red: 0.87, green: 0.80, blue: 0.97).opacity(0.40)
+        default:
+            return Color.white.opacity(0.16)
+        }
+    }
+
+    private var primaryInfoTextColor: Color {
+        switch normalizedTier {
+        case "silver":
+            return Color.white
+        case "elite", "gold":
+            return Color(red: 1.0, green: 0.98, blue: 0.88)
+        case "bronze":
+            return Color(red: 1.0, green: 0.93, blue: 0.88)
+        case "unscouted":
+            return Color(red: 0.96, green: 0.92, blue: 1.0)
+        default:
+            return Color.white
+        }
+    }
+
+    private var secondaryInfoTextColor: Color {
+        switch normalizedTier {
+        case "elite", "gold":
+            return Color(red: 1.0, green: 0.88, blue: 0.42)
+        case "silver":
+            return Color(red: 0.93, green: 0.97, blue: 1.0)
+        case "bronze":
+            return Color(red: 0.98, green: 0.78, blue: 0.56)
+        case "unscouted":
+            return Color(red: 0.88, green: 0.82, blue: 1.0)
+        default:
+            return Color.kcLime.opacity(0.96)
+        }
     }
 
     private enum PlayerPositionProfile {
@@ -837,6 +900,7 @@ struct FootballCardDetailView: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(actionButtonBorder(for: action), lineWidth: 1.2)
             )
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -889,100 +953,9 @@ struct FootballCardDetailView: View {
         actionButtonForeground(for: action).opacity(0.16)
     }
 
-    private var pendingConfirmationBinding: Binding<Bool> {
-        Binding(
-            get: { pendingConfirmationAction != nil },
-            set: { isPresented in
-                if !isPresented {
-                    pendingConfirmationAction = nil
-                }
-            }
-        )
-    }
-
-    private var confirmationTitle: String {
-        guard let action = pendingConfirmationAction else {
-            return "Confirm action"
-        }
-
-        if isRemovalAction(action) {
-            return "Remove card from queue?"
-        }
-
-        switch action.kind {
-        case .trade:
-            return "Move card to trade?"
-        case .swap:
-            return "Move card to swap?"
-        case .discard:
-            return "Discard this card?"
-        case .build:
-            return "Open team builder?"
-        case .upgrade:
-            return "Open upgrade flow?"
-        }
-    }
-
     private func handleActionTap(_ action: FootballCardActionItem) {
-        switch action.kind {
-        case .trade, .swap, .discard:
-            pendingConfirmationAction = action
-        case .build, .upgrade:
-            dismiss()
-            onActionSelected?(action.kind)
-        }
-    }
-
-    private func confirmPendingAction(_ action: FootballCardActionItem) {
-        pendingConfirmationAction = nil
-        dismiss()
         onActionSelected?(action.kind)
-    }
-
-    private func confirmationButtonTitle(for action: FootballCardActionItem) -> String {
-        if isRemovalAction(action) {
-            return action.title
-        }
-
-        switch action.kind {
-        case .trade:
-            return "Confirm Trade"
-        case .swap:
-            return "Confirm Swap"
-        case .discard:
-            return "Discard Card"
-        case .build:
-            return "Open Build"
-        case .upgrade:
-            return "Open Upgrade"
-        }
-    }
-
-    private func confirmationMessage(for action: FootballCardActionItem) -> String {
-        if isRemovalAction(action) {
-            return "This card will leave the \(action.kind.rawValue) lane and return to available cards on the dashboard."
-        }
-
-        switch action.kind {
-        case .trade:
-            return "This card will leave the available pool, appear in the trade section, and increase the trade count on the dashboard."
-        case .swap:
-            return "This card will leave the available pool, appear in the swap section, and increase the swap count on the dashboard."
-        case .discard:
-            return "This card will be removed from your available 20-card pool for now."
-        case .build:
-            return action.message
-        case .upgrade:
-            return action.message
-        }
-    }
-
-    private func confirmationRole(for action: FootballCardActionItem) -> ButtonRole? {
-        isRemovalAction(action) || action.kind == .discard ? .destructive : nil
-    }
-
-    private func isRemovalAction(_ action: FootballCardActionItem) -> Bool {
-        action.title.localizedCaseInsensitiveContains("remove")
+        dismiss()
     }
 }
 

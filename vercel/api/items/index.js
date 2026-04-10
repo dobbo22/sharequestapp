@@ -1,6 +1,6 @@
-import { getPool } from '../_db.js';
-import { authenticate } from '../_auth.js';
-import { rateLimitMiddleware } from '../_rateLimiter.js';
+import { getPool } from '../../lib/db.js';
+import { authenticate } from '../../lib/auth.js';
+import { rateLimitMiddleware } from '../../lib/rateLimiter.js';
 
 function validateCreate(body) {
   const errors = [];

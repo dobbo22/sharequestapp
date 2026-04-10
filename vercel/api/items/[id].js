@@ -1,7 +1,7 @@
-import { getPool } from '../_db.js';
-import { authenticate, isAdmin } from '../_auth.js';
-import { rateLimitMiddleware } from '../_rateLimiter.js';
-import { routeLogger } from '../_logger.js';
+import { getPool } from '../../lib/db.js';
+import { authenticate, isAdmin } from '../../lib/auth.js';
+import { rateLimitMiddleware } from '../../lib/rateLimiter.js';
+import { routeLogger } from '../../lib/logger.js';
 
 function validateUpdate(body) {
   const errors = [];

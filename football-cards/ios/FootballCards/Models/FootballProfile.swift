@@ -47,7 +47,7 @@ struct FootballCollectionSummary: Decodable {
     let starterSlotsFilled: Int
 }
 
-struct FootballOwnedCard: Decodable, Identifiable {
+struct FootballOwnedCard: Codable, Identifiable {
     let userCardId: String
     let playerId: String
     let cardTemplateId: String
@@ -82,6 +82,43 @@ struct FootballOwnedCard: Decodable, Identifiable {
     let seasonYear: Int?
 
     var id: String { userCardId }
+
+    func swappedRewardCopy(userCardId: String, acquiredAt: String) -> FootballOwnedCard {
+        FootballOwnedCard(
+            userCardId: userCardId,
+            playerId: playerId,
+            cardTemplateId: cardTemplateId,
+            clubId: clubId,
+            starterSlotCode: starterSlotCode,
+            starterSlotCopy: starterSlotCopy,
+            ownershipStatus: "owned",
+            acquiredAt: acquiredAt,
+            playerName: playerName,
+            age: age,
+            positionLabel: positionLabel,
+            detailedPositionLabel: detailedPositionLabel,
+            heightCm: heightCm,
+            weightKg: weightKg,
+            appearances: appearances,
+            goals: goals,
+            assists: assists,
+            tackles: tackles,
+            shotsOnTarget: shotsOnTarget,
+            saves: saves,
+            cleanSheets: cleanSheets,
+            goalsConceded: goalsConceded,
+            passes: passes,
+            latestTransferAmount: latestTransferAmount,
+            ratingOutOfTen: ratingOutOfTen,
+            ratingSource: ratingSource,
+            ratingTier: ratingTier,
+            photoUrl: photoUrl,
+            clubName: clubName,
+            clubLogoUrl: clubLogoUrl,
+            leagueName: leagueName,
+            seasonYear: seasonYear
+        )
+    }
 }
 
 struct FootballStarterPackAllocation: Decodable, Identifiable {
@@ -129,4 +166,19 @@ struct FootballProfileUpdateRequest: Encodable {
     let supportedClubId: String
     let displayName: String?
     let teamName: String?
+}
+
+struct FootballSwapRequest: Encodable {
+    let swappedOutUserCardId: String
+    let excludedPlayerIds: [String]
+}
+
+struct FootballSwapResponse: Decodable {
+    let success: Bool
+    let data: FootballSwapResult
+}
+
+struct FootballSwapResult: Decodable {
+    let swappedOutUserCardId: String
+    let rewardCard: FootballOwnedCard
 }

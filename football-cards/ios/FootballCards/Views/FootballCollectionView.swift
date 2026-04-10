@@ -842,7 +842,10 @@ struct FootballCollectionView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(previewCards) { card in
-                            FootballPlayerCardView(card: card)
+                            FootballPlayerCardView(
+                                card: card,
+                                copyCount: viewModel.ownedCopyCount(for: card)
+                            )
                                 .frame(width: 190)
                         }
                     }
@@ -1278,6 +1281,17 @@ private struct FootballFormationBuilderSheet: View {
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(Color.kcLime)
                     }
+
+                    let copyCount = viewModel.ownedCopyCount(for: assignedCard)
+                    if copyCount > 1 {
+                        Text("x\(copyCount)")
+                            .font(.caption2.weight(.black))
+                            .foregroundStyle(Color.kcNavy)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Color.kcLime)
+                            .clipShape(Capsule())
+                    }
                 }
             } else {
                 ghostPlayerBadge(isSelectable: isSelectable)
@@ -1488,6 +1502,7 @@ struct FootballPlayerCardView: View {
     var onDetailActionSelected: ((FootballCardActionKind) -> Void)? = nil
     var opensDetailOnBack: Bool = false
     var showsFlipHint: Bool = false
+    var copyCount: Int? = nil
     @State private var showDetail = false
     @State private var flipHintActive = false
 
@@ -1575,39 +1590,45 @@ struct FootballPlayerCardView: View {
 
                 // BOTTOM: name + position
                 VStack(alignment: .leading, spacing: 4) {
-                    Rectangle()
-                        .fill(Color.white.opacity(0.12))
-                        .frame(height: 1)
-                        .padding(.bottom, 6)
-
                     Text(card.playerName)
-                        .font(.system(size: 17, weight: .black, design: .rounded))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 18, weight: .black, design: .rounded))
+                        .foregroundStyle(primaryInfoTextColor)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
+                        .shadow(color: Color.black.opacity(0.18), radius: 1, y: 1)
 
                     Text(card.clubName ?? "Unknown club")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.74))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(secondaryInfoTextColor)
                         .lineLimit(1)
 
                     HStack {
                         if isUnscoutedCard {
                             Text("Basic estimate")
-                                .font(.system(size: 9, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.58))
+                                .font(.system(size: 9, weight: .bold, design: .rounded))
+                                .foregroundStyle(tertiaryInfoTextColor)
                         }
 
                         Spacer()
 
                         Text((card.detailedPositionLabel ?? card.positionLabel ?? "").uppercased())
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .font(.system(size: 9, weight: .black, design: .rounded))
                             .tracking(1)
-                            .foregroundStyle(.white.opacity(0.65))
+                            .foregroundStyle(secondaryInfoTextColor)
                     }
                 }
                 .padding(.horizontal, 14)
-                .padding(.bottom, 14)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(infoPanelBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(infoPanelStrokeColor, lineWidth: 1.1)
+                        )
+                )
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
             }
         }
         .frame(width: 190, height: 260)
@@ -1626,7 +1647,29 @@ struct FootballPlayerCardView: View {
                     .padding(.trailing, 10)
             }
         }
+        .overlay(alignment: .topLeading) {
+            if let copyCount, copyCount > 1 {
+                copyCountBadge(copyCount)
+                    .padding(.top, 10)
+                    .padding(.leading, 10)
+            }
+        }
         .shadow(color: Color.black.opacity(0.28), radius: 14, x: 0, y: 8)
+    }
+
+    private func copyCountBadge(_ copyCount: Int) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "square.stack.3d.up.fill")
+                .font(.system(size: 9, weight: .black))
+            Text("x\(copyCount)")
+                .font(.system(size: 9, weight: .black, design: .rounded))
+        }
+        .foregroundStyle(Color.kcNavy)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(Color.kcLime)
+        .clipShape(Capsule())
+        .shadow(color: Color.black.opacity(0.18), radius: 4, y: 2)
     }
 
     private var animatedFlipCornerHint: some View {
@@ -1797,6 +1840,74 @@ struct FootballPlayerCardView: View {
 
     private var isUnscoutedCard: Bool {
         normalizedTier == "unscouted" || (card.ratingSource ?? "").lowercased() == "fallback-basic-profile"
+    }
+
+    private var infoPanelBackground: Color {
+        switch normalizedTier {
+        case "elite":
+            return Color(red: 0.24, green: 0.19, blue: 0.05).opacity(0.88)
+        case "gold":
+            return Color(red: 0.29, green: 0.19, blue: 0.03).opacity(0.86)
+        case "silver":
+            return Color(red: 0.21, green: 0.25, blue: 0.31).opacity(0.88)
+        case "bronze":
+            return Color(red: 0.24, green: 0.12, blue: 0.08).opacity(0.88)
+        case "unscouted":
+            return Color(red: 0.17, green: 0.12, blue: 0.27).opacity(0.88)
+        default:
+            return Color.kcNavy.opacity(0.80)
+        }
+    }
+
+    private var infoPanelStrokeColor: Color {
+        switch normalizedTier {
+        case "elite":
+            return Color(red: 0.98, green: 0.90, blue: 0.62).opacity(0.55)
+        case "gold":
+            return Color(red: 1.00, green: 0.86, blue: 0.33).opacity(0.55)
+        case "silver":
+            return Color(red: 0.90, green: 0.94, blue: 0.99).opacity(0.45)
+        case "bronze":
+            return Color(red: 0.88, green: 0.58, blue: 0.33).opacity(0.45)
+        case "unscouted":
+            return Color(red: 0.87, green: 0.80, blue: 0.97).opacity(0.40)
+        default:
+            return Color.white.opacity(0.16)
+        }
+    }
+
+    private var primaryInfoTextColor: Color {
+        switch normalizedTier {
+        case "silver":
+            return Color.white
+        case "elite", "gold":
+            return Color(red: 1.0, green: 0.98, blue: 0.88)
+        case "bronze":
+            return Color(red: 1.0, green: 0.93, blue: 0.88)
+        case "unscouted":
+            return Color(red: 0.96, green: 0.92, blue: 1.0)
+        default:
+            return Color.white
+        }
+    }
+
+    private var secondaryInfoTextColor: Color {
+        switch normalizedTier {
+        case "elite", "gold":
+            return Color(red: 1.0, green: 0.88, blue: 0.42)
+        case "silver":
+            return Color(red: 0.93, green: 0.97, blue: 1.0)
+        case "bronze":
+            return Color(red: 0.98, green: 0.78, blue: 0.56)
+        case "unscouted":
+            return Color(red: 0.88, green: 0.82, blue: 1.0)
+        default:
+            return Color.kcLime.opacity(0.96)
+        }
+    }
+
+    private var tertiaryInfoTextColor: Color {
+        secondaryInfoTextColor.opacity(0.82)
     }
 }
 

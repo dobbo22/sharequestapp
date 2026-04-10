@@ -64,10 +64,14 @@ final class FootballCollectionViewModel: ObservableObject {
         static let tradeQueue = "football_trade_queue"
         static let swapQueue = "football_swap_queue"
         static let discardedCards = "football_discarded_cards"
+        static let generatedSwapRewards = "football_generated_swap_rewards"
+        static let swapsUsedToday = "football_swaps_used_today"
+        static let swapUsageDate = "football_swap_usage_date"
     }
 
     let maxTradeQueueCount = 5
     let maxSwapQueueCount = 5
+    let maxSwapsPerDay = 5
 
     let leagueOrder = ["Premier League", "Championship", "League One", "League Two"]
     let formationOptions = ["4-4-2", "4-3-3", "4-2-3-1", "3-5-2", "3-4-3"]
@@ -168,12 +172,18 @@ final class FootballCollectionViewModel: ObservableObject {
     @Published private(set) var queuedTradeCardIds: Set<String> = []
     @Published private(set) var queuedSwapCardIds: Set<String> = []
     @Published private(set) var discardedCardIds: Set<String> = []
+    @Published private(set) var generatedSwapRewardCards: [FootballOwnedCard] = []
+    @Published private(set) var swapsUsedToday = 0
+
+    private var baseCollectionCards: [FootballOwnedCard] = []
 
     init() {
         restoreLockedLeagueSelections()
         restoreSquadAssignments()
         restoreActionQueues()
         restoreDiscardedCards()
+        restoreGeneratedSwapRewards()
+        restoreDailySwapUsage()
     }
 
     func reloadPersistedState() {
@@ -181,6 +191,8 @@ final class FootballCollectionViewModel: ObservableObject {
         restoreSquadAssignments()
         restoreActionQueues()
         restoreDiscardedCards()
+        restoreGeneratedSwapRewards()
+        restoreDailySwapUsage()
     }
 
     func loadCollection() async {
@@ -201,7 +213,9 @@ final class FootballCollectionViewModel: ObservableObject {
 
             let (collectionResult, profileResult, clubsResult) = try await (collectionRequest, profileRequest, clubsRequest)
 
-            cards = collectionResult.cards
+            baseCollectionCards = collectionResult.cards
+            cards = mergedCollectionCards(baseCards: collectionResult.cards)
+            sanitizeDuplicateAssignments()
             availableSlots = ["All"] + collectionResult.availableSlots
             availableClubs = ["All"] + collectionResult.availableClubs
             summary = collectionResult.summary
@@ -288,9 +302,11 @@ final class FootballCollectionViewModel: ObservableObject {
 
         let assignedCardIds = Set((squadAssignmentsByLeague[leagueName] ?? [:]).values)
         let currentAssignedCardId = squadAssignmentsByLeague[leagueName]?[slot.id]
+        let blockedPlayerIds = assignedPlayerIds(for: leagueName, excluding: slot.id)
 
         return cards
             .filter { $0.ownershipStatus == "owned" }
+            .filter { !isDiscarded($0) }
             .filter { card in
                 if let clubId = card.clubId {
                     return clubId == lockedSelection.clubId
@@ -300,6 +316,9 @@ final class FootballCollectionViewModel: ObservableObject {
             }
             .filter { card in
                 if assignedCardIds.contains(card.userCardId) && card.userCardId != currentAssignedCardId {
+                    return false
+                }
+                if blockedPlayerIds.contains(card.playerId) {
                     return false
                 }
                 guard let family = positionFamily(for: card) else { return false }
@@ -366,13 +385,18 @@ final class FootballCollectionViewModel: ObservableObject {
     func isTeamComplete(for leagueName: String) -> Bool {
         let slots = formationSlots(for: leagueName)
         guard !slots.isEmpty else { return false }
-        return assignedCount(for: leagueName) >= slots.count
+        return assignedUniquePlayerCount(for: leagueName) >= slots.count
     }
 
     func assignCard(_ card: FootballOwnedCard, to leagueName: String, slot: FootballFormationSlot) {
+        if let existingSlot = assignedSlot(for: card, in: leagueName), existingSlot.id != slot.id {
+            return
+        }
+
         var leagueAssignments = squadAssignmentsByLeague[leagueName] ?? [:]
         leagueAssignments[slot.id] = card.userCardId
         squadAssignmentsByLeague[leagueName] = leagueAssignments
+        sanitizeDuplicateAssignments()
         persistSquadAssignments()
     }
 
@@ -384,18 +408,29 @@ final class FootballCollectionViewModel: ObservableObject {
     }
 
     func assignedCount(for leagueName: String) -> Int {
-        let slots = formationSlots(for: leagueName)
-        let assignments = squadAssignmentsByLeague[leagueName] ?? [:]
-        return slots.filter { assignments[$0.id] != nil }.count
+        assignedUniquePlayerCount(for: leagueName)
     }
 
     func assignedCards(for leagueName: String) -> [FootballOwnedCard] {
-        let assignments = squadAssignmentsByLeague[leagueName] ?? [:]
+        var seenPlayerIds: Set<String> = []
 
         return formationSlots(for: leagueName).compactMap { slot in
-            guard let cardId = assignments[slot.id] else { return nil }
-            return cards.first(where: { $0.userCardId == cardId })
+            guard let card = assignedCard(for: leagueName, slot: slot) else { return nil }
+            guard seenPlayerIds.insert(card.playerId).inserted else { return nil }
+            return card
         }
+    }
+
+    func assignedUniquePlayerCount(for leagueName: String) -> Int {
+        Set(assignedCards(for: leagueName).map(\.playerId)).count
+    }
+
+    func ownedCopyCount(for card: FootballOwnedCard) -> Int {
+        cards
+            .filter { $0.ownershipStatus == "owned" }
+            .filter { !isDiscarded($0) }
+            .filter { $0.playerId == card.playerId }
+            .count
     }
 
     func teamScore(for leagueName: String) -> Double {
@@ -466,6 +501,69 @@ final class FootballCollectionViewModel: ObservableObject {
         (value ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+    }
+
+    private func assignedPlayerIds(for leagueName: String, excluding slotId: String? = nil) -> Set<String> {
+        formationSlots(for: leagueName).compactMap { slot in
+            guard slot.id != slotId else { return nil }
+            return assignedCard(for: leagueName, slot: slot)?.playerId
+        }.reduce(into: Set<String>()) { partialResult, playerId in
+            partialResult.insert(playerId)
+        }
+    }
+
+    private func sanitizeDuplicateAssignments() {
+        var sanitizedAssignments = squadAssignmentsByLeague
+        var hasChanges = false
+
+        for leagueName in sanitizedAssignments.keys {
+            var leagueAssignments = sanitizedAssignments[leagueName] ?? [:]
+            var seenPlayerIds: Set<String> = []
+
+            for slot in formationSlots(for: leagueName) {
+                guard let cardId = leagueAssignments[slot.id],
+                      let card = cards.first(where: { $0.userCardId == cardId }) else {
+                    continue
+                }
+
+                if seenPlayerIds.contains(card.playerId) {
+                    leagueAssignments.removeValue(forKey: slot.id)
+                    hasChanges = true
+                } else {
+                    seenPlayerIds.insert(card.playerId)
+                }
+            }
+
+            sanitizedAssignments[leagueName] = leagueAssignments
+        }
+
+        if hasChanges {
+            squadAssignmentsByLeague = sanitizedAssignments
+        }
+    }
+
+    private func mergedCollectionCards(baseCards: [FootballOwnedCard]) -> [FootballOwnedCard] {
+        baseCards + generatedSwapRewardCards
+    }
+
+    private func generateSwapRewards(count: Int, excludingPlayerIds: Set<String> = []) -> [FootballOwnedCard] {
+        let allRewardTemplates = (baseCollectionCards.isEmpty ? cards : baseCollectionCards)
+            .filter { $0.ownershipStatus == "owned" }
+
+        let rewardTemplates = allRewardTemplates.filter { !excludingPlayerIds.contains($0.playerId) }
+        let candidateTemplates = rewardTemplates.isEmpty ? allRewardTemplates : rewardTemplates
+
+        guard !candidateTemplates.isEmpty else { return [] }
+
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+
+        return (0..<count).compactMap { _ in
+            guard let template = candidateTemplates.randomElement() else { return nil }
+            return template.swappedRewardCopy(
+                userCardId: "swap-\(UUID().uuidString.lowercased())",
+                acquiredAt: timestamp
+            )
+        }
     }
 
     private func cardMatchesClub(_ card: FootballOwnedCard, club: FootballClub) -> Bool {
@@ -628,6 +726,18 @@ final class FootballCollectionViewModel: ObservableObject {
         queuedSwapCardIds.contains(card.userCardId) || queuedSwapCardIds.count < maxSwapQueueCount
     }
 
+    var swapsRemainingToday: Int {
+        max(0, maxSwapsPerDay - swapsUsedToday)
+    }
+
+    var swapUsageDisplay: String {
+        "\(swapsUsedToday)/\(maxSwapsPerDay)"
+    }
+
+    var canExecuteQueuedSwap: Bool {
+        return !queuedSwapCardIds.isEmpty && swapsUsedToday < maxSwapsPerDay
+    }
+
     func queueForTrade(_ card: FootballOwnedCard) {
         guard canQueueForTrade(card) else { return }
         queuedSwapCardIds.remove(card.userCardId)
@@ -658,6 +768,54 @@ final class FootballCollectionViewModel: ObservableObject {
         discardedCardIds.insert(card.userCardId)
         persistActionQueues()
         persistDiscardedCards()
+    }
+
+    @discardableResult
+    func executeSwap() async -> [FootballOwnedCard] {
+        errorMessage = nil
+        refreshDailySwapUsageIfNeeded()
+        guard swapsUsedToday < maxSwapsPerDay else { return [] }
+
+        guard let queuedCard = cards
+            .sorted(by: draftCardSort(lhs:rhs:))
+            .first(where: { queuedSwapCardIds.contains($0.userCardId) })
+        else {
+            return []
+        }
+
+        do {
+            let swapResult = try await FootballAPIClient.shared.executeSwap(
+                swappedOutUserCardId: queuedCard.userCardId,
+                excludedPlayerIds: excludedSwapPoolPlayerIds()
+            )
+
+            queuedSwapCardIds.remove(queuedCard.userCardId)
+            swapsUsedToday += 1
+            persistActionQueues()
+            persistDailySwapUsage()
+            await loadCollection()
+            reloadPersistedState()
+            sanitizeDuplicateAssignments()
+
+            return [swapResult.rewardCard]
+        } catch {
+            errorMessage = error.localizedDescription
+            return []
+        }
+    }
+
+    private func excludedSwapPoolPlayerIds() -> [String] {
+        let selectedCardIds = Set(squadAssignmentsByLeague.values.flatMap { $0.values })
+
+        return Array(
+            Set(
+                cards
+                    .filter { $0.ownershipStatus == "owned" }
+                    .filter { !discardedCardIds.contains($0.userCardId) }
+                    .filter { !selectedCardIds.contains($0.userCardId) }
+                    .map(\.playerId)
+            )
+        )
     }
 
     private func restoreLockedLeagueSelections() {
@@ -729,6 +887,51 @@ final class FootballCollectionViewModel: ObservableObject {
         }
     }
 
+    private func restoreGeneratedSwapRewards() {
+        if let rewardData = UserDefaults.standard.data(forKey: StorageKey.generatedSwapRewards),
+           let rewardCards = try? JSONDecoder().decode([FootballOwnedCard].self, from: rewardData) {
+            generatedSwapRewardCards = rewardCards
+        } else {
+            generatedSwapRewardCards = []
+        }
+    }
+
+    private func persistGeneratedSwapRewards() {
+        if let rewardData = try? JSONEncoder().encode(generatedSwapRewardCards) {
+            UserDefaults.standard.set(rewardData, forKey: StorageKey.generatedSwapRewards)
+        }
+    }
+
+    private func restoreDailySwapUsage() {
+        refreshDailySwapUsageIfNeeded()
+        swapsUsedToday = UserDefaults.standard.integer(forKey: StorageKey.swapsUsedToday)
+    }
+
+    private func persistDailySwapUsage() {
+        UserDefaults.standard.set(swapsUsedToday, forKey: StorageKey.swapsUsedToday)
+        UserDefaults.standard.set(todaySwapUsageKey, forKey: StorageKey.swapUsageDate)
+    }
+
+    private func refreshDailySwapUsageIfNeeded() {
+        let storedDay = UserDefaults.standard.string(forKey: StorageKey.swapUsageDate)
+        guard storedDay == todaySwapUsageKey else {
+            swapsUsedToday = 0
+            persistDailySwapUsage()
+            return
+        }
+
+        swapsUsedToday = UserDefaults.standard.integer(forKey: StorageKey.swapsUsedToday)
+    }
+
+    private var todaySwapUsageKey: String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_GB")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+
     private func normalizedRating(for card: FootballOwnedCard) -> Double {
         card.ratingOutOfTen ?? -1
     }
@@ -737,26 +940,34 @@ final class FootballCollectionViewModel: ObservableObject {
         let source = [card.detailedPositionLabel, card.positionLabel, card.starterSlotCode]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
             .first { !$0.isEmpty } ?? ""
+        let normalizedSource = source
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
 
-        if source.isEmpty { return nil }
+        if normalizedSource.isEmpty { return nil }
 
-        if source == "gk" || source.contains("goalkeeper") {
+        if normalizedSource == "gk" || normalizedSource.contains("goalkeeper") {
             return .goalkeeper
         }
 
-        if source.contains("wing back") || ["rb", "lb", "cb", "lcb", "rcb"].contains(source) || source.contains("back") || source.contains("defender") {
+        if normalizedSource.contains("wing back") || ["rb", "lb", "cb", "lcb", "rcb"].contains(normalizedSource) || normalizedSource.contains("back") || normalizedSource.contains("defender") {
             return .defender
         }
 
-        if source == "lw" || source == "rw" || source.contains("winger") || source.contains("inside forward") {
+        if ["lw", "rw"].contains(normalizedSource)
+            || normalizedSource == "wing"
+            || normalizedSource.contains("left wing")
+            || normalizedSource.contains("right wing")
+            || normalizedSource.contains("winger")
+            || normalizedSource.contains("inside forward") {
             return .winger
         }
 
-        if ["cm", "cdm", "cam", "dm", "am", "lm", "rm"].contains(source) || source.contains("midfield") || source.contains("midfielder") {
+        if ["cm", "cdm", "cam", "dm", "am", "lm", "rm"].contains(normalizedSource) || normalizedSource.contains("midfield") || normalizedSource.contains("midfielder") {
             return .midfielder
         }
 
-        if ["st", "cf", "ss"].contains(source) || source.contains("striker") || source.contains("forward") || source.contains("attacker") {
+        if ["st", "cf", "ss"].contains(normalizedSource) || normalizedSource.contains("striker") || normalizedSource.contains("forward") || normalizedSource.contains("attacker") {
             return .attacker
         }
 

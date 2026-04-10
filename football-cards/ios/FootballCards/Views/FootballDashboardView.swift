@@ -15,8 +15,10 @@ struct FootballDashboardView: View {
 
     @EnvironmentObject private var session: FootballSessionViewModel
     @StateObject private var collectionDashboardViewModel = FootballCollectionViewModel()
-    @State private var activeDeskPreview: FootballDashboardDesk?
+    @State private var showCardExchange = false
     @State private var activeSection: FootballDashboardSection = .collection
+    @State private var latestSwapRewardCard: FootballOwnedCard?
+    @State private var isExecutingSwap = false
 
     var body: some View {
         ZStack {
@@ -63,17 +65,36 @@ struct FootballDashboardView: View {
         .safeAreaInset(edge: .top) {
             topBar
         }
-        .sheet(item: $activeDeskPreview) { desk in
-            FootballDashboardDeskPreview(
-                desk: desk,
-                cards: cardsForDeskPreview(desk, fallback: profileViewModel.profileData?.starterPackCards ?? []),
-                capacity: deskCapacity(for: desk),
-                maxCapacity: deskMaxCapacity(for: desk),
-                detailContext: detailContext(for:),
-                onActionSelected: { action, card in
-                    handleCardActionSelected(action, for: card)
+        .fullScreenCover(isPresented: $showCardExchange) {
+            FootballCardExchangeView(
+                collectionViewModel: collectionDashboardViewModel,
+                profileData: profileViewModel.profileData
+            )
+        }
+        .fullScreenCover(item: $latestSwapRewardCard) { rewardCard in
+            FootballSwapRevealView(card: rewardCard) {
+                latestSwapRewardCard = nil
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    activeSection = .collection
+                }
+            }
+        }
+        .alert(
+            "Swap Error",
+            isPresented: Binding(
+                get: { collectionDashboardViewModel.errorMessage != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        collectionDashboardViewModel.errorMessage = nil
+                    }
                 }
             )
+        ) {
+            Button("OK", role: .cancel) {
+                collectionDashboardViewModel.errorMessage = nil
+            }
+        } message: {
+            Text(collectionDashboardViewModel.errorMessage ?? "Unable to complete swap.")
         }
         .refreshable {
             await bootstrapViewModel.refreshAll()
@@ -176,7 +197,6 @@ struct FootballDashboardView: View {
         let selectedCount = collectionDashboardViewModel.totalAssignedCount
         let availableCards = dashboardAvailableCards(fallback: profileData.starterPackCards)
         let tradeCards = dashboardTradeCards(fallback: profileData.starterPackCards)
-        let swapCards = dashboardSwapCards(fallback: profileData.starterPackCards)
 
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             sectionTile(
@@ -194,21 +214,24 @@ struct FootballDashboardView: View {
             sectionTile(
                 section: .trade,
                 label: "Trade",
-                value: "\(min(5, tradeCards.count))",
-                accent: Color(red: 0.99, green: 0.78, blue: 0.36)
+                value: "\(collectionDashboardViewModel.queuedTradeCardIds.count)/\(collectionDashboardViewModel.maxTradeQueueCount)",
+                accent: Color(red: 0.99, green: 0.78, blue: 0.36),
+                isDisabled: collectionDashboardViewModel.queuedTradeCardIds.count >= collectionDashboardViewModel.maxTradeQueueCount && collectionDashboardViewModel.queuedTradeCardIds.isEmpty == false
             )
             sectionTile(
                 section: .swap,
                 label: "Swap",
-                value: "\(min(5, swapCards.count))",
-                accent: Color(red: 0.97, green: 0.49, blue: 0.50)
+                value: collectionDashboardViewModel.swapUsageDisplay,
+                accent: Color(red: 0.97, green: 0.49, blue: 0.50),
+                isDisabled: collectionDashboardViewModel.swapsRemainingToday == 0 && collectionDashboardViewModel.queuedSwapCardIds.isEmpty
             )
         }
     }
 
     @ViewBuilder
-    private func sectionTile(section: FootballDashboardSection, label: String, value: String, accent: Color) -> some View {
+    private func sectionTile(section: FootballDashboardSection, label: String, value: String, accent: Color, isDisabled: Bool = false) -> some View {
         let isActive = activeSection == section
+        let activeForeground = tileActiveForegroundColor(for: section)
 
         Button {
             withAnimation(.easeInOut(duration: 0.18)) {
@@ -219,31 +242,71 @@ struct FootballDashboardView: View {
                 HStack {
                     Text(label)
                         .font(.system(size: 16, weight: .black, design: .rounded))
-                        .foregroundStyle(isActive ? Color.kcNavy.opacity(0.78) : .white.opacity(0.86))
+                        .foregroundStyle(isDisabled ? Color.white.opacity(0.42) : (isActive ? activeForeground.opacity(0.96) : .white.opacity(0.86)))
                     Spacer()
                     Image(systemName: isActive ? "largecircle.fill.circle" : "circle")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(isActive ? Color.kcNavy.opacity(0.82) : .white.opacity(0.72))
+                        .foregroundStyle(isDisabled ? Color.white.opacity(0.32) : (isActive ? activeForeground.opacity(0.92) : .white.opacity(0.72)))
                 }
 
                 Text(value)
                     .font(.system(size: 30, weight: .black, design: .rounded))
-                    .foregroundStyle(isActive ? Color.kcNavy : .white)
+                    .foregroundStyle(isDisabled ? Color.white.opacity(0.48) : (isActive ? activeForeground : .white))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity)
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(isActive ? accent : accent.opacity(0.30))
+                    .fill(isDisabled ? AnyShapeStyle(Color.kcCard.opacity(0.55)) : (isActive ? AnyShapeStyle(tileActiveBackground(for: section, accent: accent)) : AnyShapeStyle(accent.opacity(0.30))))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(isActive ? accent.opacity(0.18) : accent.opacity(0.38), lineWidth: 1.2)
+                            .stroke(isDisabled ? Color.white.opacity(0.06) : (isActive ? tileActiveStrokeColor(for: section, accent: accent) : accent.opacity(0.38)), lineWidth: 1.2)
                     )
             )
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
+        .disabled(isDisabled)
+    }
+
+    private func tileActiveBackground(for section: FootballDashboardSection, accent: Color) -> AnyShapeStyle {
+        switch section {
+        case .trade:
+            return AnyShapeStyle(LinearGradient(
+                colors: [Color(red: 0.25, green: 0.12, blue: 0.08), Color(red: 0.56, green: 0.28, blue: 0.14), Color(red: 0.80, green: 0.49, blue: 0.24)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
+        case .swap:
+            return AnyShapeStyle(LinearGradient(
+                colors: [Color(red: 0.26, green: 0.30, blue: 0.36), Color(red: 0.56, green: 0.62, blue: 0.71), Color(red: 0.82, green: 0.87, blue: 0.94)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
+        default:
+            return AnyShapeStyle(accent)
+        }
+    }
+
+    private func tileActiveForegroundColor(for section: FootballDashboardSection) -> Color {
+        switch section {
+        case .trade, .swap:
+            return .white
+        case .collection, .selected:
+            return Color.kcNavy
+        }
+    }
+
+    private func tileActiveStrokeColor(for section: FootballDashboardSection, accent: Color) -> Color {
+        switch section {
+        case .trade:
+            return Color(red: 0.96, green: 0.73, blue: 0.44).opacity(0.65)
+        case .swap:
+            return Color(red: 0.95, green: 0.98, blue: 1.00).opacity(0.62)
+        default:
+            return accent.opacity(0.18)
+        }
     }
 
     @ViewBuilder
@@ -268,13 +331,45 @@ struct FootballDashboardView: View {
 
                     Spacer(minLength: 12)
 
-                    if section != .collection {
-                        Button(section.ctaLabel) {
-                            if let previewDesk = section.previewDesk {
-                                activeDeskPreview = previewDesk
-                            } else {
-                                openCollection()
+                    if section == .swap {
+                        Button {
+                            guard !isExecutingSwap else { return }
+                            isExecutingSwap = true
+                            Task { @MainActor in
+                                let rewardCard = await collectionDashboardViewModel.executeSwap().first
+                                latestSwapRewardCard = rewardCard
+                                if rewardCard == nil, collectionDashboardViewModel.errorMessage == nil {
+                                    collectionDashboardViewModel.errorMessage = "Unable to complete swap."
+                                }
+                                isExecutingSwap = false
                             }
+                        } label: {
+                            Text(isExecutingSwap ? "Swapping..." : swapDashboardButtonLabel)
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(canExecuteDashboardSwap ? Color.kcNavy : Color.kcMuted)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(canExecuteDashboardSwap ? Color.kcLime : Color.kcCard)
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(canExecuteDashboardSwap ? Color.kcLime.opacity(0.9) : Color.white.opacity(0.08), lineWidth: 1.1)
+                        )
+                        .clipShape(Capsule())
+                        .disabled(!canExecuteDashboardSwap || isExecutingSwap)
+                    } else if section == .trade {
+                        Button("Card Exchange") {
+                            showCardExchange = true
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(section.accent)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(section.accent.opacity(0.12))
+                        .clipShape(Capsule())
+                    } else if section != .collection {
+                        Button(section.ctaLabel) {
+                            openCollection()
                         }
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(section.accent)
@@ -298,7 +393,8 @@ struct FootballDashboardView: View {
                                         handleCardActionSelected(action, for: card)
                                     },
                                     opensDetailOnBack: section == .collection,
-                                    showsFlipHint: section == .collection
+                                    showsFlipHint: section == .collection,
+                                    copyCount: collectionDashboardViewModel.ownedCopyCount(for: card)
                                 )
                                 .frame(width: 200)
                             }
@@ -390,33 +486,6 @@ struct FootballDashboardView: View {
             .sorted(by: dashboardCardSort(lhs:rhs:))
     }
 
-    private func cardsForDeskPreview(_ desk: FootballDashboardDesk, fallback: [FootballOwnedCard]) -> [FootballOwnedCard] {
-        switch desk {
-        case .trade:
-            return dashboardTradeCards(fallback: fallback)
-        case .swap:
-            return dashboardSwapCards(fallback: fallback)
-        }
-    }
-
-    private func deskCapacity(for desk: FootballDashboardDesk) -> Int {
-        switch desk {
-        case .trade:
-            return collectionDashboardViewModel.queuedTradeCardIds.count
-        case .swap:
-            return collectionDashboardViewModel.queuedSwapCardIds.count
-        }
-    }
-
-    private func deskMaxCapacity(for desk: FootballDashboardDesk) -> Int {
-        switch desk {
-        case .trade:
-            return collectionDashboardViewModel.maxTradeQueueCount
-        case .swap:
-            return collectionDashboardViewModel.maxSwapQueueCount
-        }
-    }
-
     private func dashboardCardSort(lhs: FootballOwnedCard, rhs: FootballOwnedCard) -> Bool {
         let lhsRating = lhs.ratingOutOfTen ?? -1
         let rhsRating = rhs.ratingOutOfTen ?? -1
@@ -465,12 +534,28 @@ struct FootballDashboardView: View {
         case .collection:
             return "Tap a card to flip for options"
         case .trade:
-            return "5 per day"
+            return nil
         case .swap:
-            return "5 per day"
+            return nil
         case .selected:
             return nil
         }
+    }
+
+    private var canExecuteDashboardSwap: Bool {
+        collectionDashboardViewModel.canExecuteQueuedSwap
+    }
+
+    private var swapDashboardButtonLabel: String {
+        if collectionDashboardViewModel.swapsRemainingToday == 0 {
+            return "Swap Locked"
+        }
+
+        if collectionDashboardViewModel.queuedSwapCardIds.isEmpty {
+            return "Queue A Card"
+        }
+
+        return "Swap 1 Card"
     }
 
     private func tradeQueueHasCapacity(for card: FootballOwnedCard) -> Bool {
@@ -490,6 +575,7 @@ struct FootballDashboardView: View {
         let swapEnabled = isSwapEligible(card) && swapQueueHasCapacity(for: card)
         let tradeQueueFull = !collectionDashboardViewModel.isQueuedForTrade(card) && !tradeQueueHasCapacity(for: card)
         let swapQueueFull = !collectionDashboardViewModel.isQueuedForSwap(card) && !swapQueueHasCapacity(for: card)
+        let swapDailyLimitReached = !collectionDashboardViewModel.isQueuedForSwap(card) && collectionDashboardViewModel.swapsRemainingToday == 0
 
         guard let leagueName = collectionDashboardViewModel.matchingLockedLeague(for: card) else {
             return FootballCardActionContext(
@@ -497,7 +583,7 @@ struct FootballDashboardView: View {
                 subtitle: nil,
                 actions: [
                     FootballCardActionItem(kind: .trade, title: isQueuedForTrade ? "Remove Trade" : "Trade", message: isQueuedForTrade ? "Return this card from trade to available cards." : (tradeQueueFull ? "Trade queue is full right now." : "Move this card into the trade lane."), isEnabled: isQueuedForTrade || tradeEnabled),
-                    FootballCardActionItem(kind: .swap, title: isQueuedForSwap ? "Remove Swap" : "Swap", message: isQueuedForSwap ? "Return this card from swap to available cards." : (swapQueueFull ? "Swap queue is full right now." : "Move this card into the swap lane."), isEnabled: isQueuedForSwap || swapEnabled),
+                    FootballCardActionItem(kind: .swap, title: isQueuedForSwap ? "Remove Swap" : "Swap", message: isQueuedForSwap ? "Return this card from swap to available cards." : (swapDailyLimitReached ? "You've used all 5 swaps for today." : (swapQueueFull ? "Swap queue is full right now." : "Move this card into the swap lane.")), isEnabled: isQueuedForSwap || (swapEnabled && !swapDailyLimitReached)),
                     FootballCardActionItem(kind: .discard, title: "Discard", message: "Discard this card from your 20-card pool.", isEnabled: discardEnabled)
                 ]
             )
@@ -547,7 +633,7 @@ struct FootballDashboardView: View {
                 FootballCardActionItem(kind: .build, title: "Add to Team", message: buildMessage, isEnabled: !openSlots.isEmpty),
                 FootballCardActionItem(kind: .upgrade, title: "Upgrade Team", message: upgradeMessage, isEnabled: teamComplete && !upgradeSlots.isEmpty),
                 FootballCardActionItem(kind: .trade, title: isQueuedForTrade ? "Remove Trade" : "Trade", message: isQueuedForTrade ? "Return this card from trade to available cards." : (tradeQueueFull ? "Trade queue is full right now." : "Move this card into the trade lane."), isEnabled: isQueuedForTrade || tradeEnabled),
-                FootballCardActionItem(kind: .swap, title: isQueuedForSwap ? "Remove Swap" : "Swap", message: isQueuedForSwap ? "Return this card from swap to available cards." : (swapQueueFull ? "Swap queue is full right now." : "Move this card into the swap lane."), isEnabled: isQueuedForSwap || swapEnabled),
+                FootballCardActionItem(kind: .swap, title: isQueuedForSwap ? "Remove Swap" : "Swap", message: isQueuedForSwap ? "Return this card from swap to available cards." : (swapDailyLimitReached ? "You've used all 5 swaps for today." : (swapQueueFull ? "Swap queue is full right now." : "Move this card into the swap lane.")), isEnabled: isQueuedForSwap || (swapEnabled && !swapDailyLimitReached)),
                 FootballCardActionItem(kind: .discard, title: "Discard", message: "Discard this card from your 20-card pool.", isEnabled: discardEnabled)
             ]
         )
@@ -631,9 +717,9 @@ private enum FootballDashboardSection: String, CaseIterable, Identifiable {
         case .selected:
             return "Selected squad cards"
         case .trade:
-            return "Trade-ready reserve cards"
+            return "Trade cards"
         case .swap:
-            return "Swap and upgrade lane"
+            return "Swap"
         }
     }
 
@@ -644,22 +730,12 @@ private enum FootballDashboardSection: String, CaseIterable, Identifiable {
         case .selected:
             return "Open squad"
         case .trade:
-            return "Manage trade"
+            return "Card Exchange"
         case .swap:
-            return "Manage swap"
+            return "Swap"
         }
     }
 
-    var previewDesk: FootballDashboardDesk? {
-        switch self {
-        case .collection, .selected:
-            return nil
-        case .trade:
-            return .trade
-        case .swap:
-            return .swap
-        }
-    }
 
     var emptyIcon: String {
         switch self {
@@ -681,7 +757,7 @@ private enum FootballDashboardSection: String, CaseIterable, Identifiable {
         case .selected:
             return "No selected players yet"
         case .trade:
-            return "No reserve cards ready for trade"
+            return "No cards listed for trade"
         case .swap:
             return "No swap lane yet"
         }
@@ -694,175 +770,12 @@ private enum FootballDashboardSection: String, CaseIterable, Identifiable {
         case .selected:
             return "Choose a formation and assign players so your selected squad appears here."
         case .trade:
-            return "Once the collection has spare cards, this panel can surface the best trade candidates."
+            return "Flip a card from Available and tap Trade to list it on the exchange. Up to 5 active listings at a time."
         case .swap:
-            return "As soon as you have squad choices, this panel can highlight the cards worth swapping in."
+            return "Queue cards from Available, then use the Swap button here to exchange them one at a time."
         }
     }
 
-}
-
-private enum FootballDashboardDesk: String, Identifiable {
-    case trade
-    case swap
-
-    var id: String { rawValue }
-}
-
-private struct FootballDashboardDeskPreview: View {
-    let desk: FootballDashboardDesk
-    let cards: [FootballOwnedCard]
-    let capacity: Int
-    let maxCapacity: Int
-    let detailContext: (FootballOwnedCard) -> FootballCardActionContext
-    let onActionSelected: (FootballCardActionKind, FootballOwnedCard) -> Void
-
-    private var accent: Color {
-        switch desk {
-        case .trade:
-            return Color(red: 0.99, green: 0.78, blue: 0.36)
-        case .swap:
-            return Color(red: 0.97, green: 0.49, blue: 0.50)
-        }
-    }
-
-    private var title: String {
-        switch desk {
-        case .trade:
-            return "Trade Desk"
-        case .swap:
-            return "Swap Desk"
-        }
-    }
-
-    private var intro: String {
-        switch desk {
-        case .trade:
-            return "Manage the cards already queued for trade from the same dashboard flow."
-        case .swap:
-            return "Manage the cards waiting in the swap lane for upgrade decisions."
-        }
-    }
-
-    private var points: [String] {
-        switch desk {
-        case .trade:
-            return [
-                "Queued cards can be removed from trade and sent back to available cards.",
-                "Trade uses the same card detail flow and action side already in the dashboard.",
-                "Keep the queue capped at 5 cards so trade decisions stay controlled."
-            ]
-        case .swap:
-            return [
-                "Queued cards can be removed from swap and sent back to available cards.",
-                "Swap stays focused on upgrade-ready cards and replacement choices.",
-                "Keep the queue capped at 5 cards so the lane stays readable."
-            ]
-        }
-    }
-
-    var body: some View {
-        ZStack {
-            Color.kcNavy.ignoresSafeArea()
-
-            VStack(alignment: .leading, spacing: 18) {
-                Capsule()
-                    .fill(Color.white.opacity(0.18))
-                    .frame(width: 42, height: 5)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 8)
-
-                Text(title)
-                    .font(.title2.bold())
-                    .foregroundStyle(.white)
-
-                Text(intro)
-                    .font(.subheadline)
-                    .foregroundStyle(Color.kcMuted)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Queue summary")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(accent)
-
-                    ForEach(points, id: \.self) { point in
-                        HStack(alignment: .top, spacing: 10) {
-                            Circle()
-                                .fill(accent)
-                                .frame(width: 7, height: 7)
-                                .padding(.top, 6)
-                            Text(point)
-                                .font(.subheadline)
-                                .foregroundStyle(.white)
-                        }
-                    }
-                }
-                .padding(16)
-                .background(Color.kcCard)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-
-                HStack(spacing: 12) {
-                    previewBadge(text: "\(capacity)/\(maxCapacity) queued", tint: accent)
-                    previewBadge(text: desk == .trade ? "Trade lane" : "Swap lane", tint: accent)
-                    previewBadge(text: "Dashboard managed", tint: Color.kcMuted)
-                }
-
-                if cards.isEmpty {
-                    VStack(spacing: 10) {
-                        Image(systemName: desk == .trade ? "arrow.left.arrow.right.circle" : "arrow.triangle.2.circlepath.circle")
-                            .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(accent)
-                        Text(desk == .trade ? "No trade cards queued" : "No swap cards queued")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                        Text(desk == .trade ? "Use the Trade tile or a card action to move cards into the trade lane." : "Use the Swap tile or a card action to move cards into the swap lane.")
-                            .font(.caption)
-                            .foregroundStyle(Color.kcMuted)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 28)
-                    .padding(.horizontal, 18)
-                    .background(Color.kcCard)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(cards) { card in
-                                FootballPlayerCardView(
-                                    card: card,
-                                    detailContext: detailContext(card),
-                                    onDetailActionSelected: { action in
-                                        onActionSelected(action, card)
-                                    },
-                                    opensDetailOnBack: true,
-                                    showsFlipHint: true
-                                )
-                                .frame(width: 200)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 24)
-        }
-        .presentationDetents([.medium, .large])
-    }
-
-    @ViewBuilder
-    private func previewBadge(text: String, tint: Color) -> some View {
-        Text(text)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(tint.opacity(0.14))
-            .clipShape(Capsule())
-    }
 }
 
 private struct FootballDashboardStatRow: View {
@@ -885,6 +798,83 @@ private struct FootballDashboardStatRow: View {
             Spacer()
             Text(value)
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct FootballSwapRevealView: View {
+    let card: FootballOwnedCard
+    let onDone: () -> Void
+
+    @State private var glowPulse = false
+    @State private var cardVisible = false
+
+    var body: some View {
+        ZStack {
+            Color.kcNavy.ignoresSafeArea()
+
+            RadialGradient(
+                colors: [Color.kcLime.opacity(0.18), Color.clear],
+                center: .center,
+                startRadius: 24,
+                endRadius: 280
+            )
+            .ignoresSafeArea()
+            .scaleEffect(glowPulse ? 1.14 : 1.0)
+            .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: glowPulse)
+
+            VStack(spacing: 26) {
+                Spacer()
+
+                VStack(spacing: 10) {
+                    HStack(spacing: 0) {
+                        Text("Footy")
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundStyle(.white)
+                        Text("Cards")
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundStyle(Color.kcLime)
+                    }
+
+                    Text("Swap Complete")
+                        .font(.system(size: 32, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text("Your new card is ready and has been added to Available.")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.kcMuted)
+                        .multilineTextAlignment(.center)
+                }
+
+                FootballPlayerCardView(card: card)
+                    .scaleEffect(cardVisible ? 1.05 : 0.86)
+                    .opacity(cardVisible ? 1 : 0)
+                    .rotation3DEffect(.degrees(cardVisible ? 0 : -18), axis: (x: 0, y: 1, z: 0), perspective: 0.45)
+                    .shadow(color: Color.kcLime.opacity(cardVisible ? 0.22 : 0), radius: 22, y: 12)
+                    .animation(.spring(response: 0.65, dampingFraction: 0.82), value: cardVisible)
+
+                Text("Tap below to return to the Available lane.")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.kcMuted)
+
+                Spacer()
+
+                Button(action: onDone) {
+                    Text("Move To Available")
+                        .font(.headline.weight(.black))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(Color.kcLime)
+                        .foregroundStyle(Color.kcNavy)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 40)
+            }
+        }
+        .onAppear {
+            glowPulse = true
+            cardVisible = true
         }
     }
 }
