@@ -34,7 +34,6 @@ struct FootballDashboardView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         clubHeroCard(profileData: profileData)
-                        dailyPackSection
                         selectionTiles(profileData: profileData)
                         actionChoiceSection(profileData: profileData)
                     }
@@ -190,30 +189,43 @@ struct FootballDashboardView: View {
 
                 Spacer()
 
-                Text(String(format: "%.1f", totalScore))
-                    .font(.system(size: 22, weight: .black, design: .rounded))
-                    .foregroundStyle(Color.kcNavy)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.kcLime)
-                    .clipShape(Capsule())
+                VStack(alignment: .trailing, spacing: 8) {
+                    Text(String(format: "%.1f", totalScore))
+                        .font(.system(size: 22, weight: .black, design: .rounded))
+                        .foregroundStyle(Color.kcNavy)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.kcLime)
+                        .clipShape(Capsule())
+
+                    if let status = dailyPackStatus, status.available {
+                        Button {
+                            Task { await claimDailyPack() }
+                        } label: {
+                            HStack(spacing: 5) {
+                                if isClaimingDailyPack {
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                        .tint(Color.kcNavy)
+                                } else {
+                                    Image(systemName: "star.fill")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                                Text(isClaimingDailyPack ? "Claiming..." : "Claim Cards")
+                                    .font(.system(size: 12, weight: .black, design: .rounded))
+                            }
+                            .foregroundStyle(Color.kcNavy)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Color(red: 0.99, green: 0.78, blue: 0.36))
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isClaimingDailyPack)
+                    }
+                }
             }
             .padding(20)
-        }
-    }
-
-    // MARK: - Daily pack banner
-
-    @ViewBuilder
-    private var dailyPackSection: some View {
-        if let status = dailyPackStatus {
-            if status.available {
-                FootballDailyPackBanner(status: status, isClaiming: isClaimingDailyPack) {
-                    Task { await claimDailyPack() }
-                }
-            } else {
-                FootballDailyPackClaimedBanner(status: status)
-            }
         }
     }
 
