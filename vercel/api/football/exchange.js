@@ -107,8 +107,8 @@ async function handleGet(req, res, auth) {
           el.id::text AS "listingId",
           el.seller_user_id AS "sellerUserId",
           fu.username AS "sellerName",
-          el.card_rating AS "cardRating",
-          el.rating_cost AS "ratingCost",
+          el.card_rating::FLOAT8 AS "cardRating",
+          el.rating_cost::FLOAT8 AS "ratingCost",
           el.listed_at AS "listedAt",
           el.expires_at AS "expiresAt",
           el.removable_at AS "removableAt",
@@ -135,8 +135,8 @@ async function handleGet(req, res, auth) {
           el.id::text AS "listingId",
           el.seller_user_id AS "sellerUserId",
           fu.username AS "sellerName",
-          el.card_rating AS "cardRating",
-          el.rating_cost AS "ratingCost",
+          el.card_rating::FLOAT8 AS "cardRating",
+          el.rating_cost::FLOAT8 AS "ratingCost",
           el.listed_at AS "listedAt",
           el.expires_at AS "expiresAt",
           el.removable_at AS "removableAt",
@@ -158,7 +158,7 @@ async function handleGet(req, res, auth) {
 
     // Fetch trade_rating_balance
     const profileResult = await client.query(
-      `SELECT COALESCE(trade_rating_balance, 0) AS "tradeRatingBalance"
+      `SELECT COALESCE(trade_rating_balance, 0)::FLOAT8 AS "tradeRatingBalance"
        FROM sq.football_profiles WHERE user_id = $1 LIMIT 1`,
       [auth.userId]
     );

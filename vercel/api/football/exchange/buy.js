@@ -82,15 +82,15 @@ export default async function handler(req, res) {
           el.id::text AS "listingId",
           el.seller_user_id AS "sellerUserId",
           el.user_card_id::text AS "userCardId",
-          el.card_rating AS "cardRating",
-          el.rating_cost AS "ratingCost",
+          el.card_rating::FLOAT8 AS "cardRating",
+          el.rating_cost::FLOAT8 AS "ratingCost",
           el.status,
           el.expires_at AS "expiresAt"
         FROM sq.football_exchange_listings el
         WHERE el.id::text = $1
           AND el.status = 'active'
           AND el.expires_at > NOW()
-        FOR UPDATE
+        FOR UPDATE SKIP LOCKED
         LIMIT 1
       `,
       [listingId]
