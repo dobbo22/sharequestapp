@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23504" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="23506"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="EHf-IW-A2E">
+            <objects>
+                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <!-- Card shape -->
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="crd-01-bg">
+                                <rect key="frame" x="146.5" y="346" width="100" height="120"/>
+                                <color key="backgroundColor" red="0.118" green="0.176" blue="0.239" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="100" id="crd-w"/>
+                                    <constraint firstAttribute="height" constant="120" id="crd-h"/>
+                                </constraints>
+                            </view>
+                            <!-- FC label -->
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="FC" textAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="fc-lbl">
+                                <rect key="frame" x="146.5" y="346" width="100" height="120"/>
+                                <fontDescription type="system" pointSize="42"/>
+                                <color key="textColor" red="0.776" green="0.945" blue="0.208" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <!-- FootyCards wordmark -->
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="FootyCards" textAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="wm-lbl">
+                                <rect key="frame" x="96.5" y="490" width="200" height="36"/>
+                                <fontDescription type="boldSystem" pointSize="28"/>
+                                <color key="textColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="Bcu-3y-fUS"/>
+                        <color key="backgroundColor" red="0.051" green="0.106" blue="0.165" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <!-- Card centred horizontally -->
+                            <constraint firstItem="crd-01-bg" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="crd-cx"/>
+                            <!-- Card centred vertically, shifted up slightly -->
+                            <constraint firstItem="crd-01-bg" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" constant="-30" id="crd-cy"/>
+                            <!-- FC label same position as card -->
+                            <constraint firstItem="fc-lbl" firstAttribute="centerX" secondItem="crd-01-bg" secondAttribute="centerX" id="fc-cx"/>
+                            <constraint firstItem="fc-lbl" firstAttribute="centerY" secondItem="crd-01-bg" secondAttribute="centerY" id="fc-cy"/>
+                            <constraint firstItem="fc-lbl" firstAttribute="width" secondItem="crd-01-bg" secondAttribute="width" id="fc-w"/>
+                            <constraint firstItem="fc-lbl" firstAttribute="height" secondItem="crd-01-bg" secondAttribute="height" id="fc-h"/>
+                            <!-- Wordmark below card -->
+                            <constraint firstItem="wm-lbl" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="wm-cx"/>
+                            <constraint firstItem="wm-lbl" firstAttribute="top" secondItem="crd-01-bg" secondAttribute="bottom" constant="18" id="wm-top"/>
+                            <constraint firstItem="wm-lbl" firstAttribute="width" constant="240" id="wm-w"/>
+                            <constraint firstItem="wm-lbl" firstAttribute="height" constant="36" id="wm-h"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="52.671755725190835" y="-11.267605633802816"/>
+        </scene>
+    </scenes>
+</document>

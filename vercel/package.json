@@ -8,6 +8,7 @@
     "test-api": "./test-api.sh",
     "create-token": "node vercel/scripts/create-token.mjs",
     "mark-admin": "node vercel/scripts/mark-admin.mjs",
+    "bootstrap-football-admin": "node scripts/bootstrap-football-admin.mjs",
     "integration-test": "node vercel/scripts/integration-test.mjs",
     "create-db-role": "node vercel/scripts/create-db-role.mjs",
     "print-tokens": "node vercel/scripts/print-tokens.mjs"

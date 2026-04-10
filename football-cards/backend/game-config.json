@@ -1,0 +1,47 @@
+{
+  "country": "England",
+  "provider": {
+    "active": "sportmonks",
+    "fallback": "api-football"
+  },
+  "sourceLeagues": [
+    {
+      "name": "Premier League",
+      "sportmonksLeagueId": 8,
+      "apiFootballLeagueId": 39,
+      "tier": 1
+    },
+    {
+      "name": "Championship",
+      "sportmonksLeagueId": 9,
+      "apiFootballLeagueId": 40,
+      "tier": 2
+    },
+    {
+      "name": "League One",
+      "sportmonksLeagueId": 12,
+      "apiFootballLeagueId": 41,
+      "tier": 3
+    },
+    {
+      "name": "League Two",
+      "sportmonksLeagueId": 14,
+      "apiFootballLeagueId": 42,
+      "tier": 4
+    }
+  ],
+  "starterSlots": [
+    "GK",
+    "RB",
+    "RCB",
+    "LCB",
+    "LB",
+    "RM",
+    "CM",
+    "LM",
+    "RW",
+    "ST",
+    "LW"
+  ],
+  "starterCardsPerSlot": 2
+}
