@@ -88,13 +88,9 @@ struct FootballCardDetailView: View {
                     Spacer(minLength: 0)
 
                     VStack(alignment: .trailing, spacing: 8) {
-                        if let logoUrl = card.clubLogoUrl, let url = URL(string: logoUrl) {
-                            AsyncImage(url: url) { phase in
-                                if case .success(let img) = phase { img.resizable().scaledToFit() }
-                                else { EmptyView() }
-                            }
-                            .frame(width: 62, height: 62)
-                            .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
+                        if let clubName = card.clubName {
+                            ClubLogoImage(clubName: clubName, size: 62)
+                                .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
                         }
 
                         if let rating = card.ratingOutOfTen {
@@ -205,17 +201,7 @@ struct FootballCardDetailView: View {
 
     @ViewBuilder
     private var playerPhotoContent: some View {
-        if let urlStr = card.photoUrl, let url = URL(string: urlStr) {
-            AsyncImage(url: url) { phase in
-                if case .success(let img) = phase {
-                    img.resizable().scaledToFit()
-                } else {
-                    fallbackPhoto
-                }
-            }
-        } else {
-            fallbackPhoto
-        }
+        PlayerAvatarImage(playerName: card.playerName, size: 160)
     }
 
     private var playerPhotoPanel: some View {
@@ -568,13 +554,9 @@ struct FootballCardDetailView: View {
                     Spacer(minLength: 18)
 
                 // Large club badge
-                if let logoUrl = card.clubLogoUrl, let url = URL(string: logoUrl) {
-                    AsyncImage(url: url) { phase in
-                        if case .success(let img) = phase { img.resizable().scaledToFit() }
-                        else { EmptyView() }
-                    }
-                    .frame(width: 188, height: 188)
-                    .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
+                if let clubName = card.clubName {
+                    ClubLogoImage(clubName: clubName, size: 188)
+                        .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
                 }
 
                 Spacer().frame(height: 28)

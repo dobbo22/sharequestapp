@@ -8,35 +8,13 @@ private extension Color {
     static let kcMuted = Color(red: 0.541, green: 0.608, blue: 0.690)
 }
 
-// MARK: - Club badge image
+// MARK: - Club badge image (uses DiceBear initials style)
 private struct ClubBadge: View {
-    let url: String?
+    let clubName: String
     var size: CGFloat = 40
 
     var body: some View {
-        Group {
-            if let urlString = url, let imageURL = URL(string: urlString) {
-                AsyncImage(url: imageURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFit()
-                    case .failure, .empty:
-                        placeholder
-                    @unknown default:
-                        placeholder
-                    }
-                }
-            } else {
-                placeholder
-            }
-        }
-        .frame(width: size, height: size)
-    }
-
-    private var placeholder: some View {
-        Image(systemName: "shield.fill")
-            .font(.system(size: size * 0.5))
-            .foregroundStyle(Color.kcMuted)
+        ClubLogoImage(clubName: clubName, size: size)
     }
 }
 
@@ -47,7 +25,7 @@ private struct ClubRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            ClubBadge(url: club.logoUrl, size: 44)
+            ClubBadge(clubName: club.name, size: 44)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(club.name)
@@ -232,7 +210,7 @@ struct FootballOnboardingView: View {
                 VStack(spacing: 0) {
                     if let club = selectedClub {
                         HStack(spacing: 10) {
-                            ClubBadge(url: club.logoUrl, size: 28)
+                            ClubBadge(clubName: club.name, size: 28)
                             Text(club.name)
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.white)

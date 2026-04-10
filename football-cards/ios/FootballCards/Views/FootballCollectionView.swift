@@ -137,6 +137,7 @@ struct FootballCollectionView: View {
         let selection = viewModel.lockedSelection(for: key)
         let buildableCount = viewModel.buildableCardCount(for: key)
         let badgeURL = selection?.clubLogoUrl ?? draftClubBadgeURL(for: key)
+        let badgeClubName = selection?.clubName ?? viewModel.selectedDraftClub(for: key)?.name
         let hasReadyCards = buildableCount > 0
 
         return Button {
@@ -145,7 +146,7 @@ struct FootballCollectionView: View {
             }
         } label: {
             VStack(spacing: 8) {
-                selectionTileBadge(url: badgeURL)
+                selectionTileBadge(url: badgeURL, clubName: badgeClubName)
 
                 if hasReadyCards {
                     Text("\(buildableCount)")
@@ -263,23 +264,16 @@ struct FootballCollectionView: View {
             }
     }
 
-    private func selectionTileBadge(url: String?) -> some View {
+    private func selectionTileBadge(url: String?, clubName: String? = nil) -> some View {
         Group {
-            if let url, let imageURL = URL(string: url) {
-                AsyncImage(url: imageURL) { phase in
-                    if case .success(let image) = phase {
-                        image.resizable().scaledToFit()
-                    } else {
-                        Image(systemName: "shield.fill")
-                            .foregroundStyle(Color.kcMuted)
-                    }
-                }
+            if let name = clubName {
+                ClubLogoImage(clubName: name, size: 26)
             } else {
                 Image(systemName: "shield.fill")
                     .foregroundStyle(Color.kcMuted)
+                    .frame(width: 26, height: 26)
             }
         }
-        .frame(width: 26, height: 26)
     }
 
     private func statusBadge(isLocked: Bool) -> some View {
@@ -335,6 +329,7 @@ struct FootballCollectionView: View {
                     ForEach(completedKeys, id: \.self) { key in
                         let isActive = currentLeagueName == key
                         let badgeURL = viewModel.lockedSelection(for: key)?.clubLogoUrl
+                        let badgeClub = viewModel.lockedSelection(for: key)?.clubName
 
                         Button {
                             withAnimation(.easeInOut(duration: 0.18)) {
@@ -342,7 +337,7 @@ struct FootballCollectionView: View {
                             }
                         } label: {
                             VStack(spacing: 6) {
-                                selectionTileBadge(url: badgeURL)
+                                selectionTileBadge(url: badgeURL, clubName: badgeClub)
                                     .frame(width: 34, height: 34)
 
                                 Image(systemName: "checkmark.circle.fill")
@@ -430,7 +425,7 @@ struct FootballCollectionView: View {
 
             if let lockedSelection {
                 HStack(spacing: 12) {
-                    leagueClubBadge(url: lockedSelection.clubLogoUrl)
+                    leagueClubBadge(url: lockedSelection.clubLogoUrl, clubName: lockedSelection.clubName)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(clubName)
@@ -467,18 +462,7 @@ struct FootballCollectionView: View {
                 }
             } else {
                 HStack(spacing: 14) {
-                    if let logoUrl = viewModel.onboardingBonusLogoURL, let url = URL(string: logoUrl) {
-                        AsyncImage(url: url) { phase in
-                            if case .success(let image) = phase {
-                                image.resizable().scaledToFit()
-                            } else {
-                                bonusBadgePlaceholder
-                            }
-                        }
-                        .frame(width: 46, height: 46)
-                    } else {
-                        bonusBadgePlaceholder
-                    }
+                    ClubLogoImage(clubName: clubName, size: 46)
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(clubName)
@@ -608,7 +592,7 @@ struct FootballCollectionView: View {
 
             if let lockedSelection {
                 HStack(spacing: 12) {
-                    leagueClubBadge(url: lockedSelection.clubLogoUrl)
+                    leagueClubBadge(url: lockedSelection.clubLogoUrl, clubName: lockedSelection.clubName)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(lockedSelection.clubName)
@@ -685,7 +669,7 @@ struct FootballCollectionView: View {
                                     } label: {
                                         VStack(alignment: .leading, spacing: 10) {
                                             HStack(spacing: 10) {
-                                                leagueClubBadge(url: club.logoUrl)
+                                                leagueClubBadge(url: club.logoUrl, clubName: club.name)
                                                 VStack(alignment: .leading, spacing: 2) {
                                                     Text(club.name)
                                                         .font(.subheadline.weight(.semibold))
@@ -784,20 +768,14 @@ struct FootballCollectionView: View {
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    private func leagueClubBadge(url: String?) -> some View {
+    private func leagueClubBadge(url: String?, clubName: String? = nil) -> some View {
         Group {
-            if let url, let imageURL = URL(string: url) {
-                AsyncImage(url: imageURL) { phase in
-                    if case .success(let image) = phase {
-                        image.resizable().scaledToFit()
-                    } else {
-                        Image(systemName: "shield.fill")
-                            .foregroundStyle(Color.kcMuted)
-                    }
-                }
+            if let name = clubName {
+                ClubLogoImage(clubName: name, size: 36)
             } else {
                 Image(systemName: "shield.fill")
                     .foregroundStyle(Color.kcMuted)
+                    .frame(width: 36, height: 36)
             }
         }
         .frame(width: 42, height: 42)
@@ -1321,22 +1299,9 @@ private struct FootballFormationBuilderSheet: View {
     }
 
     private func builderPhoto(for card: FootballOwnedCard) -> some View {
-        Group {
-            if let photoUrl = card.photoUrl, let url = URL(string: photoUrl) {
-                AsyncImage(url: url) { phase in
-                    if case .success(let image) = phase {
-                        image.resizable().scaledToFill()
-                    } else {
-                        builderPhotoFallback
-                    }
-                }
-            } else {
-                builderPhotoFallback
-            }
-        }
-        .frame(width: 52, height: 52)
-        .clipShape(Circle())
-        .overlay(Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+        PlayerAvatarImage(playerName: card.playerName, size: 52)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
     }
 
     private var builderPhotoFallback: some View {
@@ -1546,14 +1511,9 @@ struct FootballPlayerCardView: View {
 
                     VStack(alignment: .trailing, spacing: 8) {
                         // Club badge — prominent
-                        if let logoUrl = card.clubLogoUrl, let url = URL(string: logoUrl) {
-                            AsyncImage(url: url) { phase in
-                                if case .success(let img) = phase {
-                                    img.resizable().scaledToFit()
-                                } else { EmptyView() }
-                            }
-                            .frame(width: 52, height: 52)
-                            .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+                        if let clubName = card.clubName {
+                            ClubLogoImage(clubName: clubName, size: 52)
+                                .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
                         }
 
                         // Rating badge
@@ -1697,17 +1657,7 @@ struct FootballPlayerCardView: View {
 
     @ViewBuilder
     private var playerPhotoContent: some View {
-        if let photoUrl = card.photoUrl, let url = URL(string: photoUrl) {
-            AsyncImage(url: url) { phase in
-                if case .success(let img) = phase {
-                    img.resizable().scaledToFit()
-                } else {
-                    fallbackPhoto
-                }
-            }
-        } else {
-            fallbackPhoto
-        }
+        PlayerAvatarImage(playerName: card.playerName, size: 160)
     }
 
     private var fallbackPhoto: some View {

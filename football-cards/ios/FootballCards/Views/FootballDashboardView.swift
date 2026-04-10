@@ -157,17 +157,8 @@ struct FootballDashboardView: View {
                 .fill(Color.kcCard)
 
             HStack(alignment: .top, spacing: 16) {
-                if let logoUrl = profileData.profile?.supportedClubLogoUrl,
-                   let url = URL(string: logoUrl) {
-                    AsyncImage(url: url) { phase in
-                        if case .success(let img) = phase {
-                            img.resizable().scaledToFit()
-                        } else {
-                            Image(systemName: "shield.fill")
-                                .foregroundStyle(Color.kcMuted)
-                        }
-                    }
-                    .frame(width: 64, height: 64)
+                if let clubName = profileData.profile?.supportedClubName {
+                    ClubLogoImage(clubName: clubName, size: 64)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {

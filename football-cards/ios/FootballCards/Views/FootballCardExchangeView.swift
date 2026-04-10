@@ -484,19 +484,8 @@ private struct ExchangeListingRow: View {
                 .fill(Color.exGold.opacity(0.14))
                 .frame(width: 54, height: 54)
 
-            if let urlStr = listing.photoUrl, let url = URL(string: urlStr) {
-                AsyncImage(url: url) { phase in
-                    if case .success(let img) = phase {
-                        img.resizable().scaledToFill()
-                    } else {
-                        initialsView(listing.playerName)
-                    }
-                }
-                .frame(width: 54, height: 54)
+            PlayerAvatarImage(playerName: listing.playerName, size: 54)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            } else {
-                initialsView(listing.playerName)
-            }
         }
     }
 

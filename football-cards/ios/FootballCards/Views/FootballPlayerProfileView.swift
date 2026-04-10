@@ -25,17 +25,10 @@ struct FootballPlayerProfileView: View {
                         .fill(cardGradient)
 
                     // Photo — full, contained
-                    if let urlStr = card.photoUrl, let url = URL(string: urlStr) {
-                        AsyncImage(url: url) { phase in
-                            if case .success(let img) = phase {
-                                img.resizable().scaledToFit()
-                            } else { EmptyView() }
-                        }
+                    PlayerAvatarImage(playerName: card.playerName, size: 240)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 240)
                         .padding(.horizontal, 16)
                         .padding(.top, 16)
-                    }
 
                     // Fade into card body
                     LinearGradient(
@@ -58,13 +51,9 @@ struct FootballPlayerProfileView: View {
 
                         Spacer()
 
-                        if let logoUrl = card.clubLogoUrl, let url = URL(string: logoUrl) {
-                            AsyncImage(url: url) { phase in
-                                if case .success(let img) = phase { img.resizable().scaledToFit() }
-                                else { EmptyView() }
-                            }
-                            .frame(width: 40, height: 40)
-                            .shadow(color: .black.opacity(0.4), radius: 6, y: 3)
+                        if let clubName = card.clubName {
+                            ClubLogoImage(clubName: clubName, size: 40)
+                                .shadow(color: .black.opacity(0.4), radius: 6, y: 3)
                         }
                     }
                     .padding(.horizontal, 16)
