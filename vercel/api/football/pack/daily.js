@@ -68,10 +68,15 @@ export default async function handler(req, res) {
 // Returns eligibility info — no side effects
 // ---------------------------------------------------------------------------
 async function handleGet(req, res, auth) {
+  // ?reserveCount=N from iOS (available + swapQueue + tradeQueue counts)
+  const clientReserveCount = req.query?.reserveCount !== undefined
+    ? Math.max(0, parseInt(req.query.reserveCount, 10) || 0)
+    : null;
+
   const pool = getFootballPool();
   const client = await pool.connect();
   try {
-    const info = await packInfo(client, auth.userId);
+    const info = await packInfo(client, auth.userId, clientReserveCount);
     return res.status(200).json({ success: true, data: info });
   } catch (error) {
     console.error('GET /api/football/pack/daily failed', error);
@@ -86,12 +91,18 @@ async function handleGet(req, res, auth) {
 // Claim today's pack — idempotent within a day
 // ---------------------------------------------------------------------------
 async function handlePost(req, res, auth) {
+  // iOS sends the reserve count it computed locally (available + swap + trade queued)
+  // Squad assignments are local-only, so the server trusts the client count
+  const clientReserveCount = typeof req.body?.reserveCount === 'number'
+    ? Math.max(0, Math.round(req.body.reserveCount))
+    : null;
+
   const pool = getFootballPool();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const info = await packInfo(client, auth.userId);
+    const info = await packInfo(client, auth.userId, clientReserveCount);
 
     if (!info.available) {
       await client.query('ROLLBACK');
@@ -196,18 +207,25 @@ async function handlePost(req, res, auth) {
 
 // ---------------------------------------------------------------------------
 // Shared: compute pack eligibility for a user
+// clientReserveCount: iOS-supplied count (available + swap + trade queued).
+//   Squad assignments are local-only so server falls back to owned card count.
 // ---------------------------------------------------------------------------
-async function packInfo(client, userId) {
-  // Count reserve (non-selected) owned cards
-  const countResult = await client.query(
-    `SELECT COUNT(*)::INT AS count
-     FROM sq.football_user_cards
-     WHERE user_id = $1
-       AND ownership_status = 'owned'
-       AND starter_slot_code IS NULL`,
-    [userId]
-  );
-  const reserveCount = countResult.rows[0].count;
+async function packInfo(client, userId, clientReserveCount = null) {
+  let reserveCount;
+  if (clientReserveCount !== null) {
+    // Trust the client — it knows local queue state and squad assignments
+    // Cap at MAX_RESERVE_CARDS so a malicious value can't generate negative packs
+    reserveCount = Math.min(clientReserveCount, MAX_RESERVE_CARDS);
+  } else {
+    // Fallback: count all owned cards (server doesn't know squad assignments)
+    const countResult = await client.query(
+      `SELECT COUNT(*)::INT AS count
+       FROM sq.football_user_cards
+       WHERE user_id = $1 AND ownership_status = 'owned'`,
+      [userId]
+    );
+    reserveCount = countResult.rows[0].count;
+  }
 
   // Check if already claimed today (UTC day boundary)
   const profileResult = await client.query(

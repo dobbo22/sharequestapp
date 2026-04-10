@@ -279,17 +279,18 @@ final class FootballAPIClient {
 
     // MARK: - Daily Pack
 
-    func fetchDailyPackStatus() async throws -> FootballDailyPackStatus {
+    func fetchDailyPackStatus(reserveCount: Int) async throws -> FootballDailyPackStatus {
         guard let token = authToken else { throw FootballAPIError.missingAuthToken }
-        let data = try await sendRequest(baseURL: footballBaseURL, path: "/pack/daily", token: token)
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/pack/daily?reserveCount=\(reserveCount)", token: token)
         do {
             return try decoder.decode(FootballDailyPackStatusResponse.self, from: data).data
         } catch { throw FootballAPIError.decodingError }
     }
 
-    func claimDailyPack() async throws -> FootballDailyPackResult {
+    func claimDailyPack(reserveCount: Int) async throws -> FootballDailyPackResult {
         guard let token = authToken else { throw FootballAPIError.missingAuthToken }
-        let data = try await sendRequest(baseURL: footballBaseURL, path: "/pack/daily", method: "POST", token: token)
+        let body = try encoder.encode(["reserveCount": reserveCount])
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/pack/daily", method: "POST", token: token, body: body)
         do {
             return try decoder.decode(FootballDailyPackClaimResponse.self, from: data).data
         } catch { throw FootballAPIError.decodingError }

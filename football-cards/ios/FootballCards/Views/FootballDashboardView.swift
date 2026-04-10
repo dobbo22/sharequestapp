@@ -217,9 +217,18 @@ struct FootballDashboardView: View {
         }
     }
 
+    /// available + swap queued + trade queued — what the server needs to size the pack
+    private var currentReserveCount: Int {
+        guard let profileData = profileViewModel.profileData else { return 0 }
+        let available = dashboardAvailableCards(fallback: profileData.starterPackCards).count
+        let inTrade   = collectionDashboardViewModel.queuedTradeCardIds.count
+        let inSwap    = collectionDashboardViewModel.queuedSwapCardIds.count
+        return available + inTrade + inSwap
+    }
+
     private func loadDailyPackStatus() async {
         do {
-            dailyPackStatus = try await FootballAPIClient.shared.fetchDailyPackStatus()
+            dailyPackStatus = try await FootballAPIClient.shared.fetchDailyPackStatus(reserveCount: currentReserveCount)
         } catch {
             // Non-critical — swallow silently
         }
@@ -229,11 +238,10 @@ struct FootballDashboardView: View {
         guard !isClaimingDailyPack else { return }
         isClaimingDailyPack = true
         do {
-            let result = try await FootballAPIClient.shared.claimDailyPack()
+            let result = try await FootballAPIClient.shared.claimDailyPack(reserveCount: currentReserveCount)
             dailyPackResult = result
             dailyPackStatus = nil
         } catch {
-            // Refresh status so banner updates
             await loadDailyPackStatus()
         }
         isClaimingDailyPack = false
