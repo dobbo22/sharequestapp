@@ -10,34 +10,6 @@ private extension Color {
     static let exRed   = Color(red: 0.97,  green: 0.35,  blue: 0.35)
 }
 
-// MARK: - Exchange listing model
-struct FootballTradeListing: Identifiable {
-    let id: String
-    let card: FootballOwnedCard
-    let sellerName: String
-    let listedAt: Date
-    let ratingCost: Double          // seller's accumulated ratings / 2
-    let isOwnListing: Bool
-
-    var expiresAt: Date { listedAt.addingTimeInterval(86_400) }   // 24 h window
-    var removableAt: Date { listedAt.addingTimeInterval(21_600) } // 6 h minimum
-
-    var timeRemainingText: String {
-        let remaining = expiresAt.timeIntervalSinceNow
-        if remaining <= 0 { return "Expired" }
-        let hours   = Int(remaining) / 3600
-        let minutes = (Int(remaining) % 3600) / 60
-        if hours > 0 { return "\(hours)h \(minutes)m left" }
-        return "\(minutes)m left"
-    }
-
-    var canRemove: Bool {
-        Date() >= removableAt && Date() < expiresAt
-    }
-
-    var isExpired: Bool { Date() >= expiresAt }
-}
-
 // MARK: - Main view
 struct FootballCardExchangeView: View {
     @ObservedObject var collectionViewModel: FootballCollectionViewModel
@@ -45,25 +17,25 @@ struct FootballCardExchangeView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTab: ExchangeTab = .marketplace
-    @State private var listings: [FootballTradeListing] = []
+    @State private var exchangeData: FootballExchangeData?
     @State private var isLoading = false
     @State private var errorMessage: String?
-    @State private var confirmRemoveId: String?
+    @State private var confirmRemoveListingId: String?
+    @State private var confirmBuyListing: FootballExchangeListingCard?
+    @State private var successMessage: String?
+    @State private var isBuying = false
 
-    private var myListings: [FootballTradeListing] {
-        listings.filter { $0.isOwnListing }
+    // Budget = sum of own active listing card ratings / 2 + server bonus balance
+    private var serverBonusBalance: Double { exchangeData?.tradeRatingBalance ?? 0 }
+    private var myActiveListings: [FootballExchangeListingCard] {
+        exchangeData?.myListings.filter { $0.status == "active" } ?? []
     }
+    private var myAllListings: [FootballExchangeListingCard] { exchangeData?.myListings ?? [] }
+    private var marketListings: [FootballExchangeListingCard] { exchangeData?.marketplace ?? [] }
 
-    private var marketListings: [FootballTradeListing] {
-        listings.filter { !$0.isOwnListing && !$0.isExpired }
-    }
-
-    // Accumulated trade budget: sum of queued-for-trade card ratings / 2
-    private var tradeBudget: Double {
-        let tradeIds = collectionViewModel.queuedTradeCardIds
-        let tradeCards = collectionViewModel.cards.filter { tradeIds.contains($0.userCardId) }
-        let total = tradeCards.compactMap { $0.ratingOutOfTen }.reduce(0, +)
-        return (total / 2).rounded(toPlaces: 1)
+    private var totalBudget: Double {
+        let listingRatings = myActiveListings.compactMap { $0.cardRating }.reduce(0, +) / 2.0
+        return (listingRatings + serverBonusBalance).rounded(toDecimalPlaces: 2)
     }
 
     var body: some View {
@@ -73,18 +45,19 @@ struct FootballCardExchangeView: View {
             VStack(spacing: 0) {
                 header
                 tabBar
-                Divider()
-                    .overlay(Color.white.opacity(0.08))
+                Divider().overlay(Color.white.opacity(0.08))
 
-                if isLoading {
+                if isLoading && exchangeData == nil {
                     Spacer()
-                    ProgressView()
-                        .tint(Color.exLime)
+                    ProgressView().tint(Color.exLime)
                     Spacer()
                 } else {
                     ScrollView {
                         VStack(spacing: 20) {
                             budgetBanner
+                            if let msg = successMessage {
+                                successBanner(msg)
+                            }
                             if selectedTab == .marketplace {
                                 marketplaceSection
                             } else {
@@ -95,22 +68,48 @@ struct FootballCardExchangeView: View {
                         .padding(.top, 16)
                         .padding(.bottom, 32)
                     }
+                    .refreshable { await loadListings() }
                 }
             }
         }
+        // Remove listing confirmation
         .alert("Remove Listing", isPresented: Binding(
-            get: { confirmRemoveId != nil },
-            set: { if !$0 { confirmRemoveId = nil } }
+            get: { confirmRemoveListingId != nil },
+            set: { if !$0 { confirmRemoveListingId = nil } }
         )) {
             Button("Remove", role: .destructive) {
-                if let id = confirmRemoveId {
-                    removeListing(id: id)
-                }
-                confirmRemoveId = nil
+                let id = confirmRemoveListingId
+                confirmRemoveListingId = nil
+                if let id { Task { await removeListing(listingId: id) } }
             }
-            Button("Cancel", role: .cancel) { confirmRemoveId = nil }
+            Button("Cancel", role: .cancel) { confirmRemoveListingId = nil }
         } message: {
-            Text("Removing this card from trade will return it to your available cards. This cannot be undone.")
+            Text("This card will be returned to your available cards. Unsold cards are permanently discarded after 24 hours.")
+        }
+        // Buy confirmation
+        .alert("Confirm Purchase", isPresented: Binding(
+            get: { confirmBuyListing != nil },
+            set: { if !$0 { confirmBuyListing = nil } }
+        )) {
+            Button("Buy for \(String(format: "%.1f", confirmBuyListing?.ratingCost ?? 0)) pts", role: .none) {
+                let listing = confirmBuyListing
+                confirmBuyListing = nil
+                if let listing { Task { await buyListing(listing) } }
+            }
+            Button("Cancel", role: .cancel) { confirmBuyListing = nil }
+        } message: {
+            if let l = confirmBuyListing {
+                Text("Buy \(l.playerName) from \(l.sellerName ?? "another player") for \(String(format: "%.1f", l.ratingCost)) rating points?")
+            }
+        }
+        // Error banner
+        .alert("Error", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "Something went wrong.")
         }
         .task { await loadListings() }
     }
@@ -118,9 +117,7 @@ struct FootballCardExchangeView: View {
     // MARK: - Header
     private var header: some View {
         HStack {
-            Button {
-                dismiss()
-            } label: {
+            Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
@@ -143,8 +140,11 @@ struct FootballCardExchangeView: View {
 
             Spacer()
 
-            // Placeholder to balance layout
-            Color.clear.frame(width: 36, height: 36)
+            if isLoading {
+                ProgressView().tint(Color.exGold).frame(width: 36, height: 36)
+            } else {
+                Color.clear.frame(width: 36, height: 36)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
@@ -183,9 +183,14 @@ struct FootballCardExchangeView: View {
                 Text("Your trade budget")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color.exMuted)
-                Text("\(tradeBudget, specifier: "%.1f") pts")
+                Text(String(format: "%.1f pts", totalBudget))
                     .font(.system(size: 22, weight: .black, design: .rounded))
                     .foregroundStyle(Color.exGold)
+                if serverBonusBalance > 0 {
+                    Text(String(format: "+%.1f bonus pts", serverBonusBalance))
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Color.exLime)
+                }
             }
 
             Spacer()
@@ -194,7 +199,7 @@ struct FootballCardExchangeView: View {
                 Text("Listed")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color.exMuted)
-                Text("\(myListings.count)/\(collectionViewModel.maxTradeQueueCount)")
+                Text("\(myActiveListings.count)/\(collectionViewModel.maxTradeQueueCount)")
                     .font(.system(size: 22, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
             }
@@ -206,6 +211,32 @@ struct FootballCardExchangeView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .stroke(Color.exGold.opacity(0.22), lineWidth: 1.2)
+                )
+        )
+    }
+
+    // MARK: - Success banner
+    private func successBanner(_ message: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Color.exLime)
+            Text(message)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+            Spacer()
+            Button { successMessage = nil } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Color.exMuted)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.exLime.opacity(0.12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.exLime.opacity(0.3), lineWidth: 1)
                 )
         )
     }
@@ -226,12 +257,14 @@ struct FootballCardExchangeView: View {
                 )
             } else {
                 VStack(spacing: 12) {
-                    ForEach(marketListings) { listing in
+                    ForEach(marketListings, id: \.listingId) { listing in
                         ExchangeListingRow(
                             listing: listing,
-                            budget: tradeBudget,
-                            onBuy: { buyListing(listing) }
-                        )
+                            budget: totalBudget,
+                            isBuying: isBuying
+                        ) {
+                            confirmBuyListing = listing
+                        }
                     }
                 }
             }
@@ -248,7 +281,7 @@ struct FootballCardExchangeView: View {
                 .font(.title3.bold())
                 .foregroundStyle(.white)
 
-            if myListings.isEmpty {
+            if myAllListings.isEmpty {
                 exchangeEmptyState(
                     icon: "arrow.left.arrow.right.circle",
                     title: "No active listings",
@@ -256,11 +289,9 @@ struct FootballCardExchangeView: View {
                 )
             } else {
                 VStack(spacing: 12) {
-                    ForEach(myListings) { listing in
+                    ForEach(myAllListings, id: \.listingId) { listing in
                         MyListingRow(listing: listing) {
-                            if listing.canRemove {
-                                confirmRemoveId = listing.id
-                            }
+                            confirmRemoveListingId = listing.listingId
                         }
                     }
                 }
@@ -278,10 +309,11 @@ struct FootballCardExchangeView: View {
                 .foregroundStyle(Color.exGold)
 
             exchangeRule("List up to 5 cards for 24 hours on the exchange.")
-            exchangeRule("Cost to buy = seller's accumulated ratings ÷ 2.")
-            exchangeRule("Seller earns +2 bonus pts plus the sold card's rating.")
-            exchangeRule("Unsold cards after 24 hours are permanently discarded.")
-            exchangeRule("Listings can only be removed after 6 hours minimum.")
+            exchangeRule("Cost to buy = card's rating ÷ 2 in points.")
+            exchangeRule("Your budget = sum of your listed card ratings ÷ 2, plus any bonus points.")
+            exchangeRule("Seller earns card's rating + 2 bonus points on each sale.")
+            exchangeRule("Unsold cards after 24 hours are permanently discarded from your collection.")
+            exchangeRule("Listings can only be removed after a 6-hour lock period.")
         }
         .padding(16)
         .background(
@@ -292,13 +324,8 @@ struct FootballCardExchangeView: View {
 
     private func exchangeRule(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            Circle()
-                .fill(Color.exGold)
-                .frame(width: 5, height: 5)
-                .padding(.top, 6)
-            Text(text)
-                .font(.caption)
-                .foregroundStyle(Color.exMuted)
+            Circle().fill(Color.exGold).frame(width: 5, height: 5).padding(.top, 6)
+            Text(text).font(.caption).foregroundStyle(Color.exMuted)
         }
     }
 
@@ -325,77 +352,96 @@ struct FootballCardExchangeView: View {
         )
     }
 
-    // MARK: - Actions (wire to API when ready)
+    // MARK: - API actions
+
     private func loadListings() async {
         isLoading = true
-        // TODO: fetch GET /api/football/exchange listings
-        // listings = try await FootballAPIClient.shared.fetchExchangeListings()
-        try? await Task.sleep(nanoseconds: 600_000_000)
-        listings = []
+        do {
+            let data = try await FootballAPIClient.shared.fetchExchangeListings()
+            exchangeData = data
+            // Sync local trade queue with server listings
+            let serverListedCardIds = Set(data.myListings.filter { $0.status == "active" }.map { $0.userCardId })
+            collectionViewModel.syncTradeQueueWithServer(listedCardIds: serverListedCardIds)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
         isLoading = false
     }
 
-    private func buyListing(_ listing: FootballTradeListing) {
-        // TODO: POST /api/football/exchange/buy { listingId }
-        // On success: award buyer the card, award seller bonus 2 pts + card rating
+    private func removeListing(listingId: String) async {
+        // Find the card before removal so we can dequeue it locally
+        let listing = myAllListings.first { $0.listingId == listingId }
+        do {
+            try await FootballAPIClient.shared.removeExchangeListing(listingId: listingId)
+            // Remove from local queue
+            if let cardId = listing?.userCardId,
+               let card = collectionViewModel.cards.first(where: { $0.userCardId == cardId }) {
+                collectionViewModel.removeFromQueues(card)
+            }
+            await loadListings()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
-    private func removeListing(id: String) {
-        // TODO: DELETE /api/football/exchange/{ listingId }
-        // Returns card back to available pool
-        listings.removeAll { $0.id == id }
-        // Also remove from local trade queue
-        if let card = collectionViewModel.cards.first(where: { $0.userCardId == id }) {
-            collectionViewModel.removeFromQueues(card)
+    private func buyListing(_ listing: FootballExchangeListingCard) async {
+        isBuying = true
+        do {
+            let result = try await FootballAPIClient.shared.buyExchangeListing(listingId: listing.listingId)
+            successMessage = "\(listing.playerName) added to your collection!"
+            if let card = result.acquiredCard {
+                collectionViewModel.addAcquiredCard(card)
+            }
+            await loadListings()
+        } catch {
+            errorMessage = error.localizedDescription
         }
+        isBuying = false
     }
 }
 
 // MARK: - Marketplace listing row
 private struct ExchangeListingRow: View {
-    let listing: FootballTradeListing
+    let listing: FootballExchangeListingCard
     let budget: Double
+    let isBuying: Bool
     let onBuy: () -> Void
 
     private var canAfford: Bool { budget >= listing.ratingCost }
+    private var isAlmostExpired: Bool {
+        guard let exp = listing.expiresAtDate else { return false }
+        return exp.timeIntervalSinceNow < 3600
+    }
 
     var body: some View {
         HStack(spacing: 14) {
-            // Player photo / initials
-            playerThumb(listing.card)
+            playerThumb(listing)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(listing.card.playerName)
+                Text(listing.playerName)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
 
-                if let pos = listing.card.detailedPositionLabel ?? listing.card.positionLabel {
+                if let pos = listing.detailedPositionLabel ?? listing.positionLabel {
                     Text(pos.uppercased())
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(Color.exMuted)
                         .kerning(0.6)
                 }
 
-                if let club = listing.card.clubName {
-                    Text(club)
-                        .font(.caption)
-                        .foregroundStyle(Color.exMuted)
-                        .lineLimit(1)
-                }
-
                 HStack(spacing: 6) {
-                    if let rating = listing.card.ratingOutOfTen {
+                    if let rating = listing.ratingOutOfTen {
                         Text(String(format: "%.1f", rating))
                             .font(.caption.weight(.bold))
                             .foregroundStyle(Color.exLime)
                     }
-                    Text("·")
-                        .foregroundStyle(Color.exMuted)
-                    Text(listing.sellerName)
-                        .font(.caption)
-                        .foregroundStyle(Color.exMuted)
-                        .lineLimit(1)
+                    if let seller = listing.sellerName {
+                        Text("· \(seller)")
+                            .font(.caption)
+                            .foregroundStyle(Color.exMuted)
+                            .lineLimit(1)
+                    }
                 }
             }
 
@@ -408,7 +454,7 @@ private struct ExchangeListingRow: View {
 
                 Text(listing.timeRemainingText)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(listing.expiresAt.timeIntervalSinceNow < 3600 ? Color.exRed : Color.exMuted)
+                    .foregroundStyle(isAlmostExpired ? Color.exRed : Color.exMuted)
 
                 Button("Buy") { onBuy() }
                     .font(.caption.weight(.black))
@@ -417,7 +463,7 @@ private struct ExchangeListingRow: View {
                     .padding(.vertical, 6)
                     .background(canAfford ? Color.exGold : Color.exCard)
                     .clipShape(Capsule())
-                    .disabled(!canAfford)
+                    .disabled(!canAfford || isBuying)
             }
         }
         .padding(14)
@@ -432,24 +478,24 @@ private struct ExchangeListingRow: View {
     }
 
     @ViewBuilder
-    private func playerThumb(_ card: FootballOwnedCard) -> some View {
+    private func playerThumb(_ listing: FootballExchangeListingCard) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.exGold.opacity(0.14))
                 .frame(width: 54, height: 54)
 
-            if let urlStr = card.photoUrl, let url = URL(string: urlStr) {
+            if let urlStr = listing.photoUrl, let url = URL(string: urlStr) {
                 AsyncImage(url: url) { phase in
                     if case .success(let img) = phase {
                         img.resizable().scaledToFill()
                     } else {
-                        initialsView(card.playerName)
+                        initialsView(listing.playerName)
                     }
                 }
                 .frame(width: 54, height: 54)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             } else {
-                initialsView(card.playerName)
+                initialsView(listing.playerName)
             }
         }
     }
@@ -464,18 +510,27 @@ private struct ExchangeListingRow: View {
 
 // MARK: - Own listing row
 private struct MyListingRow: View {
-    let listing: FootballTradeListing
+    let listing: FootballExchangeListingCard
     let onRemove: () -> Void
+
+    private var isAlmostExpired: Bool {
+        guard let exp = listing.expiresAtDate else { return false }
+        return exp.timeIntervalSinceNow < 3600
+    }
 
     var body: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(listing.card.playerName)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    Text(listing.playerName)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(listing.isExpired ? Color.exMuted : .white)
+                        .lineLimit(1)
 
-                if let pos = listing.card.detailedPositionLabel ?? listing.card.positionLabel {
+                    statusPill(listing.status)
+                }
+
+                if let pos = listing.detailedPositionLabel ?? listing.positionLabel {
                     Text(pos.uppercased())
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(Color.exMuted)
@@ -483,14 +538,12 @@ private struct MyListingRow: View {
                 }
 
                 HStack(spacing: 6) {
-                    if let rating = listing.card.ratingOutOfTen {
+                    if let rating = listing.ratingOutOfTen {
                         Text(String(format: "%.1f", rating))
                             .font(.caption.weight(.bold))
                             .foregroundStyle(Color.exLime)
                     }
-                    Text("·")
-                        .foregroundStyle(Color.exMuted)
-                    Text(String(format: "%.1f pts cost", listing.ratingCost))
+                    Text(String(format: "· %.1f pts cost", listing.ratingCost))
                         .font(.caption)
                         .foregroundStyle(Color.exGold)
                 }
@@ -499,30 +552,29 @@ private struct MyListingRow: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 6) {
-                // Time remaining
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(listing.timeRemainingText)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(listing.expiresAt.timeIntervalSinceNow < 3600 ? Color.exRed : Color.exMuted)
+                Text(listing.timeRemainingText)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(isAlmostExpired ? Color.exRed : Color.exMuted)
 
-                    if !listing.canRemove && !listing.isExpired {
-                        let minutesToRemovable = max(0, Int(listing.removableAt.timeIntervalSinceNow / 60))
-                        let hoursLeft = minutesToRemovable / 60
-                        let minsLeft  = minutesToRemovable % 60
-                        Text("Removable in \(hoursLeft)h \(minsLeft)m")
+                if listing.status == "active" && !listing.canRemove {
+                    if let rem = listing.removableAtDate {
+                        let minutesLeft = max(0, Int(rem.timeIntervalSinceNow / 60))
+                        Text("Removable in \(minutesLeft / 60)h \(minutesLeft % 60)m")
                             .font(.caption2)
                             .foregroundStyle(Color.exMuted)
                     }
                 }
 
-                Button("Remove") { onRemove() }
-                    .font(.caption.weight(.black))
-                    .foregroundStyle(listing.canRemove ? Color.exRed : Color.exMuted)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(listing.canRemove ? Color.exRed.opacity(0.14) : Color.exCard)
-                    .clipShape(Capsule())
-                    .disabled(!listing.canRemove)
+                if listing.status == "active" {
+                    Button("Remove") { onRemove() }
+                        .font(.caption.weight(.black))
+                        .foregroundStyle(listing.canRemove ? Color.exRed : Color.exMuted)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(listing.canRemove ? Color.exRed.opacity(0.14) : Color.exCard)
+                        .clipShape(Capsule())
+                        .disabled(!listing.canRemove)
+                }
             }
         }
         .padding(14)
@@ -531,17 +583,49 @@ private struct MyListingRow: View {
                 .fill(Color.exCard)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(listing.isExpired ? Color.exRed.opacity(0.35) : Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(listing.status == "expired" || listing.status == "discarded"
+                                ? Color.exRed.opacity(0.3) : Color.white.opacity(0.06), lineWidth: 1)
                 )
         )
-        .opacity(listing.isExpired ? 0.55 : 1)
+        .opacity(listing.isExpired ? 0.6 : 1)
+    }
+
+    @ViewBuilder
+    private func statusPill(_ status: String) -> some View {
+        switch status {
+        case "sold":
+            Text("SOLD")
+                .font(.system(size: 9, weight: .black))
+                .foregroundStyle(Color.exLime)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.exLime.opacity(0.15))
+                .clipShape(Capsule())
+        case "expired", "discarded":
+            Text("EXPIRED")
+                .font(.system(size: 9, weight: .black))
+                .foregroundStyle(Color.exRed)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.exRed.opacity(0.15))
+                .clipShape(Capsule())
+        case "removed":
+            Text("REMOVED")
+                .font(.system(size: 9, weight: .black))
+                .foregroundStyle(Color.exMuted)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.exMuted.opacity(0.15))
+                .clipShape(Capsule())
+        default:
+            EmptyView()
+        }
     }
 }
 
 // MARK: - Tab
 private enum ExchangeTab: CaseIterable {
-    case marketplace
-    case myListings
+    case marketplace, myListings
 
     var label: String {
         switch self {
@@ -551,10 +635,10 @@ private enum ExchangeTab: CaseIterable {
     }
 }
 
-// MARK: - Double helper
+// MARK: - Helpers
 private extension Double {
-    func rounded(toPlaces places: Int) -> Double {
-        let divisor = pow(10.0, Double(places))
-        return (self * divisor).rounded() / divisor
+    func rounded(toDecimalPlaces places: Int) -> Double {
+        let d = pow(10.0, Double(places))
+        return (self * d).rounded() / d
     }
 }

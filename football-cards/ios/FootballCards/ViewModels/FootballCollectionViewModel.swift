@@ -758,6 +758,19 @@ final class FootballCollectionViewModel: ObservableObject {
         persistActionQueues()
     }
 
+    /// Called after exchange view loads to align local queue with server truth.
+    func syncTradeQueueWithServer(listedCardIds: Set<String>) {
+        queuedTradeCardIds = listedCardIds
+        persistActionQueues()
+    }
+
+    /// Add a card the user acquired via the exchange (card transfers to them).
+    func addAcquiredCard(_ card: FootballOwnedCard) {
+        if !cards.contains(where: { $0.userCardId == card.userCardId }) {
+            cards.append(card)
+        }
+    }
+
     func isDiscarded(_ card: FootballOwnedCard) -> Bool {
         discardedCardIds.contains(card.userCardId)
     }

@@ -277,6 +277,47 @@ final class FootballAPIClient {
         }
     }
 
+    // MARK: - Exchange
+
+    func fetchExchangeListings() async throws -> FootballExchangeData {
+        guard let token = authToken else { throw FootballAPIError.missingAuthToken }
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/exchange", token: token)
+        do {
+            return try decoder.decode(FootballExchangeResponse.self, from: data).data
+        } catch {
+            throw FootballAPIError.decodingError
+        }
+    }
+
+    func createExchangeListing(userCardId: String) async throws -> FootballCreateListingResult {
+        guard let token = authToken else { throw FootballAPIError.missingAuthToken }
+        let body = try encoder.encode(["userCardId": userCardId])
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/exchange", method: "POST", token: token, body: body)
+        do {
+            return try decoder.decode(FootballCreateListingResponse.self, from: data).data
+        } catch {
+            throw FootballAPIError.decodingError
+        }
+    }
+
+    func removeExchangeListing(listingId: String) async throws {
+        guard let token = authToken else { throw FootballAPIError.missingAuthToken }
+        _ = try await sendRequest(baseURL: footballBaseURL, path: "/exchange?listingId=\(listingId)", method: "DELETE", token: token)
+    }
+
+    func buyExchangeListing(listingId: String) async throws -> FootballBuyListingResult {
+        guard let token = authToken else { throw FootballAPIError.missingAuthToken }
+        let body = try encoder.encode(FootballBuyListingRequest(listingId: listingId))
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/exchange/buy", method: "POST", token: token, body: body)
+        do {
+            return try decoder.decode(FootballBuyListingResponse.self, from: data).data
+        } catch {
+            throw FootballAPIError.decodingError
+        }
+    }
+
+    // MARK: - Swap
+
     func executeSwap(swappedOutUserCardId: String, excludedPlayerIds: [String]) async throws -> FootballSwapResult {
         guard let token = authToken else {
             throw FootballAPIError.missingAuthToken

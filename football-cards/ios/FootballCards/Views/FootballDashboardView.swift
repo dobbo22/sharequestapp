@@ -652,13 +652,27 @@ struct FootballDashboardView: View {
                 }
             }
         case .trade:
-            withAnimation(.easeInOut(duration: 0.18)) {
-                if collectionDashboardViewModel.isQueuedForTrade(card) {
-                    collectionDashboardViewModel.removeFromQueues(card)
-                    activeSection = .collection
-                } else {
+            if collectionDashboardViewModel.isQueuedForTrade(card) {
+                // Removal from trade goes through Card Exchange (6h lock applies)
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    showCardExchange = true
+                }
+            } else {
+                // Optimistically update local state, then create server listing
+                withAnimation(.easeInOut(duration: 0.18)) {
                     collectionDashboardViewModel.queueForTrade(card)
                     activeSection = .trade
+                }
+                Task {
+                    do {
+                        _ = try await FootballAPIClient.shared.createExchangeListing(userCardId: card.userCardId)
+                    } catch {
+                        // Revert local state if server rejected the listing
+                        await MainActor.run {
+                            collectionDashboardViewModel.removeFromQueues(card)
+                            collectionDashboardViewModel.errorMessage = error.localizedDescription
+                        }
+                    }
                 }
             }
         case .discard:
