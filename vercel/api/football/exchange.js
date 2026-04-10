@@ -75,19 +75,21 @@ async function handleGet(req, res, auth) {
       WHERE status = 'active' AND expires_at <= NOW()
     `);
 
-    // Discard expired cards that weren't sold — mark user_card as traded/discarded
+    // Discard expired cards that weren't sold — use subquery to avoid metadata ambiguity
     await client.query(`
-      UPDATE sq.football_user_cards uc
+      UPDATE sq.football_user_cards
       SET ownership_status = 'traded',
           metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
             'disposition', 'exchange_expired',
             'discardedAt', NOW()
           )
-      FROM sq.football_exchange_listings el
-      WHERE el.status = 'expired'
-        AND el.user_card_id = uc.id
-        AND uc.ownership_status = 'owned'
-        AND el.metadata->>'cardDiscarded' IS NULL
+      WHERE id IN (
+        SELECT user_card_id
+        FROM sq.football_exchange_listings
+        WHERE status = 'expired'
+          AND metadata->>'cardDiscarded' IS NULL
+      )
+      AND ownership_status = 'owned'
     `);
 
     // Mark those listings so we don't double-discard
