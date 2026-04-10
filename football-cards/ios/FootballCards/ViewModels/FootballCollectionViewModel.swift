@@ -69,7 +69,7 @@ final class FootballCollectionViewModel: ObservableObject {
         static let swapUsageDate = "football_swap_usage_date"
     }
 
-    let maxTradeQueueCount = 5
+    let maxTradeQueueCount = 10
     let maxSwapQueueCount = 5
     let maxSwapsPerDay = 5
 

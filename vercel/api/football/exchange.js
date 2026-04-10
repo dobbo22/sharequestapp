@@ -182,7 +182,7 @@ async function handleGet(req, res, auth) {
 
 // ---------------------------------------------------------------------------
 // POST /api/football/exchange  { userCardId }
-// List a card on the exchange. Max 5 active listings per user.
+// List a card on the exchange. Max 10 active listings per user.
 // ---------------------------------------------------------------------------
 async function handlePost(req, res, auth) {
   const userCardId = typeof req.body?.userCardId === 'string'
@@ -198,15 +198,15 @@ async function handlePost(req, res, auth) {
   try {
     await client.query('BEGIN');
 
-    // Check max 5 active listings
+    // Check max 10 active listings
     const activeCountResult = await client.query(
       `SELECT COUNT(*) AS count FROM sq.football_exchange_listings
        WHERE seller_user_id = $1 AND status = 'active'`,
       [auth.userId]
     );
-    if (parseInt(activeCountResult.rows[0].count, 10) >= 5) {
+    if (parseInt(activeCountResult.rows[0].count, 10) >= 10) {
       await client.query('ROLLBACK');
-      return res.status(409).json({ success: false, error: 'Maximum 5 active listings allowed' });
+      return res.status(409).json({ success: false, error: 'Maximum 10 active listings allowed' });
     }
 
     // Verify card is owned by user and not already listed
