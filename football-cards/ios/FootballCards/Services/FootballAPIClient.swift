@@ -281,7 +281,7 @@ final class FootballAPIClient {
 
     func fetchDailyPackStatus(reserveCount: Int) async throws -> FootballDailyPackStatus {
         guard let token = authToken else { throw FootballAPIError.missingAuthToken }
-        let data = try await sendRequest(baseURL: footballBaseURL, path: "/pack/daily?reserveCount=\(reserveCount)", token: token)
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/pack?reserveCount=\(reserveCount)", token: token)
         do {
             return try decoder.decode(FootballDailyPackStatusResponse.self, from: data).data
         } catch { throw FootballAPIError.decodingError }
@@ -290,7 +290,7 @@ final class FootballAPIClient {
     func claimDailyPack(reserveCount: Int) async throws -> FootballDailyPackResult {
         guard let token = authToken else { throw FootballAPIError.missingAuthToken }
         let body = try encoder.encode(["reserveCount": reserveCount])
-        let data = try await sendRequest(baseURL: footballBaseURL, path: "/pack/daily", method: "POST", token: token, body: body)
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/pack", method: "POST", token: token, body: body)
         do {
             return try decoder.decode(FootballDailyPackClaimResponse.self, from: data).data
         } catch { throw FootballAPIError.decodingError }
@@ -299,7 +299,7 @@ final class FootballAPIClient {
     func discardCard(userCardId: String) async throws -> FootballDiscardResult {
         guard let token = authToken else { throw FootballAPIError.missingAuthToken }
         let body = try encoder.encode(["userCardId": userCardId])
-        let data = try await sendRequest(baseURL: footballBaseURL, path: "/collection/discard", method: "POST", token: token, body: body)
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/collection", method: "DELETE", token: token, body: body)
         do {
             return try decoder.decode(FootballDiscardResponse.self, from: data).data
         } catch { throw FootballAPIError.decodingError }
@@ -336,7 +336,7 @@ final class FootballAPIClient {
     func buyExchangeListing(listingId: String) async throws -> FootballBuyListingResult {
         guard let token = authToken else { throw FootballAPIError.missingAuthToken }
         let body = try encoder.encode(FootballBuyListingRequest(listingId: listingId))
-        let data = try await sendRequest(baseURL: footballBaseURL, path: "/exchange/buy", method: "POST", token: token, body: body)
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/exchange", method: "PUT", token: token, body: body)
         do {
             return try decoder.decode(FootballBuyListingResponse.self, from: data).data
         } catch {

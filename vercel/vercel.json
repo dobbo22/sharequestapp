@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/football/dev/**": {
+      "includeFiles": ""
+    }
+  },
+  "ignoreCommand": "exit 0"
+}
