@@ -781,7 +781,18 @@ final class FootballCollectionViewModel: ObservableObject {
         discardedCardIds.insert(card.userCardId)
         persistActionQueues()
         persistDiscardedCards()
+        // Best-effort server sync — 5/day limit enforced server-side
+        Task {
+            do {
+                let result = try await FootballAPIClient.shared.discardCard(userCardId: card.userCardId)
+                await MainActor.run { self.discardsRemainingToday = result.discardsRemaining }
+            } catch {
+                // Discard remains local even if server call fails
+            }
+        }
     }
+
+    @Published private(set) var discardsRemainingToday: Int = 5
 
     @discardableResult
     func executeSwap() async -> [FootballOwnedCard] {

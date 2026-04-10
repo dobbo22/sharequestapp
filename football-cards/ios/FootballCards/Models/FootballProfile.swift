@@ -168,6 +168,46 @@ struct FootballProfileUpdateRequest: Encodable {
     let teamName: String?
 }
 
+// MARK: - Daily Pack
+
+struct FootballDailyPackStatusResponse: Decodable {
+    let success: Bool
+    let data: FootballDailyPackStatus
+}
+
+struct FootballDailyPackStatus: Decodable {
+    let available: Bool
+    let alreadyClaimed: Bool
+    let packSize: Int
+    let reserveCount: Int
+    let maxReserve: Int
+    let discardsRemaining: Int
+    let maxDailyDiscards: Int
+}
+
+struct FootballDailyPackClaimResponse: Decodable {
+    let success: Bool
+    let data: FootballDailyPackResult
+}
+
+struct FootballDailyPackResult: Decodable, Identifiable {
+    let cards: [FootballOwnedCard]
+    let packSize: Int
+    let reserveCount: Int
+    let maxReserve: Int
+    var id: String { "\(packSize)-\(reserveCount)" }
+}
+
+struct FootballDiscardResponse: Decodable {
+    let success: Bool
+    let data: FootballDiscardResult
+}
+
+struct FootballDiscardResult: Decodable {
+    let userCardId: String
+    let discardsRemaining: Int
+}
+
 // MARK: - Exchange
 
 struct FootballExchangeListingCard: Decodable {

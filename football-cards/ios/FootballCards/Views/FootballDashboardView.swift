@@ -19,6 +19,9 @@ struct FootballDashboardView: View {
     @State private var activeSection: FootballDashboardSection = .collection
     @State private var latestSwapRewardCard: FootballOwnedCard?
     @State private var isExecutingSwap = false
+    @State private var dailyPackStatus: FootballDailyPackStatus?
+    @State private var isClaimingDailyPack = false
+    @State private var dailyPackResult: FootballDailyPackResult?
 
     var body: some View {
         ZStack {
@@ -31,6 +34,7 @@ struct FootballDashboardView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         clubHeroCard(profileData: profileData)
+                        dailyPackSection
                         selectionTiles(profileData: profileData)
                         actionChoiceSection(profileData: profileData)
                     }
@@ -57,10 +61,9 @@ struct FootballDashboardView: View {
         .onAppear {
             collectionDashboardViewModel.reloadPersistedState()
             if collectionDashboardViewModel.cards.isEmpty && !collectionDashboardViewModel.isLoading {
-                Task {
-                    await collectionDashboardViewModel.loadCollection()
-                }
+                Task { await collectionDashboardViewModel.loadCollection() }
             }
+            Task { await loadDailyPackStatus() }
         }
         .safeAreaInset(edge: .top) {
             topBar
@@ -102,6 +105,14 @@ struct FootballDashboardView: View {
             await session.restoreSession()
             await collectionDashboardViewModel.loadCollection()
             collectionDashboardViewModel.reloadPersistedState()
+            await loadDailyPackStatus()
+        }
+        .fullScreenCover(item: $dailyPackResult) { result in
+            FootballDailyPackRevealView(cards: result.cards) {
+                dailyPackResult = nil
+                collectionDashboardViewModel.reloadPersistedState()
+                Task { await collectionDashboardViewModel.loadCollection() }
+            }
         }
     }
 
@@ -189,6 +200,43 @@ struct FootballDashboardView: View {
             }
             .padding(20)
         }
+    }
+
+    // MARK: - Daily pack banner
+
+    @ViewBuilder
+    private var dailyPackSection: some View {
+        if let status = dailyPackStatus {
+            if status.available {
+                FootballDailyPackBanner(status: status, isClaiming: isClaimingDailyPack) {
+                    Task { await claimDailyPack() }
+                }
+            } else {
+                FootballDailyPackClaimedBanner(status: status)
+            }
+        }
+    }
+
+    private func loadDailyPackStatus() async {
+        do {
+            dailyPackStatus = try await FootballAPIClient.shared.fetchDailyPackStatus()
+        } catch {
+            // Non-critical — swallow silently
+        }
+    }
+
+    private func claimDailyPack() async {
+        guard !isClaimingDailyPack else { return }
+        isClaimingDailyPack = true
+        do {
+            let result = try await FootballAPIClient.shared.claimDailyPack()
+            dailyPackResult = result
+            dailyPackStatus = nil
+        } catch {
+            // Refresh status so banner updates
+            await loadDailyPackStatus()
+        }
+        isClaimingDailyPack = false
     }
 
     // MARK: - Dashboard tiles

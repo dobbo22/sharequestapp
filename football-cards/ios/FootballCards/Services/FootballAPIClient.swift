@@ -277,6 +277,33 @@ final class FootballAPIClient {
         }
     }
 
+    // MARK: - Daily Pack
+
+    func fetchDailyPackStatus() async throws -> FootballDailyPackStatus {
+        guard let token = authToken else { throw FootballAPIError.missingAuthToken }
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/pack/daily", token: token)
+        do {
+            return try decoder.decode(FootballDailyPackStatusResponse.self, from: data).data
+        } catch { throw FootballAPIError.decodingError }
+    }
+
+    func claimDailyPack() async throws -> FootballDailyPackResult {
+        guard let token = authToken else { throw FootballAPIError.missingAuthToken }
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/pack/daily", method: "POST", token: token)
+        do {
+            return try decoder.decode(FootballDailyPackClaimResponse.self, from: data).data
+        } catch { throw FootballAPIError.decodingError }
+    }
+
+    func discardCard(userCardId: String) async throws -> FootballDiscardResult {
+        guard let token = authToken else { throw FootballAPIError.missingAuthToken }
+        let body = try encoder.encode(["userCardId": userCardId])
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/collection/discard", method: "POST", token: token, body: body)
+        do {
+            return try decoder.decode(FootballDiscardResponse.self, from: data).data
+        } catch { throw FootballAPIError.decodingError }
+    }
+
     // MARK: - Exchange
 
     func fetchExchangeListings() async throws -> FootballExchangeData {
