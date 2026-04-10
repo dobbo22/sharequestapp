@@ -21,7 +21,7 @@ struct FootballSettingsView: View {
                     TextField("Football API base URL", text: $footballAPIBaseURL)
                         .autocorrectionDisabled()
                     Button("Use Production URLs") {
-                        footballAPIBaseURL = "https://www.sharequest.co.uk/api/football"
+                        footballAPIBaseURL = "https://sharequestapp.vercel.app/api/football"
                     }
                     Button("Use Local URLs") {
                         footballAPIBaseURL = client.defaultFootballBaseURL

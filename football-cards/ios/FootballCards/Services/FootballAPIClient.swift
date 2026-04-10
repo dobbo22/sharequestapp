@@ -64,7 +64,7 @@ final class FootballAPIClient {
 #if DEBUG
         debugLocalBaseURLs[0]
 #else
-        "https://www.sharequest.co.uk/api/football"
+        "https://sharequestapp.vercel.app/api/football"
 #endif
     }
 
