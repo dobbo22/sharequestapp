@@ -336,22 +336,32 @@ struct FootballCollectionView: View {
                                 activeCollectionSelection = key
                             }
                         } label: {
-                            VStack(spacing: 6) {
-                                selectionTileBadge(url: badgeURL, clubName: badgeClub)
-                                    .frame(width: 34, height: 34)
+                            ZStack(alignment: .bottomTrailing) {
+                                // Club logo fills the tile
+                                if let url = badgeURL, let name = badgeClub {
+                                    AsyncImage(url: URL(string: url)) { phase in
+                                        if case .success(let img) = phase {
+                                            img.resizable().scaledToFill()
+                                        } else {
+                                            ClubLogoImage(clubName: name, logoUrl: url, size: 62)
+                                        }
+                                    }
+                                } else if let name = badgeClub {
+                                    ClubLogoImage(clubName: name, size: 62)
+                                }
 
+                                // Checkmark indicator overlay
                                 Image(systemName: "checkmark.circle.fill")
                                     .font(.caption.weight(.bold))
                                     .foregroundStyle(Color.kcLime)
+                                    .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
+                                    .padding(4)
                             }
                             .frame(width: 62, height: 68)
-                            .background(
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(isActive ? Color.kcNavy.opacity(0.92) : Color.kcNavy.opacity(0.50))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .stroke(isActive ? Color.kcLime.opacity(0.75) : Color.white.opacity(0.08), lineWidth: 1.2)
-                                    )
+                                    .stroke(isActive ? Color.kcLime.opacity(0.75) : Color.white.opacity(0.08), lineWidth: 1.2)
                             )
                         }
                         .buttonStyle(.plain)
