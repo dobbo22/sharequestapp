@@ -48,6 +48,11 @@ function isMissingColumnError(error) {
   return error?.code === '42703'; // undefined_column
 }
 
+function isSchemaDriftError(error) {
+  // undefined_column, undefined_table, undefined_object
+  return error?.code === '42703' || error?.code === '42P01' || error?.code === '42704';
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -84,6 +89,25 @@ async function handleGet(req, res, auth) {
     return res.status(200).json({ success: true, data: info });
   } catch (error) {
     console.error('GET /api/football/pack/daily failed', error);
+    // Keep client UX alive even if this environment has schema drift.
+    if (isSchemaDriftError(error)) {
+      const reserveCount = clientReserveCount ?? MAX_RESERVE_CARDS;
+      const packSize = Math.max(0, MAX_RESERVE_CARDS - reserveCount);
+      return res.status(200).json({
+        success: true,
+        data: {
+          available: packSize > 0,
+          alreadyClaimed: false,
+          packSize,
+          reserveCount,
+          maxReserve: MAX_RESERVE_CARDS,
+          discardsRemaining: MAX_DAILY_DISCARDS,
+          maxDailyDiscards: MAX_DAILY_DISCARDS,
+          degraded: true,
+        },
+      });
+    }
+
     return res.status(500).json({ success: false, error: 'Failed to check daily pack', details: error.message });
   } finally {
     client.release();
@@ -229,13 +253,20 @@ async function packInfo(client, userId, clientReserveCount = null) {
     reserveCount = Math.min(clientReserveCount, MAX_RESERVE_CARDS);
   } else {
     // Fallback: count all owned cards (server doesn't know squad assignments)
-    const countResult = await client.query(
-      `SELECT COUNT(*)::INT AS count
-       FROM sq.football_user_cards
-       WHERE user_id = $1 AND ownership_status = 'owned'`,
-      [userId]
-    );
-    reserveCount = countResult.rows[0].count;
+    try {
+      const countResult = await client.query(
+        `SELECT COUNT(*)::INT AS count
+         FROM sq.football_user_cards
+         WHERE user_id = $1 AND ownership_status = 'owned'`,
+        [userId]
+      );
+      reserveCount = countResult.rows[0].count;
+    } catch (error) {
+      if (!isSchemaDriftError(error)) {
+        throw error;
+      }
+      reserveCount = MAX_RESERVE_CARDS;
+    }
   }
 
   // Check if already claimed today (UTC day boundary)
@@ -250,7 +281,7 @@ async function packInfo(client, userId, clientReserveCount = null) {
     );
     profile = profileResult.rows[0] ?? null;
   } catch (error) {
-    if (!isMissingColumnError(error)) {
+    if (!isSchemaDriftError(error)) {
       throw error;
     }
     // Fallback for partially migrated databases: treat as never claimed with full discard quota.
