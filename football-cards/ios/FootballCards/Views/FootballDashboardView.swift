@@ -224,6 +224,18 @@ struct FootballDashboardView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(isClaimingDailyPack)
+                    } else if let status = dailyPackStatus {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 9, weight: .bold))
+                            Text(status.alreadyClaimed ? "Daily Complete" : "Reserve Full")
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                        }
+                        .foregroundStyle(Color.kcMuted)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Color.white.opacity(0.05))
+                        .clipShape(Capsule())
                     }
                 }
             }
@@ -243,8 +255,10 @@ struct FootballDashboardView: View {
     private func loadDailyPackStatus() async {
         do {
             dailyPackStatus = try await FootballAPIClient.shared.fetchDailyPackStatus(reserveCount: currentReserveCount)
+            print("[DailyPack] Status loaded: available=\(dailyPackStatus?.available ?? false), packSize=\(dailyPackStatus?.packSize ?? 0)")
         } catch {
-            // Non-critical — swallow silently
+            print("[DailyPack] Error loading status: \(error.localizedDescription)")
+            // Non-critical — swallow silently but log for debugging
         }
     }
 
