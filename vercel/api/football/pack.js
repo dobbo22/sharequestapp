@@ -1,5 +1,5 @@
-import { getFootballPool } from '../../../lib/football/db.js';
-import { authenticate } from '../../../lib/football/auth.js';
+import { getFootballPool } from '../../lib/football/db.js';
+import { authenticate } from '../../lib/football/auth.js';
 
 const MAX_RESERVE_CARDS = 30;
 const MAX_DAILY_DISCARDS = 5;
