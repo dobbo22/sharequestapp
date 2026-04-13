@@ -44,6 +44,10 @@ function toCardRowSelect(alias = 'uc') {
 
 const playerEligibilityFilter = `COALESCE(NULLIF(p.metadata->'performanceStats'->>'appearances', '')::INT, 0) > 0`;
 
+function isMissingColumnError(error) {
+  return error?.code === '42703'; // undefined_column
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -164,13 +168,20 @@ async function handlePost(req, res, auth) {
       newCardIds.push(insertResult.rows[0].userCardId);
     }
 
-    // Record the claim timestamp
-    await client.query(
-      `UPDATE sq.football_profiles
-       SET daily_pack_claimed_at = NOW()
-       WHERE user_id = $1`,
-      [auth.userId]
-    );
+    // Record the claim timestamp if the column exists in this deployment.
+    // Some environments can lag migrations; claiming should still succeed.
+    try {
+      await client.query(
+        `UPDATE sq.football_profiles
+         SET daily_pack_claimed_at = NOW()
+         WHERE user_id = $1`,
+        [auth.userId]
+      );
+    } catch (error) {
+      if (!isMissingColumnError(error)) {
+        throw error;
+      }
+    }
 
     // Fetch full card data for response
     const cardsResult = await client.query(
@@ -228,14 +239,23 @@ async function packInfo(client, userId, clientReserveCount = null) {
   }
 
   // Check if already claimed today (UTC day boundary)
-  const profileResult = await client.query(
-    `SELECT daily_pack_claimed_at,
-            daily_discard_date,
-            COALESCE(daily_discards_used, 0) AS daily_discards_used
-     FROM sq.football_profiles WHERE user_id = $1 LIMIT 1`,
-    [userId]
-  );
-  const profile = profileResult.rows[0];
+  let profile = null;
+  try {
+    const profileResult = await client.query(
+      `SELECT daily_pack_claimed_at,
+              daily_discard_date,
+              COALESCE(daily_discards_used, 0) AS daily_discards_used
+       FROM sq.football_profiles WHERE user_id = $1 LIMIT 1`,
+      [userId]
+    );
+    profile = profileResult.rows[0] ?? null;
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error;
+    }
+    // Fallback for partially migrated databases: treat as never claimed with full discard quota.
+    profile = null;
+  }
 
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
   const lastClaimed = profile?.daily_pack_claimed_at
