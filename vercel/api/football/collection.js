@@ -1,8 +1,6 @@
 import { getFootballPool } from '../../lib/football/db.js';
 import { authenticate } from '../../lib/football/auth.js';
 
-const playerEligibilityFilter = `COALESCE(NULLIF(p.metadata->'performanceStats'->>'appearances', '')::INT, 0) > 0`;
-
 function parseLimit(value, fallback = 100) {
   const parsed = Number.parseInt(value ?? String(fallback), 10);
   if (!Number.isFinite(parsed) || parsed < 1) {
@@ -37,7 +35,7 @@ export default async function handler(req, res) {
   const { slot, club, search } = req.query ?? {};
   const limit = parseLimit(req.query?.limit, 100);
   const params = [auth.userId];
-  const filters = ['uc.user_id = $1', "uc.ownership_status = 'owned'", playerEligibilityFilter];
+  const filters = ['uc.user_id = $1', "uc.ownership_status = 'owned'"];
 
   if (typeof slot === 'string' && slot.trim().length > 0) {
     params.push(slot.trim().toUpperCase());
@@ -114,7 +112,6 @@ export default async function handler(req, res) {
         INNER JOIN sq.football_players p ON p.id = uc.player_id
         WHERE uc.user_id = $1 AND uc.starter_slot_code IS NOT NULL
           AND uc.ownership_status = 'owned'
-          AND ${playerEligibilityFilter}
         ORDER BY slot ASC
       `,
       [auth.userId]
@@ -128,7 +125,6 @@ export default async function handler(req, res) {
         LEFT JOIN sq.football_clubs c ON c.id = p.club_id
         WHERE uc.user_id = $1 AND c.name IS NOT NULL
           AND uc.ownership_status = 'owned'
-          AND ${playerEligibilityFilter}
         ORDER BY c.name ASC
       `,
       [auth.userId]
@@ -144,7 +140,6 @@ export default async function handler(req, res) {
         INNER JOIN sq.football_players p ON p.id = uc.player_id
         WHERE uc.user_id = $1
           AND uc.ownership_status = 'owned'
-          AND ${playerEligibilityFilter}
       `,
       [auth.userId]
     );
