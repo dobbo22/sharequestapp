@@ -889,12 +889,24 @@ final class FootballCollectionViewModel: ObservableObject {
         }
     }
 
-    /// Call after login to load server-side squad assignments onto this device
+    /// Call after login to sync squad assignments between server and this device.
+    /// If server has data → merge onto device. If server is empty but device has data → push device up.
     func syncSquadAssignmentsFromServer(_ serverAssignments: [String: [String: String]]) {
+        let localAssignments = squadAssignmentsByLeague
+
+        if serverAssignments.isEmpty && !localAssignments.isEmpty {
+            // Device has assignments server doesn't know about — push them up
+            Task {
+                try? await FootballAPIClient.shared.saveSquadAssignments(localAssignments)
+            }
+            return
+        }
+
         guard !serverAssignments.isEmpty else { return }
-        // Merge: server wins for any slot not yet set locally
+
+        // Server has data — merge: local device wins for slots it has set
         var merged = serverAssignments
-        for (league, slots) in squadAssignmentsByLeague {
+        for (league, slots) in localAssignments {
             for (slot, cardId) in slots {
                 if merged[league] == nil { merged[league] = [:] }
                 merged[league]![slot] = cardId
