@@ -62,7 +62,6 @@ struct FootballDashboardView: View {
             if collectionDashboardViewModel.cards.isEmpty && !collectionDashboardViewModel.isLoading {
                 Task { await collectionDashboardViewModel.loadCollection() }
             }
-            Task { await loadDailyPackStatus() }
             // Sync squad assignments from server on first appear
             Task {
                 if let serverAssignments = profileViewModel.profileData?.squadAssignments {
@@ -124,8 +123,15 @@ struct FootballDashboardView: View {
                 Task { await collectionDashboardViewModel.loadCollection() }
             }
         }
+        .onChange(of: profileViewModel.profileData) { _ in
+            // Reload daily pack status after profile data is available (correctly calculated reserve count)
+            Task { await loadDailyPackStatus() }
+        }
+        .onAppear {
+            // Initial daily pack status load (will be refreshed when profileData loads)
+            Task { await loadDailyPackStatus() }
+        }
     }
-
     // MARK: - Top bar
     private var topBar: some View {
         HStack {
