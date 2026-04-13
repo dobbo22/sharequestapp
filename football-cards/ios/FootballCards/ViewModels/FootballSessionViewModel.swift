@@ -30,8 +30,11 @@ final class FootballSessionViewModel: ObservableObject {
             currentUser = try await FootballAPIClient.shared.fetchCurrentUser()
             errorMessage = nil
         } catch {
-            FootballAPIClient.shared.clearAuth()
-            currentUser = nil
+            // Only clear auth on 401 — network errors should not sign the user out
+            if case FootballAPIError.serverError(let status, _) = error, status == 401 {
+                FootballAPIClient.shared.clearAuth()
+                currentUser = nil
+            }
             errorMessage = nil
         }
     }

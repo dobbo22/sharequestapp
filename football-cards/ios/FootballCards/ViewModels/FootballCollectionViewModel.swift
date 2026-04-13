@@ -218,6 +218,10 @@ final class FootballCollectionViewModel: ObservableObject {
 
             baseCollectionCards = collectionResult.cards
             cards = mergedCollectionCards(baseCards: collectionResult.cards)
+            // Sync server squad assignments now that cards are loaded
+            if let serverAssignments = profileResult.squadAssignments {
+                syncSquadAssignmentsFromServer(serverAssignments)
+            }
             sanitizeDuplicateAssignments()
             availableSlots = ["All"] + collectionResult.availableSlots
             availableClubs = ["All"] + collectionResult.availableClubs

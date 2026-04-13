@@ -108,7 +108,10 @@ struct FootballDashboardView: View {
         }
         .refreshable {
             await bootstrapViewModel.refreshAll()
-            await profileViewModel.refreshAll()
+            await profileViewModel.loadProfile(syncingTo: collectionDashboardViewModel)
+            if profileViewModel.clubs.isEmpty {
+                await profileViewModel.loadClubs()
+            }
             await session.restoreSession()
             await collectionDashboardViewModel.loadCollection()
             collectionDashboardViewModel.reloadPersistedState()
