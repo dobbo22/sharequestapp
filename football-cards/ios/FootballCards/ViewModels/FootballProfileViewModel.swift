@@ -26,7 +26,7 @@ final class FootballProfileViewModel: ObservableObject {
             // Sync squad assignments from server onto this device
             if let serverAssignments = profileData?.squadAssignments,
                let vm = collectionViewModel {
-                vm.syncSquadAssignmentsFromServer(serverAssignments)
+                vm.syncSquadAssignmentsFromServer(serverAssignments, squadConfig: profileData?.squadConfig)
             }
         } catch {
             errorMessage = error.localizedDescription

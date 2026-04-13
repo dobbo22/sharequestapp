@@ -11,6 +11,7 @@ struct FootballProfileData: Decodable {
     let starterPackCards: [FootballOwnedCard]
     let allocation: FootballStarterPackAllocation?
     let squadAssignments: [String: [String: String]]?
+    let squadConfig: [String: FootballLeagueSelection]?
 }
 
 struct FootballCollectionResponse: Decodable {

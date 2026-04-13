@@ -66,7 +66,7 @@ struct FootballDashboardView: View {
             // Sync squad assignments from server on first appear
             Task {
                 if let serverAssignments = profileViewModel.profileData?.squadAssignments {
-                    collectionDashboardViewModel.syncSquadAssignmentsFromServer(serverAssignments)
+                    collectionDashboardViewModel.syncSquadAssignmentsFromServer(serverAssignments, squadConfig: profileViewModel.profileData?.squadConfig)
                 } else {
                     await profileViewModel.loadProfile(syncingTo: collectionDashboardViewModel)
                 }

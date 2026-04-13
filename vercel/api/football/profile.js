@@ -160,42 +160,55 @@ export default async function handler(req, res) {
     await ensureProfile(client, auth.userId);
 
     if (req.method === 'GET') {
-      const data = await buildProfileResponse(client, auth.userId);
-      // Also return squad assignments
-      const assignmentsResult = await client.query(
-        `SELECT league_name AS "leagueName", slot_code AS "slotCode", user_card_id AS "userCardId"
-         FROM sq.football_squad_assignments WHERE user_id = $1`,
-        [auth.userId]
-      );
-      // Shape: { "Premier League": { "GK": "card-id", ... }, ... }
+      const [data, assignmentsResult, configResult] = await Promise.all([
+        buildProfileResponse(client, auth.userId),
+        client.query(
+          `SELECT league_name AS "leagueName", slot_code AS "slotCode", user_card_id AS "userCardId"
+           FROM sq.football_squad_assignments WHERE user_id = $1`,
+          [auth.userId]
+        ),
+        client.query(
+          `SELECT squad_config AS "squadConfig" FROM sq.football_profiles WHERE user_id = $1`,
+          [auth.userId]
+        ),
+      ]);
       const squadAssignments = {};
       for (const row of assignmentsResult.rows) {
         if (!squadAssignments[row.leagueName]) squadAssignments[row.leagueName] = {};
         squadAssignments[row.leagueName][row.slotCode] = row.userCardId;
       }
-      return res.status(200).json({ success: true, data: { ...data, squadAssignments } });
+      const squadConfig = configResult.rows[0]?.squadConfig ?? {};
+      return res.status(200).json({ success: true, data: { ...data, squadAssignments, squadConfig } });
     }
 
-    // PUT — sync squad assignments from device
+    // PUT — sync squad assignments + league selections from device
     if (req.method === 'PUT') {
       const assignments = req.body?.squadAssignments;
-      if (!assignments || typeof assignments !== 'object') {
-        return res.status(400).json({ success: false, error: 'Missing squadAssignments' });
-      }
-      // Delete all existing and re-insert
-      await client.query(`DELETE FROM sq.football_squad_assignments WHERE user_id = $1`, [auth.userId]);
-      for (const [leagueName, slots] of Object.entries(assignments)) {
-        for (const [slotCode, userCardId] of Object.entries(slots)) {
-          if (typeof userCardId === 'string' && userCardId) {
-            await client.query(
-              `INSERT INTO sq.football_squad_assignments (user_id, league_name, slot_code, user_card_id, updated_at)
-               VALUES ($1, $2, $3, $4, NOW())
-               ON CONFLICT (user_id, league_name, slot_code) DO UPDATE SET user_card_id = $4, updated_at = NOW()`,
-              [auth.userId, leagueName, slotCode, userCardId]
-            );
+      const squadConfig = req.body?.squadConfig;
+
+      if (assignments && typeof assignments === 'object') {
+        await client.query(`DELETE FROM sq.football_squad_assignments WHERE user_id = $1`, [auth.userId]);
+        for (const [leagueName, slots] of Object.entries(assignments)) {
+          for (const [slotCode, userCardId] of Object.entries(slots)) {
+            if (typeof userCardId === 'string' && userCardId) {
+              await client.query(
+                `INSERT INTO sq.football_squad_assignments (user_id, league_name, slot_code, user_card_id, updated_at)
+                 VALUES ($1, $2, $3, $4, NOW())
+                 ON CONFLICT (user_id, league_name, slot_code) DO UPDATE SET user_card_id = $4, updated_at = NOW()`,
+                [auth.userId, leagueName, slotCode, userCardId]
+              );
+            }
           }
         }
       }
+
+      if (squadConfig && typeof squadConfig === 'object') {
+        await client.query(
+          `UPDATE sq.football_profiles SET squad_config = $2, updated_at = NOW() WHERE user_id = $1`,
+          [auth.userId, JSON.stringify(squadConfig)]
+        );
+      }
+
       return res.status(200).json({ success: true });
     }
 

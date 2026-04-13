@@ -220,7 +220,7 @@ final class FootballCollectionViewModel: ObservableObject {
             cards = mergedCollectionCards(baseCards: collectionResult.cards)
             // Sync server squad assignments now that cards are loaded
             if let serverAssignments = profileResult.squadAssignments {
-                syncSquadAssignmentsFromServer(serverAssignments)
+                syncSquadAssignmentsFromServer(serverAssignments, squadConfig: profileResult.squadConfig)
             }
             sanitizeDuplicateAssignments()
             availableSlots = ["All"] + collectionResult.availableSlots
@@ -887,21 +887,32 @@ final class FootballCollectionViewModel: ObservableObject {
         guard let data = try? JSONEncoder().encode(squadAssignmentsByLeague) else { return }
         UserDefaults.standard.set(data, forKey: StorageKey.squadAssignments)
         // Best-effort server sync (fire and forget)
-        let snapshot = squadAssignmentsByLeague
+        let assignmentsSnapshot = squadAssignmentsByLeague
+        let configSnapshot = lockedLeagueSelections
         Task {
-            try? await FootballAPIClient.shared.saveSquadAssignments(snapshot)
+            try? await FootballAPIClient.shared.saveSquadData(assignments: assignmentsSnapshot, squadConfig: configSnapshot)
         }
     }
 
-    /// Call after login to sync squad assignments between server and this device.
-    /// If server has data → merge onto device. If server is empty but device has data → push device up.
-    func syncSquadAssignmentsFromServer(_ serverAssignments: [String: [String: String]]) {
+    /// Sync squad assignments and league selections from server onto this device.
+    /// If server is empty but device has data → push device up.
+    func syncSquadAssignmentsFromServer(_ serverAssignments: [String: [String: String]], squadConfig: [String: FootballLeagueSelection]? = nil) {
         let localAssignments = squadAssignmentsByLeague
+        let localConfig = lockedLeagueSelections
+
+        // Apply server league selections if server has them and device doesn't
+        if let config = squadConfig, !config.isEmpty, localConfig.isEmpty {
+            lockedLeagueSelections = config
+            if let data = try? JSONEncoder().encode(config) {
+                UserDefaults.standard.set(data, forKey: StorageKey.lockedLeagueSelections)
+            }
+        }
 
         if serverAssignments.isEmpty && !localAssignments.isEmpty {
-            // Device has assignments server doesn't know about — push them up
+            // Device has data server doesn't — push up
+            let configSnapshot = lockedLeagueSelections
             Task {
-                try? await FootballAPIClient.shared.saveSquadAssignments(localAssignments)
+                try? await FootballAPIClient.shared.saveSquadData(assignments: localAssignments, squadConfig: configSnapshot)
             }
             return
         }

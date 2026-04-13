@@ -283,9 +283,13 @@ final class FootballAPIClient {
 
     // MARK: - Squad Assignment Sync
 
-    func saveSquadAssignments(_ assignments: [String: [String: String]]) async throws {
+    func saveSquadData(assignments: [String: [String: String]], squadConfig: [String: FootballLeagueSelection]) async throws {
         guard let token = authToken else { throw FootballAPIError.missingAuthToken }
-        let body = try encoder.encode(["squadAssignments": assignments])
+        struct Body: Encodable {
+            let squadAssignments: [String: [String: String]]
+            let squadConfig: [String: FootballLeagueSelection]
+        }
+        let body = try encoder.encode(Body(squadAssignments: assignments, squadConfig: squadConfig))
         _ = try await sendRequest(baseURL: footballBaseURL, path: "/profile", method: "PUT", token: token, body: body)
     }
 
