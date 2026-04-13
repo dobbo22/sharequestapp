@@ -15,7 +15,7 @@ final class FootballProfileViewModel: ObservableObject {
         profileData?.profile
     }
 
-    func loadProfile() async {
+    func loadProfile(syncingTo collectionViewModel: FootballCollectionViewModel? = nil) async {
         isLoadingProfile = true
         errorMessage = nil
         defer { isLoadingProfile = false }
@@ -23,6 +23,11 @@ final class FootballProfileViewModel: ObservableObject {
         do {
             profileData = try await FootballAPIClient.shared.fetchProfile()
             updatePendingRevealState()
+            // Sync squad assignments from server onto this device
+            if let serverAssignments = profileData?.squadAssignments,
+               let vm = collectionViewModel {
+                vm.syncSquadAssignmentsFromServer(serverAssignments)
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

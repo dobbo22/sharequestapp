@@ -10,6 +10,7 @@ struct FootballProfileData: Decodable {
     let collectionSummary: FootballCollectionSummary
     let starterPackCards: [FootballOwnedCard]
     let allocation: FootballStarterPackAllocation?
+    let squadAssignments: [String: [String: String]]?
 }
 
 struct FootballCollectionResponse: Decodable {

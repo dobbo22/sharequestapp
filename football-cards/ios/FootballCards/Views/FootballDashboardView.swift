@@ -63,6 +63,14 @@ struct FootballDashboardView: View {
                 Task { await collectionDashboardViewModel.loadCollection() }
             }
             Task { await loadDailyPackStatus() }
+            // Sync squad assignments from server on first appear
+            Task {
+                if let serverAssignments = profileViewModel.profileData?.squadAssignments {
+                    collectionDashboardViewModel.syncSquadAssignmentsFromServer(serverAssignments)
+                } else {
+                    await profileViewModel.loadProfile(syncingTo: collectionDashboardViewModel)
+                }
+            }
         }
         .safeAreaInset(edge: .top) {
             topBar

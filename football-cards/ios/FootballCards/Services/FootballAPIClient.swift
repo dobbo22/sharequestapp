@@ -281,6 +281,21 @@ final class FootballAPIClient {
         }
     }
 
+    // MARK: - Squad Assignment Sync
+
+    func saveSquadAssignments(_ assignments: [String: [String: String]]) async throws {
+        guard let token = authToken else { throw FootballAPIError.missingAuthToken }
+        let body = try encoder.encode(["squadAssignments": assignments])
+        _ = try await sendRequest(baseURL: footballBaseURL, path: "/profile", method: "PUT", token: token, body: body)
+    }
+
+    func fetchSquadAssignments() async throws -> [String: [String: String]] {
+        guard let token = authToken else { throw FootballAPIError.missingAuthToken }
+        let data = try await sendRequest(baseURL: footballBaseURL, path: "/profile", token: token)
+        struct Resp: Decodable { struct D: Decodable { var squadAssignments: [String: [String: String]]? }; var data: D }
+        return (try? JSONDecoder().decode(Resp.self, from: data).data.squadAssignments) ?? [:]
+    }
+
     // MARK: - Daily Pack
 
     func fetchDailyPackStatus(reserveCount: Int) async throws -> FootballDailyPackStatus {

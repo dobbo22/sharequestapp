@@ -882,6 +882,28 @@ final class FootballCollectionViewModel: ObservableObject {
     private func persistSquadAssignments() {
         guard let data = try? JSONEncoder().encode(squadAssignmentsByLeague) else { return }
         UserDefaults.standard.set(data, forKey: StorageKey.squadAssignments)
+        // Best-effort server sync (fire and forget)
+        let snapshot = squadAssignmentsByLeague
+        Task {
+            try? await FootballAPIClient.shared.saveSquadAssignments(snapshot)
+        }
+    }
+
+    /// Call after login to load server-side squad assignments onto this device
+    func syncSquadAssignmentsFromServer(_ serverAssignments: [String: [String: String]]) {
+        guard !serverAssignments.isEmpty else { return }
+        // Merge: server wins for any slot not yet set locally
+        var merged = serverAssignments
+        for (league, slots) in squadAssignmentsByLeague {
+            for (slot, cardId) in slots {
+                if merged[league] == nil { merged[league] = [:] }
+                merged[league]![slot] = cardId
+            }
+        }
+        squadAssignmentsByLeague = merged
+        if let data = try? JSONEncoder().encode(merged) {
+            UserDefaults.standard.set(data, forKey: StorageKey.squadAssignments)
+        }
     }
 
     private func restoreActionQueues() {

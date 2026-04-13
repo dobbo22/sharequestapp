@@ -141,7 +141,7 @@ async function buildProfileResponse(client, userId) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
@@ -161,11 +161,46 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const data = await buildProfileResponse(client, auth.userId);
-      return res.status(200).json({ success: true, data });
+      // Also return squad assignments
+      const assignmentsResult = await client.query(
+        `SELECT league_name AS "leagueName", slot_code AS "slotCode", user_card_id AS "userCardId"
+         FROM sq.football_squad_assignments WHERE user_id = $1`,
+        [auth.userId]
+      );
+      // Shape: { "Premier League": { "GK": "card-id", ... }, ... }
+      const squadAssignments = {};
+      for (const row of assignmentsResult.rows) {
+        if (!squadAssignments[row.leagueName]) squadAssignments[row.leagueName] = {};
+        squadAssignments[row.leagueName][row.slotCode] = row.userCardId;
+      }
+      return res.status(200).json({ success: true, data: { ...data, squadAssignments } });
+    }
+
+    // PUT — sync squad assignments from device
+    if (req.method === 'PUT') {
+      const assignments = req.body?.squadAssignments;
+      if (!assignments || typeof assignments !== 'object') {
+        return res.status(400).json({ success: false, error: 'Missing squadAssignments' });
+      }
+      // Delete all existing and re-insert
+      await client.query(`DELETE FROM sq.football_squad_assignments WHERE user_id = $1`, [auth.userId]);
+      for (const [leagueName, slots] of Object.entries(assignments)) {
+        for (const [slotCode, userCardId] of Object.entries(slots)) {
+          if (typeof userCardId === 'string' && userCardId) {
+            await client.query(
+              `INSERT INTO sq.football_squad_assignments (user_id, league_name, slot_code, user_card_id, updated_at)
+               VALUES ($1, $2, $3, $4, NOW())
+               ON CONFLICT (user_id, league_name, slot_code) DO UPDATE SET user_card_id = $4, updated_at = NOW()`,
+              [auth.userId, leagueName, slotCode, userCardId]
+            );
+          }
+        }
+      }
+      return res.status(200).json({ success: true });
     }
 
     if (req.method !== 'POST') {
-      res.setHeader('Allow', 'GET, POST, OPTIONS');
+      res.setHeader('Allow', 'GET, POST, PUT, OPTIONS');
       return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
 
