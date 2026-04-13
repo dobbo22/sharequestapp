@@ -68,11 +68,7 @@ final class FootballAPIClient {
     }
 
     var defaultFootballBaseURL: String {
-#if DEBUG
-        debugLocalBaseURLs[0]
-#else
         "https://footycards-api.vercel.app/api/football"
-#endif
     }
 
     var isUsingLocalEnvironment: Bool {
