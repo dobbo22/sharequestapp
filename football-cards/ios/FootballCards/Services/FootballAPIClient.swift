@@ -58,9 +58,9 @@ final class FootballAPIClient {
 
     var footballBaseURL: String {
         let stored = UserDefaults.standard.string(forKey: "football_api_base_url") ?? defaultFootballBaseURL
-        // Migrate old production URL to new Vercel deployment URL
-        if stored.contains("www.sharequest.co.uk") {
-            let migrated = stored.replacingOccurrences(of: "www.sharequest.co.uk", with: "sharequestapp.vercel.app")
+        // Migrate old production URLs to new deployment
+        if stored.contains("www.sharequest.co.uk") || stored.contains("sharequestapp.vercel.app") {
+            let migrated = "https://footycards-api.vercel.app/api/football"
             UserDefaults.standard.set(migrated, forKey: "football_api_base_url")
             return migrated
         }
@@ -71,7 +71,7 @@ final class FootballAPIClient {
 #if DEBUG
         debugLocalBaseURLs[0]
 #else
-        "https://sharequestapp.vercel.app/api/football"
+        "https://footycards-api.vercel.app/api/football"
 #endif
     }
 
