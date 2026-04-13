@@ -91,19 +91,19 @@ struct FootballDashboardView: View {
         .alert(
             "Swap Error",
             isPresented: Binding(
-                get: { collectionDashboardViewModel.errorMessage != nil },
+                get: { collectionDashboardViewModel.swapErrorMessage != nil },
                 set: { isPresented in
                     if !isPresented {
-                        collectionDashboardViewModel.errorMessage = nil
+                        collectionDashboardViewModel.swapErrorMessage = nil
                     }
                 }
             )
         ) {
             Button("OK", role: .cancel) {
-                collectionDashboardViewModel.errorMessage = nil
+                collectionDashboardViewModel.swapErrorMessage = nil
             }
         } message: {
-            Text(collectionDashboardViewModel.errorMessage ?? "Unable to complete swap.")
+            Text(collectionDashboardViewModel.swapErrorMessage ?? "Unable to complete swap.")
         }
         .refreshable {
             await bootstrapViewModel.refreshAll()
@@ -471,8 +471,8 @@ struct FootballDashboardView: View {
                             Task { @MainActor in
                                 let rewardCard = await collectionDashboardViewModel.executeSwap().first
                                 latestSwapRewardCard = rewardCard
-                                if rewardCard == nil, collectionDashboardViewModel.errorMessage == nil {
-                                    collectionDashboardViewModel.errorMessage = "Unable to complete swap."
+                                if rewardCard == nil, collectionDashboardViewModel.swapErrorMessage == nil {
+                                    collectionDashboardViewModel.swapErrorMessage = "Unable to complete swap."
                                 }
                                 isExecutingSwap = false
                             }

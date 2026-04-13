@@ -162,6 +162,7 @@ final class FootballCollectionViewModel: ObservableObject {
     @Published var availableClubs: [String] = []
     @Published var summary: FootballCollectionSummary?
     @Published var errorMessage: String?
+    @Published var swapErrorMessage: String?
     @Published var clubsErrorMessage: String?
     @Published var selectedSlot: String = "All"
     @Published var selectedClub: String = "All"
@@ -217,6 +218,7 @@ final class FootballCollectionViewModel: ObservableObject {
             let (collectionResult, profileResult, clubsResult) = try await (collectionRequest, profileRequest, clubsRequest)
 
             baseCollectionCards = collectionResult.cards
+            sanitizePersistedState(against: collectionResult.cards)
             cards = mergedCollectionCards(baseCards: collectionResult.cards)
             // Sync server squad assignments now that cards are loaded
             if let serverAssignments = profileResult.squadAssignments {
@@ -236,6 +238,35 @@ final class FootballCollectionViewModel: ObservableObject {
             clubsErrorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func sanitizePersistedState(against serverCards: [FootballOwnedCard]) {
+        let validServerCardIds = Set(serverCards.map(\.userCardId))
+
+        let sanitizedTradeQueue = queuedTradeCardIds.intersection(validServerCardIds)
+        let sanitizedSwapQueue = queuedSwapCardIds.intersection(validServerCardIds)
+        let sanitizedDiscarded = discardedCardIds.intersection(validServerCardIds)
+        let sanitizedGeneratedRewards = generatedSwapRewardCards.filter { !validServerCardIds.contains($0.userCardId) }
+
+        let queuesChanged = sanitizedTradeQueue != queuedTradeCardIds || sanitizedSwapQueue != queuedSwapCardIds
+        let discardedChanged = sanitizedDiscarded != discardedCardIds
+        let rewardsChanged = sanitizedGeneratedRewards.count != generatedSwapRewardCards.count
+
+        if queuesChanged {
+            queuedTradeCardIds = sanitizedTradeQueue
+            queuedSwapCardIds = sanitizedSwapQueue
+            persistActionQueues()
+        }
+
+        if discardedChanged {
+            discardedCardIds = sanitizedDiscarded
+            persistDiscardedCards()
+        }
+
+        if rewardsChanged {
+            generatedSwapRewardCards = sanitizedGeneratedRewards
+            persistGeneratedSwapRewards()
         }
     }
 
@@ -808,7 +839,7 @@ final class FootballCollectionViewModel: ObservableObject {
 
     @discardableResult
     func executeSwap() async -> [FootballOwnedCard] {
-        errorMessage = nil
+        swapErrorMessage = nil
         refreshSwapWindowIfNeeded()
         guard !swapWindowLocked else { return [] }
 
@@ -841,7 +872,7 @@ final class FootballCollectionViewModel: ObservableObject {
 
             return [swapResult.rewardCard]
         } catch {
-            errorMessage = error.localizedDescription
+            swapErrorMessage = error.localizedDescription
             return []
         }
     }
