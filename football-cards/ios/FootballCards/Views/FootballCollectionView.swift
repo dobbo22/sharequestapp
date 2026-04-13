@@ -267,7 +267,7 @@ struct FootballCollectionView: View {
     private func selectionTileBadge(url: String?, clubName: String? = nil) -> some View {
         Group {
             if let name = clubName {
-                ClubLogoImage(clubName: name, size: 26)
+                ClubLogoImage(clubName: name, logoUrl: url, size: 26)
             } else {
                 Image(systemName: "shield.fill")
                     .foregroundStyle(Color.kcMuted)
@@ -771,7 +771,7 @@ struct FootballCollectionView: View {
     private func leagueClubBadge(url: String?, clubName: String? = nil) -> some View {
         Group {
             if let name = clubName {
-                ClubLogoImage(clubName: name, size: 36)
+                ClubLogoImage(clubName: name, logoUrl: url, size: 36)
             } else {
                 Image(systemName: "shield.fill")
                     .foregroundStyle(Color.kcMuted)
@@ -1299,7 +1299,7 @@ private struct FootballFormationBuilderSheet: View {
     }
 
     private func builderPhoto(for card: FootballOwnedCard) -> some View {
-        PlayerAvatarImage(playerName: card.playerName, size: 52)
+        PlayerAvatarImage(playerName: card.playerName, photoUrl: card.photoUrl, size: 52)
             .clipShape(Circle())
             .overlay(Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
     }
@@ -1512,7 +1512,7 @@ struct FootballPlayerCardView: View {
                     VStack(alignment: .trailing, spacing: 8) {
                         // Club badge — prominent
                         if let clubName = card.clubName {
-                            ClubLogoImage(clubName: clubName, size: 52)
+                            ClubLogoImage(clubName: clubName, logoUrl: card.clubLogoUrl, size: 52)
                                 .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
                         }
 
@@ -1657,7 +1657,7 @@ struct FootballPlayerCardView: View {
 
     @ViewBuilder
     private var playerPhotoContent: some View {
-        PlayerAvatarImage(playerName: card.playerName, size: 160)
+        PlayerAvatarImage(playerName: card.playerName, photoUrl: card.photoUrl, size: 160)
     }
 
     private var fallbackPhoto: some View {

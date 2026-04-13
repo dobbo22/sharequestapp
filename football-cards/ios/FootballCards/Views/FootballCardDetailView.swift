@@ -89,7 +89,7 @@ struct FootballCardDetailView: View {
 
                     VStack(alignment: .trailing, spacing: 8) {
                         if let clubName = card.clubName {
-                            ClubLogoImage(clubName: clubName, size: 62)
+                            ClubLogoImage(clubName: clubName, logoUrl: card.clubLogoUrl, size: 62)
                                 .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
                         }
 
@@ -201,7 +201,7 @@ struct FootballCardDetailView: View {
 
     @ViewBuilder
     private var playerPhotoContent: some View {
-        PlayerAvatarImage(playerName: card.playerName, size: 160)
+        PlayerAvatarImage(playerName: card.playerName, photoUrl: card.photoUrl, size: 160)
     }
 
     private var playerPhotoPanel: some View {
@@ -555,7 +555,7 @@ struct FootballCardDetailView: View {
 
                 // Large club badge
                 if let clubName = card.clubName {
-                    ClubLogoImage(clubName: clubName, size: 188)
+                    ClubLogoImage(clubName: clubName, logoUrl: card.clubLogoUrl, size: 188)
                         .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
                 }
 

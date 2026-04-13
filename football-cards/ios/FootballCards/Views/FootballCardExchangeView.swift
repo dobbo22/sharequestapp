@@ -484,7 +484,7 @@ private struct ExchangeListingRow: View {
                 .fill(Color.exGold.opacity(0.14))
                 .frame(width: 54, height: 54)
 
-            PlayerAvatarImage(playerName: listing.playerName, size: 54)
+            PlayerAvatarImage(playerName: listing.playerName, photoUrl: listing.photoUrl, size: 54)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
     }

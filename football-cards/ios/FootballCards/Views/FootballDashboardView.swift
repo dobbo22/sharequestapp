@@ -169,7 +169,7 @@ struct FootballDashboardView: View {
 
             HStack(alignment: .top, spacing: 16) {
                 if let clubName = profileData.profile?.supportedClubName {
-                    ClubLogoImage(clubName: clubName, size: 64)
+                    ClubLogoImage(clubName: clubName, logoUrl: profileData.profile?.supportedClubLogoUrl, size: 64)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {

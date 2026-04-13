@@ -25,7 +25,7 @@ struct FootballPlayerProfileView: View {
                         .fill(cardGradient)
 
                     // Photo — full, contained
-                    PlayerAvatarImage(playerName: card.playerName, size: 240)
+                    PlayerAvatarImage(playerName: card.playerName, photoUrl: card.photoUrl, size: 240)
                         .frame(maxWidth: .infinity)
                         .padding(.horizontal, 16)
                         .padding(.top, 16)
@@ -52,7 +52,7 @@ struct FootballPlayerProfileView: View {
                         Spacer()
 
                         if let clubName = card.clubName {
-                            ClubLogoImage(clubName: clubName, size: 40)
+                            ClubLogoImage(clubName: clubName, logoUrl: card.clubLogoUrl, size: 40)
                                 .shadow(color: .black.opacity(0.4), radius: 6, y: 3)
                         }
                     }

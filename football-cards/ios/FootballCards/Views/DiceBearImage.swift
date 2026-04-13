@@ -1,8 +1,6 @@
 import SwiftUI
 
-// MARK: - DiceBear avatar helpers
-// Player photos → footballgame style (unique per player name)
-// Club logos    → initials style (coloured badge per club name)
+// MARK: - DiceBear fallback helpers (used when real photo/logo URL is unavailable)
 
 enum DiceBear {
     static func playerURL(_ name: String) -> URL? {
@@ -23,15 +21,24 @@ enum DiceBear {
 }
 
 // MARK: - Player photo
+// Uses photoUrl when provided, falls back to DiceBear avatar
 struct PlayerAvatarImage: View {
     let playerName: String
+    var photoUrl: String? = nil
     var size: CGFloat = 80
 
+    private var resolvedURL: URL? {
+        if let urlString = photoUrl, !urlString.isEmpty {
+            return URL(string: urlString)
+        }
+        return DiceBear.playerURL(playerName)
+    }
+
     var body: some View {
-        AsyncImage(url: DiceBear.playerURL(playerName)) { phase in
+        AsyncImage(url: resolvedURL) { phase in
             switch phase {
             case .success(let img):
-                img.resizable().scaledToFit()
+                img.resizable().scaledToFill()
             default:
                 Image(systemName: "person.fill")
                     .resizable()
@@ -41,16 +48,26 @@ struct PlayerAvatarImage: View {
             }
         }
         .frame(width: size, height: size)
+        .clipped()
     }
 }
 
 // MARK: - Club logo
+// Uses logoUrl when provided, falls back to DiceBear initials badge
 struct ClubLogoImage: View {
     let clubName: String
+    var logoUrl: String? = nil
     var size: CGFloat = 40
 
+    private var resolvedURL: URL? {
+        if let urlString = logoUrl, !urlString.isEmpty {
+            return URL(string: urlString)
+        }
+        return DiceBear.clubURL(clubName)
+    }
+
     var body: some View {
-        AsyncImage(url: DiceBear.clubURL(clubName)) { phase in
+        AsyncImage(url: resolvedURL) { phase in
             switch phase {
             case .success(let img):
                 img.resizable().scaledToFit()
