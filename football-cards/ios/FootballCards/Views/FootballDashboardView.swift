@@ -123,7 +123,7 @@ struct FootballDashboardView: View {
                 Task { await collectionDashboardViewModel.loadCollection() }
             }
         }
-        .onChange(of: profileViewModel.profileData) { _ in
+        .onChange(of: profileViewModel.profileData?.profile?.id) { _ in
             // Reload daily pack status after profile data is available (correctly calculated reserve count)
             Task { await loadDailyPackStatus() }
         }
