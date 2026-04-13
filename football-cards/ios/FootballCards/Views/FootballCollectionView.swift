@@ -1667,7 +1667,7 @@ struct FootballPlayerCardView: View {
 
     @ViewBuilder
     private var playerPhotoContent: some View {
-        PlayerAvatarImage(playerName: card.playerName, photoUrl: card.photoUrl, size: 160)
+        PlayerAvatarImage(playerName: card.playerName, photoUrl: card.photoUrl, size: 110)
     }
 
     private var fallbackPhoto: some View {
