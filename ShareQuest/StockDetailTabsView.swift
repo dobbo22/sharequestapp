@@ -56,7 +56,6 @@ struct StockDetailTabsView: View {
             if vm.quote == nil { await vm.fetch() }
         }
     }
-}
 
 // MARK: - Tab Selector
 
@@ -71,13 +70,16 @@ struct TabSelector: View {
                         withAnimation(.easeInOut(duration: 0.2)) { activeTab = tab }
                     } label: {
                         Text(tab.displayName)
-                            .font(.system(size: scaled(13)))
-                            .fontWeight(activeTab == tab ? .semibold : .regular)
+                            .font(.body.weight(activeTab == tab ? .semibold : .regular))
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .foregroundColor(activeTab == tab ? .white : .white.opacity(0.5))
                             .padding(.horizontal, scaled(12))
                             .padding(.vertical, vscaled(7))
                             .background(activeTab == tab ? Theme.primaryBlue : Color.clear)
                             .cornerRadius(20)
+                    }
+                    .accessibilityLabel(tab.displayName + (activeTab == tab ? ", selected" : ""))
+                    .accessibilityAddTraits(.isButton)
                     }
                 }
             }
@@ -98,17 +100,30 @@ struct InfoCard<Content: View>: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .foregroundColor(Theme.primaryBlue)
-                    .font(.system(size: scaled(15)))
+                    .font(.caption)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
+                    .accessibilityHidden(true)
                 Text(title)
-                    .font(.system(size: scaled(12), weight: .semibold))
+                    .font(.caption.weight(.semibold))
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(.white.opacity(0.85))
                     .tracking(0.5)
+                    .accessibilityAddTraits(.isHeader)
             }
             content
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(red: 0.118, green: 0.161, blue: 0.216))
+        .background(
+            ZStack {
+                Color(red: 0.118, green: 0.161, blue: 0.216)
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .opacity(0.7)
+                }
+            }
+        )
         .cornerRadius(12)
     }
 }
@@ -154,7 +169,16 @@ struct SectorChip: View {
             Text(label).font(.system(size: scaled(12))).foregroundColor(.white.opacity(0.85))
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(Color.white.opacity(0.06))
+        .background(
+            ZStack {
+                Color.white.opacity(0.06)
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .opacity(0.7)
+                }
+            }
+        )
         .cornerRadius(20)
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.1), lineWidth: 1))
     }

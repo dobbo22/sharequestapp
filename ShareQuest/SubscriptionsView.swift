@@ -345,12 +345,17 @@ struct SubscriptionsView: View {
                 // Header
                 VStack(spacing: 8) {
                     Image(systemName: "trophy.fill")
-                        .font(.system(size: 40))
+                        .font(.largeTitle)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(Theme.accentYellow)
+                        .accessibilityHidden(true)
                     Text("Join the ShareQuests")
-                        .font(.title2).fontWeight(.bold).foregroundColor(.white)
+                        .font(.title2.weight(.bold))
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .foregroundColor(.white)
                     Text("Subscribe to enter competitions and win real prizes, or join a public league.")
                         .font(.subheadline)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
@@ -362,7 +367,9 @@ struct SubscriptionsView: View {
                     HStack(spacing: 8) {
                         ProgressView().scaleEffect(0.8).tint(Theme.textSecondary)
                         Text("Checking your subscriptions...")
-                            .font(.caption).foregroundColor(Theme.textSecondary)
+                            .font(.caption)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
+                            .foregroundColor(Theme.textSecondary)
                     }
                     .padding(.horizontal)
                 } else if vm.anyActive {
@@ -447,12 +454,15 @@ struct SubscriptionsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("PRIVATE LEAGUES")
-                    .font(.caption).fontWeight(.semibold)
+                    .font(.caption.weight(.semibold))
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(Theme.textMuted)
                 Spacer()
                 NavigationLink(destination: LeaguesView()) {
                     Text("See All")
-                        .font(.caption).foregroundColor(Theme.primaryBlue)
+                        .font(.caption)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .foregroundColor(Theme.primaryBlue)
                 }
             }
             .padding(.leading, 4)
@@ -472,19 +482,22 @@ struct SubscriptionsView: View {
                             }
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(league.name)
-                                    .font(.subheadline).fontWeight(.semibold)
+                                    .font(.subheadline.weight(.semibold))
+                                    .dynamicTypeSize(.xSmall ... .accessibility2)
                                     .foregroundColor(.white)
                                     .lineLimit(1)
                                 HStack(spacing: 6) {
-                                    Text("\(league.member_count ?? 0)/\(league.max_members ?? 50) members")
-                                        .font(.caption2)
-                                        .foregroundColor(Theme.textSecondary)
-                                    if let status = league.status {
-                                        Text("•").font(.caption2).foregroundColor(Theme.textMuted)
-                                        Text(status.capitalized)
+                                        Text("\(league.member_count ?? 0)/\(league.max_members ?? 50) members")
                                             .font(.caption2)
-                                            .foregroundColor(status == "active" ? Theme.accentGreen : Theme.textSecondary)
-                                    }
+                                            .dynamicTypeSize(.xSmall ... .accessibility2)
+                                            .foregroundColor(Theme.textSecondary)
+                                        if let status = league.status {
+                                            Text("•").font(.caption2).foregroundColor(Theme.textMuted)
+                                            Text(status.capitalized)
+                                                .font(.caption2)
+                                                .dynamicTypeSize(.xSmall ... .accessibility2)
+                                                .foregroundColor(status == "active" ? Theme.accentGreen : Theme.textSecondary)
+                                        }
                                 }
                             }
                             Spacer()
@@ -498,7 +511,18 @@ struct SubscriptionsView: View {
                     .buttonStyle(PlainButtonStyle())
                 }
             }
-            .background(Color.white.opacity(0.05))
+            .background(
+                Group {
+                    if #available(iOS 15.0, *) {
+                        VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .opacity(0.85)
+                    } else {
+                        Color.white.opacity(0.05)
+                            .cornerRadius(14)
+                    }
+                }
+            )
             .cornerRadius(14)
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 1))
         }
@@ -508,12 +532,15 @@ struct SubscriptionsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("PUBLIC LEAGUES")
-                    .font(.caption).fontWeight(.semibold)
+                    .font(.caption.weight(.semibold))
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(Theme.textMuted)
                 Spacer()
                 NavigationLink(destination: LeaguesView()) {
                     Text("See All")
-                        .font(.caption).foregroundColor(Theme.primaryBlue)
+                        .font(.caption)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .foregroundColor(Theme.primaryBlue)
                 }
             }
             .padding(.leading, 4)
@@ -533,14 +560,27 @@ struct SubscriptionsView: View {
                         )
                     }
                 }
-                .background(Color.white.opacity(0.05))
+                .background(
+                    Group {
+                        if #available(iOS 15.0, *) {
+                            VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .opacity(0.85)
+                        } else {
+                            Color.white.opacity(0.05)
+                                .cornerRadius(14)
+                        }
+                    }
+                )
                 .cornerRadius(14)
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 1))
             }
 
             if let err = vm.joinLeagueError {
                 Text(err)
-                    .font(.caption).foregroundColor(Theme.accentRed)
+                    .font(.caption)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
+                    .foregroundColor(Theme.accentRed)
                     .padding(.leading, 4)
             }
         }
@@ -549,7 +589,8 @@ struct SubscriptionsView: View {
     private var activeStatusBanner: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("YOUR ACTIVE PLANS")
-                .font(.caption).fontWeight(.semibold)
+                .font(.caption.weight(.semibold))
+                .dynamicTypeSize(.xSmall ... .accessibility2)
                 .foregroundColor(Theme.textMuted)
                 .padding(.leading, 4)
 
@@ -560,7 +601,8 @@ struct SubscriptionsView: View {
                             .font(.system(size: 13))
                             .foregroundColor(plan.color)
                         Text(plan.title)
-                            .font(.caption).fontWeight(.semibold)
+                            .font(.caption.weight(.semibold))
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .foregroundColor(.white)
                     }
                     .padding(.horizontal, 10).padding(.vertical, 6)
@@ -837,7 +879,18 @@ private struct PlanCard: View {
                 }
             }
             .padding(14)
-            .background(isActive ? plan.color.opacity(0.07) : isSelected ? plan.color.opacity(0.1) : Color.white.opacity(0.05))
+            .background(
+                Group {
+                    if #available(iOS 15.0, *) {
+                        VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .opacity(0.85)
+                    } else {
+                        (isActive ? plan.color.opacity(0.07) : isSelected ? plan.color.opacity(0.1) : Color.white.opacity(0.05))
+                            .cornerRadius(14)
+                    }
+                }
+            )
             .cornerRadius(14)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)

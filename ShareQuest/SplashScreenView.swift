@@ -25,7 +25,15 @@ struct SplashScreenView: View {
                 endPoint: .bottom
             )
             .ignoresSafeArea()
-            
+
+            // Glassmorphism effect behind logo and loading indicator
+            if #available(iOS 15.0, *) {
+                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+                    .opacity(0.85)
+                    .frame(width: 340, height: 260)
+            }
+
             VStack(spacing: 24) {
                 // Logo
                 if let _ = UIImage(named: "SplashLogo") {
@@ -38,7 +46,8 @@ struct SplashScreenView: View {
                 } else {
                     // Fallback to SF Symbol if image not found
                     Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
-                        .font(.system(size: 100))
+                        .font(.system(size: 80))
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [Theme.primaryBlue, Theme.accentPurple],
@@ -48,13 +57,16 @@ struct SplashScreenView: View {
                         )
                         .scaleEffect(isAnimating ? 1.0 : 0.8)
                         .opacity(isAnimating ? 1.0 : 0.0)
+                        .accessibilityHidden(true)
                     
                     Text("ShareQuest")
-                        .font(.system(size: 36, weight: .bold))
+                        .font(.largeTitle.weight(.bold))
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(.white)
                         .opacity(isAnimating ? 1.0 : 0.0)
+                        .accessibilityAddTraits(.isHeader)
                 }
-                
+
                 // Loading indicator
                 if showContent {
                     ProgressView()

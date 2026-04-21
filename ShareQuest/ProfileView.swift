@@ -84,114 +84,114 @@ struct ProfileView: View {
         // Capture main-actor properties before entering PhotosPicker's nonisolated closure
         let capturedAvatar = avatarImage
         let capturedInitials = viewModel.initials
-        return VStack(spacing: 12) {
-          HStack(spacing: 16) {
-            // Avatar with level badge + edit button
-            ZStack(alignment: .bottomTrailing) {
-                // Avatar circle
-                PhotosPicker(selection: $avatarItem, matching: .images) {
-                    ZStack {
-                        if let img = capturedAvatar {
-                            Image(uiImage: img)
-                                .resizable()
-                                .scaledToFill()
+        return ZStack {
+            if #available(iOS 15.0, *) {
+                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .opacity(0.85)
+            }
+            VStack(spacing: 12) {
+              HStack(spacing: 16) {
+                // Avatar with level badge + edit button
+                ZStack(alignment: .bottomTrailing) {
+                    // Avatar circle
+                    PhotosPicker(selection: $avatarItem, matching: .images) {
+                        ZStack {
+                            if let img = capturedAvatar {
+                                Image(uiImage: img)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 72, height: 72)
+                                    .clipShape(Circle())
+                            } else {
+                                LinearGradient(
+                                    colors: [Theme.primaryBlue, Theme.accentPurple],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                                 .frame(width: 72, height: 72)
                                 .clipShape(Circle())
-                        } else {
-                            LinearGradient(
-                                colors: [Theme.primaryBlue, Theme.accentPurple],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                            .frame(width: 72, height: 72)
-                            .clipShape(Circle())
-                            .overlay(
-                                Text(capturedInitials)
-                                    .font(.system(size: 28, weight: .bold))
-                                    .foregroundColor(.white)
-                            )
+                                .overlay(
+                                    Text(capturedInitials)
+                                        .font(.system(size: 28, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                            }
+                        }
+                        .overlay(Circle().stroke(Theme.primaryBlue.opacity(0.5), lineWidth: 2))
+                    }
+                    .onChange(of: avatarItem) { _, newItem in
+                        Task {
+                            if let data = try? await newItem?.loadTransferable(type: Data.self),
+                               let img = UIImage(data: data) {
+                                avatarImage = img
+                                ProfileView.saveAvatar(img)
+                            }
                         }
                     }
-                    .overlay(Circle().stroke(Theme.primaryBlue.opacity(0.5), lineWidth: 2))
-                }
-                .onChange(of: avatarItem) { _, newItem in
-                    Task {
-                        if let data = try? await newItem?.loadTransferable(type: Data.self),
-                           let img = UIImage(data: data) {
-                            avatarImage = img
-                            ProfileView.saveAvatar(img)
-                        }
+
+                    // Edit pencil badge
+                    ZStack {
+                        Circle()
+                            .fill(Theme.primaryBlue)
+                            .frame(width: 24, height: 24)
+                            .overlay(Circle().stroke(Color(red: 0.059, green: 0.090, blue: 0.165), lineWidth: 2))
+                        Image(systemName: "pencil")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
                     }
+                    .offset(x: 4, y: 4)
+                    .allowsHitTesting(false)
+
+                    // Level badge (top-left of avatar)
+                    ZStack {
+                        Circle()
+                            .fill(Theme.accentYellow)
+                            .frame(width: 22, height: 22)
+                            .overlay(Circle().stroke(Color(red: 0.059, green: 0.090, blue: 0.165), lineWidth: 2))
+                        Text("\(viewModel.level)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.black)
+                    }
+                    .offset(x: -50, y: -26)
+                    .allowsHitTesting(false)
                 }
 
-                // Edit pencil badge
-                ZStack {
-                    Circle()
-                        .fill(Theme.primaryBlue)
-                        .frame(width: 24, height: 24)
-                        .overlay(Circle().stroke(Color(red: 0.059, green: 0.090, blue: 0.165), lineWidth: 2))
-                    Image(systemName: "pencil")
-                        .font(.system(size: 10, weight: .bold))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(viewModel.displayName)
+                        .font(.system(size: scaled(20), weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .foregroundColor(.white)
+                    Text(viewModel.email)
+                        .font(.system(size: scaled(12)))
+                        .foregroundColor(Theme.textSecondary)
+                    if !viewModel.memberSince.isEmpty {
+                        Text("Member since \(viewModel.memberSince)")
+                            .font(.system(size: scaled(11)))
+                            .foregroundColor(Theme.textMuted)
+                    }
                 }
-                .offset(x: 4, y: 4)
-                .allowsHitTesting(false)
 
-                // Level badge (top-left of avatar)
-                ZStack {
-                    Circle()
-                        .fill(Theme.accentYellow)
-                        .frame(width: 22, height: 22)
-                        .overlay(Circle().stroke(Color(red: 0.059, green: 0.090, blue: 0.165), lineWidth: 2))
-                    Text("\(viewModel.level)")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.black)
-                }
-                .offset(x: -50, y: -26)
-                .allowsHitTesting(false)
+                Spacer()
+              }
+
+              // Stats row inline under avatar
+              HStack(spacing: 0) {
+                inlineStatBox(icon: "arrow.left.arrow.right", color: Theme.primaryBlue,
+                              value: "\(viewModel.totalTrades)", label: "Trades")
+                Divider().frame(height: 30).background(Color.white.opacity(0.15))
+                inlineStatBox(icon: "briefcase.fill", color: Theme.accentGreen,
+                              value: "\(viewModel.portfoliosCount)", label: "Portfolios")
+                Divider().frame(height: 30).background(Color.white.opacity(0.15))
+                inlineStatBox(icon: "person.3.fill", color: Theme.accentPurple,
+                              value: "\(viewModel.leaguesCount)", label: "Leagues")
+              }
             }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(viewModel.displayName)
-                    .font(.system(size: scaled(20), weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .foregroundColor(.white)
-                Text(viewModel.email)
-                    .font(.system(size: scaled(12)))
-                    .foregroundColor(Theme.textSecondary)
-                if !viewModel.memberSince.isEmpty {
-                    Text("Member since \(viewModel.memberSince)")
-                        .font(.system(size: scaled(11)))
-                        .foregroundColor(Theme.textMuted)
-                }
-            }
-
-            Spacer()
-          }
-
-          // Stats row inline under avatar
-          HStack(spacing: 0) {
-            inlineStatBox(icon: "arrow.left.arrow.right", color: Theme.primaryBlue,
-                          value: "\(viewModel.totalTrades)", label: "Trades")
-            Divider().frame(height: 30).background(Color.white.opacity(0.15))
-            inlineStatBox(icon: "briefcase.fill", color: Theme.accentGreen,
-                          value: "\(viewModel.portfoliosCount)", label: "Portfolios")
-            Divider().frame(height: 30).background(Color.white.opacity(0.15))
-            inlineStatBox(icon: "person.3.fill", color: Theme.accentPurple,
-                          value: "\(viewModel.leaguesCount)", label: "Leagues")
-          }
+            .padding()
         }
-        .padding()
-        .background(
-            LinearGradient(
-                colors: [Theme.primaryBlue.opacity(0.2), Theme.accentPurple.opacity(0.2)],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        )
         .cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.1), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.13), lineWidth: 1))
     }
 
     // MARK: - Avatar Persistence
@@ -210,46 +210,51 @@ struct ProfileView: View {
     // MARK: - Level / XP Card
 
     private var levelCard: some View {
-        VStack(spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Level \(viewModel.level)")
-                        .font(.system(size: scaled(17), weight: .bold))
-                        .foregroundColor(.white)
-                    Text(viewModel.levelName)
-                        .font(.system(size: scaled(12)))
-                        .foregroundColor(Theme.primaryBlue)
-                }
-                Spacer()
-                Text("\(viewModel.xp) / \(viewModel.xpForNextLevel) XP")
-                    .font(.system(size: scaled(12), weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .foregroundColor(Theme.accentYellow)
+        ZStack {
+            if #available(iOS 15.0, *) {
+                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .opacity(0.85)
             }
+            VStack(spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Level \(viewModel.level)")
+                            .font(.system(size: scaled(17), weight: .bold))
+                            .foregroundColor(.white)
+                        Text(viewModel.levelName)
+                            .font(.system(size: scaled(12)))
+                            .foregroundColor(Theme.primaryBlue)
+                    }
+                    Spacer()
+                    Text("\(viewModel.xp) / \(viewModel.xpForNextLevel) XP")
+                        .font(.system(size: scaled(12), weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .foregroundColor(Theme.accentYellow)
+                }
 
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.white.opacity(0.08))
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(
-                            LinearGradient(
-                                colors: [Theme.primaryBlue, Theme.accentPurple],
-                                startPoint: .leading,
-                                endPoint: .trailing
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.white.opacity(0.08))
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Theme.primaryBlue, Theme.accentPurple],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
                             )
-                        )
-                        .frame(width: geo.size.width * CGFloat(viewModel.xpProgress))
+                            .frame(width: geo.size.width * CGFloat(viewModel.xpProgress))
+                    }
                 }
+                .frame(height: 8)
             }
-            .frame(height: 8)
+            .padding()
         }
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .background(.ultraThinMaterial)
         .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.13), lineWidth: 1))
     }
 
     // MARK: - Streak Row
@@ -262,25 +267,31 @@ struct ProfileView: View {
     }
 
     private func streakBox(icon: String, color: Color, value: Int, label: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .foregroundColor(color)
-                .font(.system(size: scaled(17), weight: .semibold))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(value)")
-                    .font(.system(size: scaled(20), weight: .bold))
-                    .foregroundColor(.white)
-                Text(label)
-                    .font(.system(size: scaled(11)))
-                    .foregroundColor(Theme.textSecondary)
+        ZStack {
+            if #available(iOS 15.0, *) {
+                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .opacity(0.8)
             }
-            Spacer()
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                    .font(.system(size: scaled(17), weight: .semibold))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(value)")
+                        .font(.system(size: scaled(20), weight: .bold))
+                        .foregroundColor(.white)
+                    Text(label)
+                        .font(.system(size: scaled(11)))
+                        .foregroundColor(Theme.textSecondary)
+                }
+                Spacer()
+            }
+            .padding()
         }
-        .padding()
         .frame(maxWidth: .infinity)
-        .background(Color.white.opacity(0.05))
         .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.11), lineWidth: 1))
     }
 
     // MARK: - Stats Row

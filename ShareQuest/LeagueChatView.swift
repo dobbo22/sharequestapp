@@ -166,7 +166,17 @@ struct LeagueChatView: View {
                     .lineLimit(1...5)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(Color.white.opacity(0.08))
+                    .background(
+                        Group {
+                            if #available(iOS 15.0, *) {
+                                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                    .opacity(0.85)
+                            } else {
+                                Color.white.opacity(0.08)
+                            }
+                        }
+                    )
                     .cornerRadius(20)
                     .foregroundColor(.white)
                     .tint(Theme.primaryBlue)
@@ -182,7 +192,17 @@ struct LeagueChatView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color(red: 0.08, green: 0.1, blue: 0.16))
+            .background(
+                Group {
+                    if #available(iOS 15.0, *) {
+                        VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .opacity(0.85)
+                    } else {
+                        Color(red: 0.08, green: 0.1, blue: 0.16)
+                    }
+                }
+            )
         }
         .onAppear { vm.start() }
         .onDisappear { vm.stop() }
@@ -228,13 +248,26 @@ private struct MessageBubble: View {
 
                 Text(message.content)
                     .font(.system(size: 15))
-                    .foregroundColor(message.is_mine ? .white : .white)
+                    .foregroundColor(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(
-                        message.is_mine
-                            ? Theme.primaryBlue
-                            : Color(red: 0.15, green: 0.19, blue: 0.28)
+                        Group {
+                            if #available(iOS 15.0, *) {
+                                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                    .opacity(message.is_mine ? 0.95 : 0.85)
+                                    .background(
+                                        message.is_mine
+                                            ? Theme.primaryBlue.opacity(0.25)
+                                            : Color(red: 0.15, green: 0.19, blue: 0.28).opacity(0.25)
+                                    )
+                            } else {
+                                message.is_mine
+                                    ? Theme.primaryBlue
+                                    : Color(red: 0.15, green: 0.19, blue: 0.28)
+                            }
+                        }
                     )
                     .cornerRadius(18, corners: message.is_mine
                         ? [.topLeft, .topRight, .bottomLeft]

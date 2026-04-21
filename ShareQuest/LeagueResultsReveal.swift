@@ -94,6 +94,13 @@ struct LeagueResultsRevealView: View {
             .ignoresSafeArea()
             .opacity(showBackground ? 1 : 0)
 
+            // Glass overlay for frosted effect
+            if showBackground, #available(iOS 15.0, *) {
+                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                    .ignoresSafeArea()
+                    .opacity(0.7)
+            }
+
             // Confetti layer — shown after podium rises
             if showConfetti {
                 ConfettiView()
@@ -145,7 +152,14 @@ struct LeagueResultsRevealView: View {
 
                         VStack(spacing: 6) {
                             ForEach(Array(members.dropFirst(3).enumerated()), id: \.element.user_id) { i, member in
-                                restRow(member, rank: (member.rank ?? (i + 4)))
+                                ZStack {
+                                    if #available(iOS 15.0, *) {
+                                        VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                            .opacity(0.85)
+                                    }
+                                    restRow(member, rank: (member.rank ?? (i + 4)))
+                                }
                             }
                         }
                         .padding(.horizontal, 16)

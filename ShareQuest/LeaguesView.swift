@@ -178,17 +178,24 @@ struct LeaguesView: View {
             if !isAnnualSubscriber { showSubscriptions = true }
         } label: {
             ZStack(alignment: .topTrailing) {
-                // Background gradient
-                LinearGradient(
-                    colors: [Color(red: 0.18, green: 0.12, blue: 0.04), Color(red: 0.38, green: 0.25, blue: 0.04)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                )
-                .overlay(
+                // Background gradient + glass
+                ZStack {
                     LinearGradient(
-                        colors: [goldColor.opacity(0.15), Color.clear],
+                        colors: [Color(red: 0.18, green: 0.12, blue: 0.04), Color(red: 0.38, green: 0.25, blue: 0.04)],
                         startPoint: .topLeading, endPoint: .bottomTrailing
                     )
-                )
+                    .overlay(
+                        LinearGradient(
+                            colors: [goldColor.opacity(0.15), Color.clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                    if #available(iOS 15.0, *) {
+                        VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 18))
+                            .opacity(0.7)
+                    }
+                }
                 .cornerRadius(18)
                 .overlay(
                     RoundedRectangle(cornerRadius: 18)
@@ -199,21 +206,25 @@ struct LeaguesView: View {
                     // Icon + title
                     HStack(spacing: 10) {
                         Image(systemName: "trophy.circle.fill")
-                            .font(.system(size: scaled(32)))
+                            .font(.largeTitle)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .foregroundColor(goldColor)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Annual ShareQuest")
-                                .font(.system(size: scaled(20), weight: .bold))
+                                .font(.title2.bold())
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(.white)
                             Text("2026 Competition")
-                                .font(.system(size: scaled(12)))
+                                .font(.caption)
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(goldColor.opacity(0.8))
                         }
                         Spacer()
                     }
 
                     Text("Compete in the year-long trading competition. Best portfolio wins the prize pool.")
-                        .font(.system(size: scaled(15)))
+                        .font(.body)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(.white.opacity(0.8))
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -221,13 +232,16 @@ struct LeaguesView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "sterlingsign.circle.fill")
                             .foregroundColor(goldColor)
-                            .font(.system(size: scaled(18)))
+                            .font(.title3)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("50% of every entry fee goes into the prize pool")
-                                .font(.system(size: scaled(13), weight: .semibold))
+                                .font(.subheadline.weight(.semibold))
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(.white)
                             Text("Real cash prizes paid to the winner")
-                                .font(.system(size: scaled(12)))
+                                .font(.caption)
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(goldColor.opacity(0.85))
                         }
                     }
@@ -240,15 +254,18 @@ struct LeaguesView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("£50 / year")
-                                .font(.system(size: scaled(15), weight: .bold))
+                                .font(.headline.weight(.bold))
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(.white)
                             Text("Tap to subscribe and compete")
-                                .font(.system(size: scaled(12)))
+                                .font(.caption)
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(Theme.textSecondary)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
                             .foregroundColor(goldColor)
+                            .accessibilityHidden(true)
                     }
                     .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(goldColor.opacity(0.12))
@@ -259,7 +276,8 @@ struct LeaguesView: View {
                         showContestRules = true
                     } label: {
                         Text("Official Rules")
-                            .font(.system(size: scaled(11)))
+                            .font(.caption2)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .foregroundColor(goldColor.opacity(0.7))
                             .underline()
                     }
@@ -269,6 +287,9 @@ struct LeaguesView: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Annual ShareQuest competition card")
+        .accessibilityHint("Tap to subscribe and compete in the annual trading competition")
     }
 
     // MARK: Leagues Upsell Card (non-subscriber)
@@ -278,14 +299,17 @@ struct LeaguesView: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: "person.3.fill")
-                    .font(.system(size: scaled(28)))
+                    .font(.title)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(blueColor)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Leagues")
-                        .font(.system(size: scaled(20), weight: .bold))
+                        .font(.title2.bold())
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(.white)
                     Text("From £5 to join or create")
-                        .font(.system(size: scaled(12)))
+                        .font(.caption)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(blueColor.opacity(0.9))
                 }
                 Spacer()
@@ -336,9 +360,16 @@ struct LeaguesView: View {
         }
         .padding(18)
         .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color(red: 0.08, green: 0.12, blue: 0.22))
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(blueColor.opacity(0.35), lineWidth: 1))
+            ZStack {
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color(red: 0.08, green: 0.12, blue: 0.22))
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(blueColor.opacity(0.35), lineWidth: 1))
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                        .opacity(0.7)
+                }
+            }
         )
         .buttonStyle(PlainButtonStyle())
     }
@@ -352,6 +383,17 @@ struct LeaguesView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
+        .background(
+            ZStack {
+                Color.white.opacity(0.07)
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .opacity(0.7)
+                }
+            }
+        )
+        .cornerRadius(14)
     }
 
     private func tabButton(tab: LeagueTab, icon: String, label: String) -> some View {

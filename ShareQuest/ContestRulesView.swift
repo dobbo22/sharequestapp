@@ -5,18 +5,30 @@ struct ContestRulesView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+            ZStack {
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                        .opacity(0.85)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 24)
+                }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
 
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Official Competition Rules")
-                            .font(.largeTitle).bold()
+                            .font(.largeTitle.weight(.bold))
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
+                            .accessibilityAddTraits(.isHeader)
                         Text("Last updated: 1 January 2026")
                             .font(.caption)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .foregroundStyle(.secondary)
                         Text("By entering any competition within the ShareQuest app you confirm that you have read and accept these rules.")
                             .font(.subheadline)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .foregroundStyle(.secondary)
                     }
 
@@ -35,20 +47,29 @@ struct ContestRulesView: View {
                                 .foregroundStyle(.blue)
                         }
                         .font(.subheadline)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                     }
 
                     LegalSection(number: "2", title: "Types of Competition") {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("2a. Annual ShareQuest").font(.subheadline).bold()
+                            Text("2a. Annual ShareQuest")
+                                .font(.subheadline.weight(.bold))
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                             Text("A year-long competition open to all eligible subscribers, running 1 January – 31 December each year. Entry requires an Annual ShareQuest subscription (£50/year).")
+                                .font(.body)
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                         }
                         .padding()
                         .background(Color(red: 0.95, green: 0.65, blue: 0.15).opacity(0.1))
                         .cornerRadius(10)
 
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("2b. User-Created Leagues").font(.subheadline).bold()
+                            Text("2b. User-Created Leagues")
+                                .font(.subheadline.weight(.bold))
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                             Text("Monthly or annual competitions created by individual users. Leagues can be public (open to anyone) or private (join by code only). The entry fee is set at the time of creation and displayed to participants before joining, starting from £5. Aiert Ltd provides the platform; the league creator is responsible for inviting participants and managing their league.")
+                                .font(.body)
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                         }
                         .padding()
                         .background(Theme.primaryBlue.opacity(0.1))
@@ -158,4 +179,5 @@ struct ContestRulesView: View {
             }
         }
     }
+}
 }

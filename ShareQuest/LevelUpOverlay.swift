@@ -11,8 +11,15 @@ struct LevelUpOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.65).ignoresSafeArea()
-                .onTapGesture { onDismiss() }
+            // Glass effect background
+            if #available(iOS 15.0, *) {
+                VisualEffectBlur(blurStyle: .systemUltraThinMaterialDark)
+                    .ignoresSafeArea()
+                    .onTapGesture { onDismiss() }
+            } else {
+                Color.black.opacity(0.65).ignoresSafeArea()
+                    .onTapGesture { onDismiss() }
+            }
             VStack(spacing: 24) {
                 ZStack {
                     Circle()
@@ -26,19 +33,25 @@ struct LevelUpOverlay: View {
                         .foregroundColor(.white)
                 }
                 Text("Level Up!")
-                    .font(.largeTitle).fontWeight(.bold)
+                    .font(.largeTitle.weight(.bold))
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(.white)
+                    .accessibilityAddTraits(.isHeader)
                 Text("You reached Level \(level): \(levelName)")
-                    .font(.title3).fontWeight(.semibold)
+                    .font(.title3.weight(.semibold))
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(.yellow)
                 Button(action: onDismiss) {
                     Text("Continue")
-                        .font(.headline).fontWeight(.semibold)
+                        .font(.headline.weight(.semibold))
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(.white)
                         .padding(.vertical, 12)
                         .padding(.horizontal, 40)
                         .background(Color.green)
                         .cornerRadius(16)
+                }
+                .accessibilityLabel("Continue to next screen")
                 }
             }
             .padding(36)
@@ -65,7 +78,6 @@ struct LevelUpOverlay: View {
             }
         }
     }
-}
 
 struct ConfettiView: View {
     @State private var animate = false
@@ -73,16 +85,18 @@ struct ConfettiView: View {
     var body: some View {
         GeometryReader { geo in
             ForEach(0..<24, id: \.self) { i in
+                let color = colors[i % colors.count]
+                let size = 10 + CGFloat(i % 3) * 4
+                let xPos = CGFloat.random(in: 0...geo.size.width)
+                let yPos = animate ? geo.size.height + 40 : -40
+                let animation = Animation.interpolatingSpring(stiffness: 80, damping: 8)
+                    .delay(Double(i) * 0.04)
                 Circle()
-                    .fill(colors[i % colors.count])
-                    .frame(width: 10 + CGFloat(i % 3) * 4, height: 10 + CGFloat(i % 3) * 4)
-                    .position(x: CGFloat.random(in: 0...geo.size.width), y: animate ? geo.size.height + 40 : -40)
+                    .fill(color)
+                    .frame(width: size, height: size)
+                    .position(x: xPos, y: yPos)
                     .opacity(0.8)
-                    .animation(
-                        .interpolatingSpring(stiffness: 80, damping: 8)
-                            .delay(Double(i) * 0.04),
-                        value: animate
-                    )
+                    .animation(animation, value: animate)
             }
         }
         .onAppear { animate = true }

@@ -148,7 +148,16 @@ struct DashboardView: View {
                                             .frame(width: 40, height: 18)
                                     }
                                     .padding()
-                                    .background(Theme.backgroundCard)
+                                    .background(
+                                        ZStack {
+                                            if #available(iOS 15.0, *) {
+                                                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                            } else {
+                                                Theme.backgroundCard
+                                            }
+                                        }
+                                    )
                                     .cornerRadius(16)
                                     .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.glassBorder, lineWidth: 1))
                                     .padding(.horizontal)
@@ -288,7 +297,16 @@ struct DashboardView: View {
                             .foregroundColor(bellColor)
                             .font(.system(size: scaled(18), weight: .semibold))
                             .padding(8)
-                            .background(Color(red: 0.067, green: 0.094, blue: 0.153))
+                            .background(
+                                ZStack {
+                                    if #available(iOS 15.0, *) {
+                                        VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                            .clipShape(Circle())
+                                    } else {
+                                        Color(red: 0.067, green: 0.094, blue: 0.153)
+                                    }
+                                }
+                            )
                             .clipShape(Circle())
                             .opacity(bellPulse ? 0.55 : 1.0)
                             .animation(
@@ -297,7 +315,6 @@ struct DashboardView: View {
                                     : .default,
                                 value: bellPulse
                             )
-
                         // Badge dot
                         let totalCount = unreadNotificationCount + marketAlertCount
                         if totalCount > 0 {
@@ -317,6 +334,90 @@ struct DashboardView: View {
         }
         .padding(.top, vscaled(6))
         .padding(.trailing, 4)
+        // Present notifications sheet when bell tapped
+        // Notifications — fullScreenCover on iPad, sheet on iPhone
+        .fullScreenCover(isPresented: Binding(
+            get: { showNotifications && hSizeClass == .regular },
+            set: { if !$0 { showNotifications = false } }
+        )) { NotificationsView() }
+        .sheet(isPresented: Binding(
+            get: { showNotifications && hSizeClass != .regular },
+            set: { if !$0 { showNotifications = false } }
+        )) {
+            NotificationsView().presentationDetents([.medium, .large])
+        }
+        // Discussion nav — fullScreenCover on iPad, sheet on iPhone
+        .fullScreenCover(isPresented: Binding(
+            get: { discussionNavTarget != nil && hSizeClass == .regular },
+            set: { if !$0 { discussionNavTarget = nil } }
+        )) {
+            if let target = discussionNavTarget {
+                NavigationStack {
+                    StockDetailView(
+                        stock: Stock(id: target.symbol, symbol: target.symbol, companyName: target.companyName,
+                                     price: 0, changeAmount: 0, changePercent: 0, sector: "", marketCap: 0),
+                        initialTab: .discussion
+                    )
+                    .onDisappear { Task { await refreshUnreadCount() } }
+                }
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { discussionNavTarget != nil && hSizeClass != .regular },
+            set: { if !$0 { discussionNavTarget = nil } }
+        )) {
+            if let target = discussionNavTarget {
+                StockDetailView(
+                    stock: Stock(id: target.symbol, symbol: target.symbol, companyName: target.companyName,
+                                 price: 0, changeAmount: 0, changePercent: 0, sector: "", marketCap: 0),
+                    initialTab: .discussion
+                )
+                .onDisappear { Task { await refreshUnreadCount() } }
+            }
+        }
+        // Profile — fullScreenCover on iPad, sheet on iPhone
+        .fullScreenCover(isPresented: Binding(
+            get: { showProfile && hSizeClass == .regular },
+            set: { if !$0 { showProfile = false } }
+        )) {
+            ProfileView(selectedTab: $selectedTab).environmentObject(authManager)
+        }
+        .sheet(isPresented: Binding(
+            get: { showProfile && hSizeClass != .regular },
+            set: { if !$0 { showProfile = false } }
+        )) {
+            ProfileView(selectedTab: $selectedTab).environmentObject(authManager)
+        }
+        .sheet(item: $selectedChallenge) { challenge in
+            DailyTaskDetailSheet(challenge: challenge) {
+                Task { await viewModel.refreshChallenges() }
+            }
+            .onDisappear {
+                Task { await viewModel.refreshChallenges() }
+            }
+        }
+        .sheet(isPresented: $showStockHuntHub) {
+            StockHuntHubSheet(allChallenges: viewModel.dailyChallenges)
+                .onDisappear { Task { await viewModel.refreshChallenges() } }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .stockHuntClaimed)) { _ in
+            Task { await viewModel.refreshChallenges() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .challengeCompleted)) { note in
+            // Always refresh — even if popup is suppressed, the list must update
+            Task { await viewModel.refreshChallenges() }
+            guard !showCompletionPopup,
+                  let completions = note.userInfo?["completions"] as? [ChallengeCompletion],
+                  !completions.isEmpty else { return }
+            pendingCompletions = completions
+            showCompletionPopup = true
+        }
+        .fullScreenCover(isPresented: $showCompletionPopup) {
+            CompletionPopupView(completions: pendingCompletions) {
+                showCompletionPopup = false
+                pendingCompletions = []
+            }
+        }
         // Present notifications sheet when bell tapped
         // Notifications — fullScreenCover on iPad, sheet on iPhone
         .fullScreenCover(isPresented: Binding(
@@ -550,12 +651,19 @@ struct DashboardView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(viewModel.isMarketOpen ? Theme.accentGreen.opacity(0.15) : Theme.accentRed.opacity(0.15))
-                .overlay(
+            ZStack {
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                } else {
                     RoundedRectangle(cornerRadius: 20)
-                        .stroke(viewModel.isMarketOpen ? Theme.accentGreen.opacity(0.3) : Theme.accentRed.opacity(0.3), lineWidth: 1)
-                )
+                        .fill(viewModel.isMarketOpen ? Theme.accentGreen.opacity(0.15) : Theme.accentRed.opacity(0.15))
+                }
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(viewModel.isMarketOpen ? Theme.accentGreen.opacity(0.3) : Theme.accentRed.opacity(0.3), lineWidth: 1)
+            )
         )
     }
     
@@ -581,7 +689,16 @@ struct DashboardView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 18).fill(Color(red: 0.067, green: 0.094, blue: 0.153)))
+        .background(
+            ZStack {
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                } else {
+                    RoundedRectangle(cornerRadius: 18).fill(Color(red: 0.067, green: 0.094, blue: 0.153))
+                }
+            }
+        )
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.glassBorder, lineWidth: 1))
     }
     
@@ -707,7 +824,16 @@ struct DashboardView: View {
                 }
             }
             .padding(3)
-            .background(Color.white.opacity(0.06))
+            .background(
+                ZStack {
+                    if #available(iOS 15.0, *) {
+                        VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                            .clipShape(Capsule())
+                    } else {
+                        Color.white.opacity(0.06)
+                    }
+                }
+            )
             .clipShape(Capsule())
 
             if taskSectionTab == 0 {
@@ -764,7 +890,16 @@ struct DashboardView: View {
                         Text(label).font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
                     }
                     .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(Color.white.opacity(0.05))
+                    .background(
+                        ZStack {
+                            Color.white.opacity(0.05)
+                            if #available(iOS 15.0, *) {
+                                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                                    .opacity(0.7)
+                            }
+                        }
+                    )
                     .cornerRadius(20)
                 }
             }
@@ -1035,7 +1170,16 @@ struct DashboardView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.05))
+                    .background(
+                        ZStack {
+                            if #available(iOS 15.0, *) {
+                                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                            } else {
+                                Color.white.opacity(0.05)
+                            }
+                        }
+                    )
         .cornerRadius(12)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(dirColor.opacity(0.25), lineWidth: 1))
     }
@@ -2272,11 +2416,18 @@ struct PortfolioCardView: View {
             .padding(.horizontal, 16).padding(.vertical, vscaled(12))
             .frame(maxWidth: .infinity)
             .background(
-                LinearGradient(
-                    colors: portfolio.gradientColors,
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                ZStack {
+                    LinearGradient(
+                        colors: portfolio.gradientColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    if #available(iOS 15.0, *) {
+                        VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .opacity(0.65)
+                    }
+                }
             )
             .cornerRadius(16)
         }

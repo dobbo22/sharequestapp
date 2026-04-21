@@ -11,13 +11,17 @@ struct TradesContent: View {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: "lock.shield")
                         .font(.title)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(.pink)
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Subscription Required")
                             .font(.headline)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .foregroundColor(.white)
                         Text("Viewing live trade ticks requires a subscription.")
                             .font(.caption)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .foregroundColor(.white.opacity(0.85))
                     }
                 }
@@ -25,12 +29,14 @@ struct TradesContent: View {
 
                 Button(action: { showSubscriptions = true }) {
                     Text("Subscribe Now")
-                        .fontWeight(.bold)
+                        .font(.body.weight(.bold))
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
                         .background(Theme.primaryBlue)
                         .foregroundColor(.white)
                         .cornerRadius(10)
+                        .accessibilityLabel("Subscribe Now")
                 }
                 .padding(.top, 8)
                 .adaptiveSheet(isPresented: $showSubscriptions) {
@@ -44,6 +50,7 @@ struct TradesContent: View {
                 if vm.latest20TradeTicks.isEmpty {
                     Text("No trade ticks available.")
                         .font(.subheadline)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(.white.opacity(0.85))
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 10)
@@ -51,18 +58,18 @@ struct TradesContent: View {
                     VStack(spacing: 0) {
                         HStack {
                             Text("Time")
-                                .font(.caption)
-                                .fontWeight(.bold)
+                                .font(.caption.weight(.bold))
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(.white.opacity(0.85))
                                 .frame(width: 80, alignment: .leading)
                             Text("Price")
-                                .font(.caption)
-                                .fontWeight(.bold)
+                                .font(.caption.weight(.bold))
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(.white.opacity(0.85))
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                             Text("Volume")
-                                .font(.caption)
-                                .fontWeight(.bold)
+                                .font(.caption.weight(.bold))
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(.white.opacity(0.85))
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         }
@@ -72,18 +79,19 @@ struct TradesContent: View {
                             HStack {
                                 Text(vm.tradeTimeString(tick.timestamp))
                                     .font(.caption)
+                                    .dynamicTypeSize(.xSmall ... .accessibility2)
                                     .foregroundColor(.white.opacity(0.85))
                                     .lineLimit(1)
                                     .fixedSize(horizontal: true, vertical: false)
                                     .frame(width: 80, alignment: .leading)
                                 Text(vm.tradePriceString(tick.tradePrice))
-                                    .font(.caption)
-                                    .fontWeight(.bold)
+                                    .font(.caption.weight(.bold))
+                                    .dynamicTypeSize(.xSmall ... .accessibility2)
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity, alignment: .trailing)
                                 Text(vm.tradeVolumeString(tick.tradeVolume))
-                                    .font(.caption)
-                                    .fontWeight(.bold)
+                                    .font(.caption.weight(.bold))
+                                    .dynamicTypeSize(.xSmall ... .accessibility2)
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity, alignment: .trailing)
                             }

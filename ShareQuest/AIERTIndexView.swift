@@ -102,7 +102,8 @@ struct AIERTIndexView: View {
                         selectedTab = tab
                     } label: {
                         Text(tab.rawValue)
-                            .font(.system(size: scaled(14), weight: .medium))
+                            .font(.headline)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
                             .background(selectedTab == tab ? Theme.primaryBlue.opacity(0.25) : Theme.glassBackground)
@@ -113,11 +114,17 @@ struct AIERTIndexView: View {
                                     .stroke(selectedTab == tab ? Theme.primaryBlue : Theme.glassBorder, lineWidth: 1)
                             )
                     }
+                    .accessibilityLabel(tab.rawValue)
+                    .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
+                    .accessibilityHint("Switch to \(tab.rawValue) tab")
                 }
             }
             .padding(.horizontal)
         }
         .padding(.vertical, 10)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("AIERT Index sub-tab selector")
+        .accessibilityHint("Choose between Rankings, Tracker Fund, and Comparison tabs")
     }
 
     // MARK: Rankings list
@@ -145,7 +152,7 @@ struct AIERTIndexView: View {
         HStack(spacing: 0) {
             Text("#")
                 .frame(width: 36, alignment: .center)
-            Text("Stock")
+            Text("Company")
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("Score")
                 .frame(width: 56, alignment: .trailing)
@@ -164,26 +171,24 @@ struct AIERTIndexView: View {
 
 // MARK: - Row View
 
-struct AIERTRowView: View {
+private struct AIERTRowView: View {
     let rank: Int
     let stock: AIERTStock
 
     private var scoreColor: Color {
-        guard let s = stock.aiert_score?.score else { return Theme.textSecondary }
-        if s >= 70 { return Theme.accentGreen }
-        if s >= 50 { return Color(red: 0.95, green: 0.65, blue: 0.15) }
+        guard let score = stock.aiert_score?.score else { return Theme.textMuted }
+        if score >= 70 { return Theme.accentGreen }
+        if score >= 50 { return Theme.primaryBlue }
         return Color(red: 0.94, green: 0.27, blue: 0.27)
     }
 
     var body: some View {
         HStack(spacing: 0) {
-            // Rank
             Text("\(rank)")
                 .font(.system(size: scaled(13), weight: .bold))
                 .foregroundColor(rank <= 3 ? Theme.primaryBlue : Theme.textMuted)
                 .frame(width: 36, alignment: .center)
 
-            // Name (bold) on top, symbol below
             VStack(alignment: .leading, spacing: 2) {
                 Text(stock.name ?? stock.symbol)
                     .font(.system(size: scaled(14), weight: .bold))
@@ -195,7 +200,6 @@ struct AIERTRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // AIERT score
             if let score = stock.aiert_score?.score {
                 Text(String(format: "%.1f", score))
                     .font(.system(size: scaled(14), weight: .bold))
@@ -211,11 +215,9 @@ struct AIERTRowView: View {
                     .frame(width: 56, alignment: .trailing)
             }
 
-            // YTD
             perfCell(value: stock.infrontYtd)
                 .frame(width: 56, alignment: .trailing)
 
-            // 1Y
             perfCell(value: stock.infront1y)
                 .frame(width: 56, alignment: .trailing)
         }
@@ -320,7 +322,17 @@ struct SQTrackerView: View {
                     }
                 }
                 .padding(.top, 8)
-                .background(Theme.glassBackground)
+                .background(
+                    Group {
+                        if #available(iOS 15.0, *) {
+                            VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .opacity(0.85)
+                        } else {
+                            Theme.glassBackground
+                        }
+                    }
+                )
                 .cornerRadius(14)
                 .padding(.horizontal)
             }
@@ -345,7 +357,17 @@ struct SQTrackerView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(Theme.glassBackground)
+        .background(
+            Group {
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .opacity(0.85)
+                } else {
+                    Theme.glassBackground
+                }
+            }
+        )
         .cornerRadius(12)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.glassBorder, lineWidth: 1))
     }
@@ -559,7 +581,17 @@ struct SQComparisonView: View {
                 Divider().background(Theme.glassBorder).padding(.horizontal)
             }
         }
-        .background(Theme.glassBackground)
+        .background(
+            Group {
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .opacity(0.85)
+                } else {
+                    Theme.glassBackground
+                }
+            }
+        )
         .cornerRadius(14)
     }
 

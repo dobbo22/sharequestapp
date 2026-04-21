@@ -54,6 +54,21 @@ struct NativePaymentSheet: View {
                     .font(.subheadline).foregroundColor(Theme.textSecondary)
             }
             .padding(.top, 8)
+            .padding(.horizontal)
+            .padding(.bottom, 12)
+            .background(
+                Group {
+                    if #available(iOS 15.0, *) {
+                        VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .opacity(0.85)
+                    } else {
+                        Color.white.opacity(0.08)
+                            .cornerRadius(18)
+                    }
+                }
+            )
+            .cornerRadius(18)
 
             if isProcessing {
                 VStack(spacing: 12) {
@@ -62,6 +77,20 @@ struct NativePaymentSheet: View {
                         .font(.subheadline).foregroundColor(Theme.textSecondary)
                 }
                 .padding(.vertical, 16)
+                .padding(.horizontal)
+                .background(
+                    Group {
+                        if #available(iOS 15.0, *) {
+                            VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                .opacity(0.85)
+                        } else {
+                            Color.white.opacity(0.08)
+                                .cornerRadius(18)
+                        }
+                    }
+                )
+                .cornerRadius(18)
             } else {
                 VStack(spacing: 14) {
                     // Apple Pay button
@@ -93,6 +122,20 @@ struct NativePaymentSheet: View {
                     }
                 }
                 .padding(.horizontal)
+                .padding(.vertical, 12)
+                .background(
+                    Group {
+                        if #available(iOS 15.0, *) {
+                            VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                .opacity(0.85)
+                        } else {
+                            Color.white.opacity(0.08)
+                                .cornerRadius(18)
+                        }
+                    }
+                )
+                .cornerRadius(18)
             }
         }
         .sheet(isPresented: $showCardFallback) {

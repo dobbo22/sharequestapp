@@ -154,13 +154,23 @@ struct StockDiscussionView: View {
                 Spacer()
                 VStack(spacing: 12) {
                     Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 40))
+                        .font(.largeTitle)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(Theme.textSecondary)
+                        .accessibilityHidden(true)
                     Text("No discussion yet")
-                        .font(.headline).foregroundColor(.white)
+                        .font(.headline)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .foregroundColor(.white)
+                        .accessibilityAddTraits(.isHeader)
                     Text("Be the first to comment on \(symbol)!")
-                        .font(.subheadline).foregroundColor(Theme.textSecondary)
+                        .font(.subheadline)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .foregroundColor(Theme.textSecondary)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("No discussion yet. Be the first to comment on \(symbol)")
+                .accessibilityHint("Start the conversation by posting a comment")
                 Spacer()
             } else {
                 ScrollViewReader { proxy in
@@ -214,22 +224,29 @@ struct StockDiscussionView: View {
             HStack(spacing: 10) {
                 TextField("Comment on \(symbol)…", text: $vm.draft, axis: .vertical)
                     .lineLimit(1...4)
+                    .font(.body)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(Color.white.opacity(0.08))
                     .cornerRadius(20)
                     .foregroundColor(.white)
                     .tint(Theme.primaryBlue)
+                    .accessibilityLabel("Comment input field")
+                    .accessibilityHint("Enter your comment for the discussion")
 
                 Button {
                     Task { await vm.send() }
                 } label: {
                     Image(systemName: vm.isSending ? "clock" : "arrow.up.circle.fill")
-                        .font(.system(size: 32))
+                        .font(.title)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(vm.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             ? Theme.textSecondary : Theme.primaryBlue)
                 }
                 .disabled(vm.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || vm.isSending)
+                .accessibilityLabel("Send comment")
+                .accessibilityHint("Tap to send your comment to the discussion")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -289,10 +306,13 @@ private struct SystemMessageBubble: View {
                 // Header: icon + direction pill
                 HStack(spacing: 6) {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.caption2)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(iconColor)
+                        .accessibilityHidden(true)
                     Text(isUp ? "Moving Up" : "Moving Down")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.caption2.weight(.bold))
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(pillText)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -300,17 +320,35 @@ private struct SystemMessageBubble: View {
                         .clipShape(Capsule())
                 }
                 Text(message.content)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.body)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(Color(white: 0.95))
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
+                // Date/time below system message
+                Text(formattedDateTime(message.created_at))
+                    .font(.caption2)
+                    .foregroundColor(Theme.textSecondary)
+                    .padding(.top, 2)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(bgColor)
+            .background(
+                ZStack {
+                    bgColor
+                    if #available(iOS 15.0, *) {
+                        VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .opacity(0.7)
+                    }
+                }
+            )
             .cornerRadius(14)
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(borderColor, lineWidth: 1))
             .shadow(color: isUp ? Color.blue.opacity(0.2) : (isUrgent ? Color.red.opacity(0.2) : .clear), radius: 6)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(isUp ? "System message: Moving Up" : "System message: Moving Down")
+            .accessibilityValue(message.content)
             Spacer(minLength: 12)
         }
         .padding(.vertical, 4)
@@ -337,6 +375,17 @@ private struct DiscussionBubble: View {
         return display.string(from: date)
     }
 
+    private var dateTimeString: String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = formatter.date(from: message.created_at)
+            ?? ISO8601DateFormatter().date(from: message.created_at)
+            ?? Date()
+        let display = DateFormatter()
+        display.dateFormat = "d/M H:mm"
+        return display.string(from: date)
+    }
+
     var body: some View {
         HStack(alignment: .bottom, spacing: 6) {
             if message.is_mine { Spacer(minLength: 50) }
@@ -358,9 +407,16 @@ private struct DiscussionBubble: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(
-                        message.is_mine
-                            ? Color(red: 0.10, green: 0.42, blue: 0.72)
-                            : Color(red: 0.15, green: 0.19, blue: 0.28)
+                        ZStack {
+                            message.is_mine
+                                ? Color(red: 0.10, green: 0.42, blue: 0.72)
+                                : Color(red: 0.15, green: 0.19, blue: 0.28)
+                            if #available(iOS 15.0, *) {
+                                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                                    .opacity(0.7)
+                            }
+                        }
                     )
                     .cornerRadius(18, corners: message.is_mine
                         ? [.topLeft, .topRight, .bottomLeft]
@@ -371,21 +427,14 @@ private struct DiscussionBubble: View {
                 // Emoji picker popover
                 if showEmojiPicker {
                     HStack(spacing: 8) {
-                        ForEach(availableEmojis, id: \.self) { emoji in
-                            Button {
-                                onReact(emoji)
-                                showEmojiPicker = false
-                            } label: {
-                                Text(emoji).font(.title3)
-                            }
-                        }
-                        Button {
-                            showEmojiPicker = false
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(Theme.textSecondary)
-                                .font(.title3)
-                        }
+                        Text(dateTimeString)
+                            .font(.caption2)
+                            .foregroundColor(Theme.textSecondary)
+                            .padding(.horizontal, 4)
+                        Text(timeString)
+                            .font(.caption2)
+                            .foregroundColor(Theme.textSecondary)
+                            .padding(.horizontal, 0)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
@@ -420,7 +469,8 @@ private struct DiscussionBubble: View {
                     .padding(.horizontal, 4)
                 }
 
-                Text(timeString)
+                // Date/time below user message
+                Text(dateTimeString)
                     .font(.caption2)
                     .foregroundColor(Theme.textSecondary)
                     .padding(.horizontal, 4)
@@ -431,4 +481,15 @@ private struct DiscussionBubble: View {
         .padding(.vertical, 2)
         .animation(.easeInOut(duration: 0.15), value: showEmojiPicker)
     }
+}
+
+private func formattedDateTime(_ iso: String) -> String {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    let date = formatter.date(from: iso)
+        ?? ISO8601DateFormatter().date(from: iso)
+        ?? Date()
+    let display = DateFormatter()
+    display.dateFormat = "d/M H:mm"
+    return display.string(from: date)
 }

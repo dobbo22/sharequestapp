@@ -76,8 +76,18 @@ struct MainTabView: View {
         .padding(.bottom, bottomPadding)
         .background(
             ZStack {
-                Color(red: 0.08, green: 0.08, blue: 0.10)
+                Color(red: 0.08, green: 0.08, blue: 0.10).opacity(0.7)
                     .ignoresSafeArea(edges: .bottom)
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .opacity(0.95)
+                        .shadow(color: Color.black.opacity(0.12), radius: 12, y: -2)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(Color.white.opacity(0.13), lineWidth: 1)
+                        )
+                }
                 Rectangle()
                     .fill(Color.white.opacity(0.07))
                     .frame(height: 1)

@@ -242,7 +242,8 @@ struct NotificationsView: View {
         return Button { selectedTab = index } label: {
             VStack(spacing: 6) {
                 Text(title)
-                    .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                    .font(.headline)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(isSelected ? .white : Theme.textSecondary)
                 Rectangle()
                     .fill(isSelected ? Theme.primaryBlue : Color.clear)
@@ -252,6 +253,9 @@ struct NotificationsView: View {
         }
         .frame(maxWidth: .infinity)
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityHint("Switch to \(title) tab")
     }
 
     // MARK: - Activity Tab
@@ -262,15 +266,25 @@ struct NotificationsView: View {
             Spacer()
             VStack(spacing: 14) {
                 Image(systemName: "bell.slash.fill")
-                    .font(.system(size: 48))
+                    .font(.largeTitle)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(Theme.textSecondary.opacity(0.4))
+                    .accessibilityHidden(true)
                 Text("No activity today")
-                    .font(.headline).foregroundColor(.white)
+                    .font(.headline)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
+                    .foregroundColor(.white)
+                    .accessibilityAddTraits(.isHeader)
                 Text("XP gains, league updates, and challenge\ncompletions will appear here.")
-                    .font(.subheadline).foregroundColor(Theme.textSecondary)
+                    .font(.subheadline)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
+                    .foregroundColor(Theme.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .padding()
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("No activity today. XP gains, league updates, and challenge completions will appear here.")
+            .accessibilityHint("You have no notifications yet.")
             Spacer()
         } else {
             ScrollView {
@@ -291,16 +305,20 @@ struct NotificationsView: View {
                     .fill(notif.iconColor.opacity(0.15))
                     .frame(width: 42, height: 42)
                 Image(systemName: notif.icon)
-                    .font(.system(size: 18))
+                    .font(.title3)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(notif.iconColor)
+                    .accessibilityHidden(true)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(notif.title)
-                    .font(.system(size: 14, weight: notif.isRead ? .regular : .semibold))
+                    .font(.headline.weight(notif.isRead ? .regular : .semibold))
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(.white)
                 Text(notif.body)
-                    .font(.system(size: 12))
+                    .font(.subheadline)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(Theme.textSecondary)
                     .lineLimit(2)
             }
@@ -310,6 +328,7 @@ struct NotificationsView: View {
             VStack(alignment: .trailing, spacing: 6) {
                 Text(notif.timeAgo)
                     .font(.caption2)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(Theme.textSecondary)
                 if !notif.isRead {
                     Circle()
@@ -320,7 +339,21 @@ struct NotificationsView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(notif.isRead ? Color.clear : Theme.primaryBlue.opacity(0.05))
+        .background(
+            ZStack {
+                notif.isRead ? Color.clear : Theme.primaryBlue.opacity(0.05)
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .opacity(0.7)
+                }
+            }
+        )
+        .cornerRadius(14)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Notification: \(notif.title)")
+        .accessibilityValue(notif.body)
+        .accessibilityHint("Received \(notif.timeAgo)")
     }
 
     // MARK: - Market Alerts Tab
@@ -379,57 +412,60 @@ struct NotificationsView: View {
         return Button {
             navigationTarget = .stockDiscussion(symbol: alert.symbol, companyName: displayName)
         } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                // Header: icon + name pill + time + chevron
-                HStack(spacing: 8) {
-                    Image(systemName: icon)
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(iconColor)
-
-                    Text(displayName)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(pillText)
-                        .lineLimit(1)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(pillBg)
-                        .clipShape(Capsule())
-
-                    Spacer()
-
-                    Text(alert.timeAgo)
-                        .font(.caption2)
-                        .foregroundColor(Theme.textSecondary)
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(Theme.textSecondary.opacity(0.5))
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(iconColor)
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(displayName)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                        Text(alert.isUp ? "Up" : "Down")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(pillText)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(pillBg)
+                            .clipShape(Capsule())
+                    }
+                    Text(alert.content)
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.9))
+                        .lineLimit(2)
+                    HStack(spacing: 8) {
+                        Text(alert.timeAgo)
+                            .font(.caption2)
+                            .foregroundColor(Theme.textSecondary)
+                        if alert.reply_count > 0 {
+                            HStack(spacing: 3) {
+                                Image(systemName: "bubble.left.and.bubble.right.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(Theme.primaryBlue)
+                                Text("\(alert.reply_count)")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(Theme.primaryBlue)
+                            }
+                        }
+                    }
                 }
-
-                // Message — bright white, easy to read
-                Text(alert.content)
-                    .font(.system(size: 14))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                // Reply footer
-                HStack(spacing: 4) {
-                    Image(systemName: alert.reply_count == 0 ? "bubble.left" : "bubble.left.fill")
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.textSecondary)
-                    Text(alert.reply_count == 0
-                         ? "No replies yet — be the first!"
-                         : "\(alert.reply_count) \(alert.reply_count == 1 ? "reply" : "replies")")
-                        .font(.caption2)
-                        .foregroundColor(Theme.textSecondary)
-                }
+                Spacer()
             }
-            .padding(14)
-            .background(cardBg)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                ZStack {
+                    cardBg
+                    if #available(iOS 15.0, *) {
+                        VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .opacity(0.7)
+                    }
+                }
+            )
             .cornerRadius(14)
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(cardBorder, lineWidth: 1))
-            .shadow(color: alert.isUp ? Color.blue.opacity(0.18) : (alert.isUrgent ? Color.red.opacity(0.18) : .clear), radius: 8)
         }
         .buttonStyle(PlainButtonStyle())
     }

@@ -5,8 +5,16 @@ struct TermsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+            ZStack {
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                        .opacity(0.85)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 24)
+                }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Terms & Conditions")
@@ -179,6 +187,7 @@ struct TermsView: View {
         }
     }
 }
+}
 
 // MARK: - Shared Helpers
 
@@ -204,12 +213,18 @@ struct LegalNoticeBox: View {
     let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.subheadline).bold().foregroundStyle(color)
-            Text(message).font(.caption).foregroundStyle(color.opacity(0.85))
+        ZStack {
+            if #available(iOS 15.0, *) {
+                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .opacity(0.8)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title).font(.subheadline).bold().foregroundStyle(color)
+                Text(message).font(.caption).foregroundStyle(color.opacity(0.85))
+            }
+            .padding()
         }
-        .padding()
-        .background(color.opacity(0.1))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(color.opacity(0.3), lineWidth: 1))
         .cornerRadius(10)
     }

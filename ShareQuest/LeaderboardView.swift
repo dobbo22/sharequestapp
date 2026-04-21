@@ -145,9 +145,12 @@ struct LeaderboardView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: type.icon)
-                            .font(.system(size: scaled(11), weight: .bold))
+                            .font(.caption2.weight(.bold))
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
+                            .accessibilityHidden(true)
                         Text(type.displayName)
-                            .font(.system(size: scaled(15), weight: .semibold))
+                            .font(.body.weight(.semibold))
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
@@ -159,6 +162,8 @@ struct LeaderboardView: View {
                     .foregroundColor(viewModel.selectedType == type ? .white : .white.opacity(0.55))
                     .cornerRadius(22)
                 }
+                .accessibilityLabel(type.displayName + (viewModel.selectedType == type ? ", selected" : ""))
+                .accessibilityAddTraits(.isButton)
             }
             Spacer()
         }
@@ -228,8 +233,16 @@ struct LeaderboardView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.07))
-        .background(.ultraThinMaterial)
+        .background(
+            ZStack {
+                Color.white.opacity(0.07)
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .opacity(0.7)
+                }
+            }
+        )
         .cornerRadius(14)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.1), lineWidth: 1))
     }
@@ -323,11 +336,19 @@ struct LeaderboardView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .background(
-            isMedal
-                ? LinearGradient(colors: [medalGlow(rank: entry.rank).opacity(0.15), medalGlow(rank: entry.rank).opacity(0.04)], startPoint: .leading, endPoint: .trailing)
-                : isUser
-                    ? LinearGradient(colors: [Theme.primaryBlue.opacity(0.18), Theme.primaryBlue.opacity(0.06)], startPoint: .leading, endPoint: .trailing)
-                    : LinearGradient(colors: [Color.white.opacity(0.06), Color.white.opacity(0.03)], startPoint: .leading, endPoint: .trailing)
+            ZStack {
+                // Keep color/gradient for medal/user/normal
+                isMedal
+                    ? AnyView(LinearGradient(colors: [medalGlow(rank: entry.rank).opacity(0.15), medalGlow(rank: entry.rank).opacity(0.04)], startPoint: .leading, endPoint: .trailing))
+                    : isUser
+                        ? AnyView(LinearGradient(colors: [Theme.primaryBlue.opacity(0.18), Theme.primaryBlue.opacity(0.06)], startPoint: .leading, endPoint: .trailing))
+                        : AnyView(LinearGradient(colors: [Color.white.opacity(0.06), Color.white.opacity(0.03)], startPoint: .leading, endPoint: .trailing))
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .opacity(0.7)
+                }
+            }
         )
         .cornerRadius(14)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(

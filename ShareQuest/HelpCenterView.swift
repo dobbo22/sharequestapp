@@ -138,6 +138,13 @@ struct HelpCenterView: View {
         NavigationStack {
             ZStack {
                 Theme.backgroundPrimary.ignoresSafeArea()
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                        .opacity(0.85)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 24)
+                }
                 ScrollView {
                     VStack(spacing: 20) {
                         // Search
@@ -184,7 +191,7 @@ struct HelpCenterView: View {
                         }
 
                         // Contact / Feedback card
-                        contactCard
+                        glassContactCard
                             .padding(.horizontal)
                             .padding(.bottom, 24)
                     }
@@ -216,8 +223,13 @@ struct HelpCenterView: View {
             }
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: icon).font(.caption)
-                Text(label).font(.caption).fontWeight(.semibold)
+                Image(systemName: icon)
+                    .font(.caption)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
+                    .accessibilityHidden(true)
+                Text(label)
+                    .font(.caption.weight(.semibold))
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
@@ -226,6 +238,8 @@ struct HelpCenterView: View {
             .cornerRadius(20)
             .overlay(RoundedRectangle(cornerRadius: 20).stroke(selected ? color : Color.clear, lineWidth: 1))
         }
+        .accessibilityLabel(label + (selected ? ", selected" : ""))
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - FAQ Row
@@ -240,28 +254,37 @@ struct HelpCenterView: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: item.category.icon)
-                        .font(.system(size: 14))
+                        .font(.caption)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(item.category.color)
                         .frame(width: 22)
+                        .accessibilityHidden(true)
                     Text(item.question)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.body.weight(.semibold))
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(.white)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
                         .font(.caption)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(Theme.textSecondary)
+                        .accessibilityLabel(expanded ? "Collapse answer" : "Expand answer")
                 }
                 .padding(14)
             }
+            .accessibilityLabel(item.question + (expanded ? ", expanded" : ", collapsed"))
+            .accessibilityAddTraits(.isButton)
 
             if expanded {
                 Text(item.answer)
-                    .font(.system(size: 13))
+                    .font(.body)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(.white.opacity(0.8))
                     .padding(.horizontal, 14)
                     .padding(.bottom, 14)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(item.answer)
             }
         }
         .background(expanded ? item.category.color.opacity(0.08) : Color.white.opacity(0.05))
@@ -273,56 +296,70 @@ struct HelpCenterView: View {
 
     // MARK: - Contact Card
 
-    private var contactCard: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 10) {
-                Image(systemName: "envelope.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(Theme.primaryBlue)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Still need help?")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    Text("Our support team is here for you.")
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-                }
-                Spacer()
+    private var glassContactCard: some View {
+        ZStack {
+            if #available(iOS 15.0, *) {
+                VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .opacity(0.85)
             }
-
-            HStack(spacing: 12) {
-                Button {
-                    showFeedback = true
-                } label: {
-                    Label("Send Feedback", systemImage: "paperplane.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 11)
-                        .background(Theme.primaryBlue)
-                        .cornerRadius(10)
-                }
-
-                Button {
-                    if let url = URL(string: "mailto:support@sharequest.co.uk") {
-                        UIApplication.shared.open(url)
+            VStack(spacing: 16) {
+                HStack(spacing: 10) {
+                    Image(systemName: "envelope.circle.fill")
+                        .font(.title2)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .foregroundColor(Theme.primaryBlue)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Still need help?")
+                            .font(.headline)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
+                            .foregroundColor(.white)
+                        Text("Our support team is here for you.")
+                            .font(.caption)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
+                            .foregroundColor(Theme.textSecondary)
                     }
-                } label: {
-                    Label("Email Us", systemImage: "envelope.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 11)
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(10)
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.15), lineWidth: 1))
+                    Spacer()
+                }
+
+                HStack(spacing: 12) {
+                    Button {
+                        showFeedback = true
+                    } label: {
+                        Label("Send Feedback", systemImage: "paperplane.fill")
+                            .font(.body.weight(.semibold))
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 11)
+                            .background(Theme.primaryBlue)
+                            .cornerRadius(10)
+                    }
+                    .accessibilityLabel("Send Feedback")
+
+                    Button {
+                        if let url = URL(string: "mailto:support@sharequest.co.uk") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Label("Email Us", systemImage: "envelope.fill")
+                            .font(.body.weight(.semibold))
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 11)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.15), lineWidth: 1))
+                    }
+                    .accessibilityLabel("Email Us")
                 }
             }
+            .padding(16)
         }
-        .padding(16)
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
+        .cornerRadius(20)
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.13), lineWidth: 1))
     }
 }
 

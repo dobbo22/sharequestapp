@@ -469,18 +469,21 @@ struct StockTradeSheet: View {
                         if let max = vm.maxSharesAllowed, vm.tradeAction == "buy" {
                             HStack {
                                 Text("Max allowed:")
+                                    .font(.caption)
+                                    .dynamicTypeSize(.xSmall ... .accessibility2)
                                     .foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
                                 Text("\(max) shares")
+                                    .font(.caption.weight(.bold))
+                                    .dynamicTypeSize(.xSmall ... .accessibility2)
                                     .foregroundColor(Theme.primaryBlue)
-                                    .fontWeight(.bold)
                             }
-                            .font(.system(size: scaled(12)))
                         }
 
                         executeButton
 
                         Text("This is a simulated trading platform for educational purposes only. No real money is involved.")
-                            .font(.system(size: scaled(12)))
+                            .font(.caption)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .foregroundColor(Color(red: 0.42, green: 0.45, blue: 0.52))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
@@ -686,8 +689,18 @@ struct StockTradeSheet: View {
                         .foregroundColor(Color(red: 0.61, green: 0.65, blue: 0.73))
                 }
                 .padding(16)
-                .background(RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(red: 0.12, green: 0.16, blue: 0.22).opacity(0.5)))
+                .background(
+                    Group {
+                        if #available(iOS 15.0, *) {
+                            VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .opacity(0.85)
+                        } else {
+                            Color(red: 0.12, green: 0.16, blue: 0.22).opacity(0.5)
+                                .cornerRadius(12)
+                        }
+                    }
+                )
                 .overlay(RoundedRectangle(cornerRadius: 12)
                     .stroke(showNumpad ? Theme.primaryBlue.opacity(0.6) : Color(red: 0.29, green: 0.34, blue: 0.39).opacity(0.4), lineWidth: 1))
             }
@@ -773,8 +786,18 @@ struct StockTradeSheet: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16)
-            .fill(Color(red: 0.12, green: 0.16, blue: 0.22).opacity(0.5)))
+        .background(
+            Group {
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .opacity(0.85)
+                } else {
+                    Color(red: 0.12, green: 0.16, blue: 0.22).opacity(0.5)
+                        .cornerRadius(16)
+                }
+            }
+        )
         .overlay(RoundedRectangle(cornerRadius: 16)
             .stroke(Color(red: 0.29, green: 0.34, blue: 0.39).opacity(0.4), lineWidth: 1))
     }

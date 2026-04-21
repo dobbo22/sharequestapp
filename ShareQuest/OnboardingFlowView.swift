@@ -106,9 +106,14 @@ struct OnboardingFlowView: View {
     
     var body: some View {
         ZStack {
-            // Background
-            Color(red: 0.039, green: 0.110, blue: 0.173)
-                .ignoresSafeArea()
+            // Glass effect background
+            if #available(iOS 15.0, *) {
+                VisualEffectBlur(blurStyle: .systemUltraThinMaterialDark)
+                    .ignoresSafeArea()
+            } else {
+                Color(red: 0.039, green: 0.110, blue: 0.173)
+                    .ignoresSafeArea()
+            }
 
             // Content based on step
             switch viewModel.currentStep {
@@ -198,7 +203,16 @@ struct XPBarView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(Color.black.opacity(0.6))
+        .background(
+            ZStack {
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterialDark)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                } else {
+                    Color.black.opacity(0.6)
+                }
+            }
+        )
         .cornerRadius(20)
         .padding(.bottom, 30)
     }
@@ -222,7 +236,16 @@ struct OnboardingXPToast: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 10)
-        .background(Color.black.opacity(0.8))
+        .background(
+            ZStack {
+                if #available(iOS 15.0, *) {
+                    VisualEffectBlur(blurStyle: .systemUltraThinMaterialDark)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                } else {
+                    Color.black.opacity(0.8)
+                }
+            }
+        )
         .cornerRadius(20)
         .scaleEffect(scale)
         .opacity(opacity)
@@ -276,28 +299,40 @@ struct OnboardingWelcomeView: View {
                                 .frame(width: 240, height: 240)
                             
                             Image(systemName: slides[index].icon)
-                                .font(.system(size: 80))
+                                .font(.largeTitle)
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(slides[index].color)
+                                .accessibilityHidden(true)
                         }
                         .padding(.bottom, 20)
                         
                         // Text Content
                         VStack(spacing: 16) {
                             Text(slides[index].title)
-                                .font(.system(size: 28, weight: .bold))
+                                .font(.title.weight(.bold))
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(.white)
                                 .multilineTextAlignment(.center)
-                            
+                                .accessibilityAddTraits(.isHeader)
+
                             Text(slides[index].description)
                                 .font(.body)
+                                .dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundColor(Color(red: 0.69, green: 0.77, blue: 0.87))
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 32)
                         }
                         .padding(24)
                         .background(
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(Color(red: 0.094, green: 0.157, blue: 0.282))
+                            ZStack {
+                                if #available(iOS 15.0, *) {
+                                    VisualEffectBlur(blurStyle: .systemUltraThinMaterial)
+                                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                                } else {
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .fill(Color(red: 0.094, green: 0.157, blue: 0.282))
+                                }
+                            }
                         )
                         .padding(.horizontal, 24)
                         

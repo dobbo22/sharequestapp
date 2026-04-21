@@ -134,6 +134,9 @@ struct PortfolioView: View {
         .background(Theme.glassBackground)
         .cornerRadius(14)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.glassBorder, lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Portfolio mode selector")
+        .accessibilityHint("Switch between ShareQuests and Leagues portfolio views")
     }
 
     private func toggleButton(label: String, icon: String, mode targetMode: PortfolioMode) -> some View {
@@ -146,9 +149,11 @@ struct PortfolioView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: scaled(13), weight: .semibold))
+                    .font(.title3)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                 Text(label)
-                    .font(.system(size: scaled(15), weight: .semibold))
+                    .font(.headline)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
             }
             .foregroundColor(isActive ? .white : Theme.textSecondary)
             .frame(maxWidth: .infinity)
@@ -166,6 +171,9 @@ struct PortfolioView: View {
             .cornerRadius(12)
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+        .accessibilityHint("Switch to \(label) portfolio view")
     }
 
     // MARK: - ShareQuests Content
@@ -186,50 +194,87 @@ struct PortfolioView: View {
                     PortfolioTypeButton(type: type, isSelected: selectedPortfolioType == type) {
                         selectedPortfolioType = type
                     }
+                    .accessibilityLabel(config.label)
+                    .accessibilityAddTraits(selectedPortfolioType == type ? .isSelected : [])
+                    .accessibilityHint("Switch to \(config.label) portfolio")
                 }
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Portfolio type selector")
+        .accessibilityHint("Choose between available portfolio types")
     }
 
     private var portfolioSummaryCard: some View {
         VStack(spacing: 16) {
             VStack(spacing: 4) {
                 Text("Total Value")
-                    .font(.system(size: scaled(15)))
+                    .font(.subheadline)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(Theme.textSecondary)
                 Text(viewModel.formattedTotalValue)
-                    .font(.system(size: scaled(28), weight: .bold))
+                    .font(.largeTitle.bold())
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
                     .foregroundColor(Theme.textPrimary)
+                    .accessibilityLabel("Total portfolio value")
+                    .accessibilityValue(viewModel.formattedTotalValue)
             }
             ChangePill(percent: viewModel.totalChange)
             Divider().background(Theme.glassBorder)
             HStack {
                 VStack(spacing: 4) {
-                    Text("Cash").font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
+                    Text("Cash")
+                        .font(.caption)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .foregroundColor(Theme.textSecondary)
                     Text(viewModel.formattedCash)
-                        .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(Theme.textPrimary)
+                        .font(.body.weight(.semibold))
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .foregroundColor(Theme.textPrimary)
+                        .accessibilityLabel("Cash balance")
+                        .accessibilityValue(viewModel.formattedCash)
                 }
                 Spacer()
                 VStack(spacing: 4) {
-                    Text("Holdings").font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
+                    Text("Holdings")
+                        .font(.caption)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .foregroundColor(Theme.textSecondary)
                     Text(viewModel.formattedHoldingsValue)
-                        .font(.system(size: scaled(15), weight: .semibold)).foregroundColor(Theme.textPrimary)
+                        .font(.body.weight(.semibold))
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .foregroundColor(Theme.textPrimary)
+                        .accessibilityLabel("Holdings value")
+                        .accessibilityValue(viewModel.formattedHoldingsValue)
                 }
             }
         }
         .padding()
         .glassCard()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Portfolio summary")
+        .accessibilityHint("Shows your total value, cash, and holdings")
     }
 
     private var holdingsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Holdings").font(.system(size: scaled(17), weight: .semibold)).foregroundColor(Theme.textPrimary)
+                Text("Holdings")
+                    .font(.headline)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
+                    .foregroundColor(Theme.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
-                Text("\(viewModel.holdings.count) stocks").font(.system(size: scaled(12))).foregroundColor(Theme.textSecondary)
+                Text("\(viewModel.holdings.count) stocks")
+                    .font(.caption)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
+                    .foregroundColor(Theme.textSecondary)
+                    .accessibilityLabel("\(viewModel.holdings.count) stocks in portfolio")
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Holdings section header")
             if viewModel.isLoading {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: Theme.primaryBlue))
@@ -239,6 +284,7 @@ struct PortfolioView: View {
             } else {
                 ForEach(viewModel.holdings) { holding in
                     HoldingRowView(holding: holding) { selectedHolding = holding }
+                        .accessibilityHint("Tap to view or trade this holding")
                 }
             }
         }
@@ -370,24 +416,29 @@ struct LeaguePortfolioCard: View {
                         .frame(width: 40, height: 40)
                     Image(systemName: state.league.competition_type == "monthly"
                           ? "calendar.badge.clock" : "star.circle.fill")
-                        .font(.system(size: scaled(18)))
+                        .font(.title3)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(accentColor)
+                        .accessibilityHidden(true)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(state.league.name)
-                        .font(.system(size: scaled(15), weight: .semibold))
+                        .font(.headline)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(Theme.textPrimary).lineLimit(1)
                     HStack(spacing: 6) {
                         let typeLabel = (state.league.competition_type ?? "annual").capitalized
                         Text(typeLabel)
-                            .font(.system(size: scaled(10), weight: .semibold))
+                            .font(.caption2)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .foregroundColor(accentColor)
                             .padding(.horizontal, 7).padding(.vertical, 3)
                             .background(accentColor.opacity(0.15)).cornerRadius(6)
                         let (sLabel, sColor) = statusInfo
                         Text(sLabel)
-                            .font(.system(size: scaled(10), weight: .semibold))
+                            .font(.caption2)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
                             .foregroundColor(sColor)
                             .padding(.horizontal, 7).padding(.vertical, 3)
                             .background(sColor.opacity(0.15)).cornerRadius(6)
@@ -398,13 +449,19 @@ struct LeaguePortfolioCard: View {
 
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(String(format: "£%.2f", state.totalValue / 100))
-                        .font(.system(size: scaled(15), weight: .bold)).foregroundColor(Theme.textPrimary)
+                        .font(.body.weight(.bold))
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .foregroundColor(Theme.textPrimary)
+                        .accessibilityLabel("Total value")
+                        .accessibilityValue(String(format: "£%.2f", state.totalValue / 100))
                     ChangePill(percent: state.returnPercent, compact: true)
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: scaled(12), weight: .semibold))
+                    .font(.caption)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
                     .foregroundColor(Theme.textMuted)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, 14).padding(.vertical, 12)
             .background(Theme.glassBackground)
@@ -412,6 +469,9 @@ struct LeaguePortfolioCard: View {
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.glassBorder, lineWidth: 1))
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("League portfolio card for \(state.league.name)")
+        .accessibilityHint("Tap to view details for this league portfolio")
     }
 }
 
