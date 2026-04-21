@@ -153,7 +153,13 @@ struct StockDiscussionView: View {
             } else if vm.messages.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
-                    Image(systemName: "bubble.left.and.bubble.right")
+                    Image(systemName: {
+                        if #available(iOS 26, *) {
+                            return "ellipsis.bubble.fill"
+                        } else {
+                            return "bubble.left.and.bubble.right"
+                        }
+                    }())
                         .font(.largeTitle)
                         .dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundColor(Theme.textSecondary)
@@ -296,7 +302,12 @@ private struct SystemMessageBubble: View {
         return isUrgent ? Color(red: 1.0, green: 0.4, blue: 0.4) : Color(red: 1.0, green: 0.84, blue: 0.0)
     }
     private var icon: String {
-        isUp ? "arrow.up.circle.fill" : (isUrgent ? "exclamationmark.triangle.fill" : "arrow.down.circle.fill")
+        if #available(iOS 26, *) {
+            return isUp ? "arrow.up.right.circle.fill"
+                : (isUrgent ? "exclamationmark.triangle.radiowaves.left.and.right.fill" : "arrow.down.left.circle.fill")
+        } else {
+            return isUp ? "arrow.up.circle.fill" : (isUrgent ? "exclamationmark.triangle.fill" : "arrow.down.circle.fill")
+        }
     }
 
     var body: some View {

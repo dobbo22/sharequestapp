@@ -12,13 +12,24 @@ struct AppNotification: Identifiable, Codable {
     var isRead: Bool
 
     var icon: String {
-        switch type {
-        case "xp":          return "bolt.fill"
-        case "league":      return "trophy.fill"
-        case "challenge":   return "checkmark.seal.fill"
-        case "trade":       return "chart.line.uptrend.xyaxis"
-        case "level_up":    return "star.fill"
-        default:            return "bell.fill"
+        if #available(iOS 26, *) {
+            switch type {
+            case "xp":          return "sparkles.rectangle.stack.fill"
+            case "league":      return "trophy.circle.fill"
+            case "challenge":   return "checkmark.seal.2.fill"
+            case "trade":       return "chart.line.flattrend.xyaxis"
+            case "level_up":    return "star.leadinghalf.filled"
+            default:            return "bell.badge.waveform"
+            }
+        } else {
+            switch type {
+            case "xp":          return "bolt.fill"
+            case "league":      return "trophy.fill"
+            case "challenge":   return "checkmark.seal.fill"
+            case "trade":       return "chart.line.uptrend.xyaxis"
+            case "level_up":    return "star.fill"
+            default:            return "bell.fill"
+            }
         }
     }
 
@@ -402,8 +413,15 @@ struct NotificationsView: View {
                                     ? Color.blue.opacity(0.4)
                                     : (alert.isUrgent ? Color.red.opacity(0.4)
                                                       : Color(red: 1.0, green: 0.75, blue: 0.0).opacity(0.3))
-        let icon: String      = alert.isUp ? "arrow.up.circle.fill"
-                                           : (alert.isUrgent ? "exclamationmark.triangle.fill" : "arrow.down.circle.fill")
+        let icon: String = {
+            if #available(iOS 26, *) {
+                return alert.isUp ? "arrow.up.right.circle.fill"
+                    : (alert.isUrgent ? "exclamationmark.triangle.radiowaves.left.and.right.fill" : "arrow.down.left.circle.fill")
+            } else {
+                return alert.isUp ? "arrow.up.circle.fill"
+                    : (alert.isUrgent ? "exclamationmark.triangle.fill" : "arrow.down.circle.fill")
+            }
+        }()
         let iconColor: Color  = alert.isUp ? Color(red: 0.4, green: 0.7, blue: 1.0)
                                            : (alert.isUrgent ? Color(red: 1.0, green: 0.4, blue: 0.4)
                                                              : Color(red: 1.0, green: 0.75, blue: 0.0))
@@ -440,9 +458,15 @@ struct NotificationsView: View {
                             .foregroundColor(Theme.textSecondary)
                         if alert.reply_count > 0 {
                             HStack(spacing: 3) {
-                                Image(systemName: "bubble.left.and.bubble.right.fill")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(Theme.primaryBlue)
+                                        Image(systemName: {
+                                            if #available(iOS 26, *) {
+                                                return "ellipsis.bubble.fill"
+                                            } else {
+                                                return "bubble.left.and.bubble.right.fill"
+                                            }
+                                        }())
+                                            .font(.system(size: 11))
+                                            .foregroundColor(Theme.primaryBlue)
                                 Text("\(alert.reply_count)")
                                     .font(.system(size: 11))
                                     .foregroundColor(Theme.primaryBlue)
